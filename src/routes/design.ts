@@ -1,31 +1,31 @@
 import { Router } from "express";
 import DesignController from "../controllers/design.controller";
-import isAuthenticated from "../middleware/authorization";
+import isAuthenticated  from "../middleware/authorization";
 
 const designRouter = Router();
 
 designRouter.post(
   "/create-design",
-  isAuthenticated,
-  DesignController.createNewDesign,
+  isAuthenticated as any,
+  DesignController.createNewDesign as any,
 );
 
 designRouter.post(
   "/post-design",
-  isAuthenticated,
-  DesignController.uploadNewDesign,
+  isAuthenticated as any,
+  DesignController.uploadNewDesign as any,
 );
 
 designRouter.patch(
   "/add-creator",
-  isAuthenticated,
-  DesignController.addCreatorToDesign,
+  isAuthenticated as any,
+  DesignController.addCreatorToDesign as any,
 );
 
 designRouter.patch(
   "/additional-information",
-  isAuthenticated,
-  DesignController.additionalInfromation,
+  isAuthenticated as any,
+  DesignController.additionalInfromation as any,
 );
 
 export default designRouter;

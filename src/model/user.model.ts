@@ -23,10 +23,10 @@ import { MediaModel } from "./media.model"; // Adjust the import path as needed
 
 @Table({ timestamps: true, tableName: "users" })
 export class UsersModel extends Model {
-  @PrimaryKey
+  
   @Default(uuidv4)
   @Column(DataType.UUID)
-  id!: string;
+  id: string = uuidv4();
 
   @HasOne(() => CreatorModel, {
     foreignKey: "userId", // Reference to the user's id

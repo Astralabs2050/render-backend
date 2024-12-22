@@ -90,7 +90,7 @@ let MessageModel = (() => {
     var MessageModel = _classThis = class extends _classSuper {
         constructor() {
             super(...arguments);
-            this.id = __runInitializers(this, _id_initializers, void 0);
+            this.id = __runInitializers(this, _id_initializers, (0, uuid_1.v4)());
             this.message = (__runInitializers(this, _id_extraInitializers), __runInitializers(this, _message_initializers, void 0));
             this.type = (__runInitializers(this, _message_extraInitializers), __runInitializers(this, _type_initializers, void 0)); // Updated to specify message types
             this.content = (__runInitializers(this, _type_extraInitializers), __runInitializers(this, _content_initializers, void 0)); // Generalized content field for both text and image URLs
@@ -110,7 +110,7 @@ let MessageModel = (() => {
     (() => {
         var _a;
         const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create((_a = _classSuper[Symbol.metadata]) !== null && _a !== void 0 ? _a : null) : void 0;
-        _id_decorators = [sequelize_typescript_1.PrimaryKey, (0, sequelize_typescript_1.Default)(uuid_1.v4), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.UUID)];
+        _id_decorators = [(0, sequelize_typescript_1.Default)(uuid_1.v4), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.UUID)];
         _message_decorators = [(0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.TEXT)];
         _type_decorators = [(0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.STRING)];
         _content_decorators = [(0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.TEXT)];

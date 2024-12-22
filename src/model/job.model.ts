@@ -23,10 +23,10 @@ export enum timelineStatus {
 
 @Table({ timestamps: true, tableName: "jobs" })
 export class JobModel extends Model {
-  @PrimaryKey
-  @Default(uuidv4) // Generates a unique UUID for each record
+  
+  @Default(uuidv4)
   @Column(DataType.UUID)
-  id!: string;
+  id: string = uuidv4();
 
   @AllowNull(false) // Ensures description cannot be null
   @Column(DataType.TEXT)

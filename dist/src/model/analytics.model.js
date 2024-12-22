@@ -69,7 +69,7 @@ let AnalysisModel = (() => {
     var AnalysisModel = _classThis = class extends _classSuper {
         constructor() {
             super(...arguments);
-            this.id = __runInitializers(this, _id_initializers, void 0);
+            this.id = __runInitializers(this, _id_initializers, (0, uuid_1.v4)());
             this.totalSales = (__runInitializers(this, _id_extraInitializers), __runInitializers(this, _totalSales_initializers, void 0));
             this.totalOrder = (__runInitializers(this, _totalSales_extraInitializers), __runInitializers(this, _totalOrder_initializers, void 0));
             this.impression = (__runInitializers(this, _totalOrder_extraInitializers), __runInitializers(this, _impression_initializers, void 0));
@@ -82,7 +82,7 @@ let AnalysisModel = (() => {
     (() => {
         var _a;
         const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create((_a = _classSuper[Symbol.metadata]) !== null && _a !== void 0 ? _a : null) : void 0;
-        _id_decorators = [sequelize_typescript_1.PrimaryKey, (0, sequelize_typescript_1.Default)(uuid_1.v4), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.UUID)];
+        _id_decorators = [(0, sequelize_typescript_1.Default)(uuid_1.v4), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.UUID)];
         _totalSales_decorators = [(0, sequelize_typescript_1.AllowNull)(false), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.FLOAT)];
         _totalOrder_decorators = [(0, sequelize_typescript_1.AllowNull)(false), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.INTEGER)];
         _impression_decorators = [(0, sequelize_typescript_1.AllowNull)(false), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.FLOAT)];

@@ -66,7 +66,7 @@ let SalestModel = (() => {
     var SalestModel = _classThis = class extends _classSuper {
         constructor() {
             super(...arguments);
-            this.id = __runInitializers(this, _id_initializers, void 0);
+            this.id = __runInitializers(this, _id_initializers, (0, uuid_1.v4)());
             this.creatorId = (__runInitializers(this, _id_extraInitializers), __runInitializers(this, _creatorId_initializers, void 0));
             this.creator = (__runInitializers(this, _creatorId_extraInitializers), __runInitializers(this, _creator_initializers, void 0));
             this.branId = (__runInitializers(this, _creator_extraInitializers), __runInitializers(this, _branId_initializers, void 0));
@@ -78,7 +78,7 @@ let SalestModel = (() => {
     (() => {
         var _a;
         const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create((_a = _classSuper[Symbol.metadata]) !== null && _a !== void 0 ? _a : null) : void 0;
-        _id_decorators = [sequelize_typescript_1.PrimaryKey, (0, sequelize_typescript_1.Default)(uuid_1.v4), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.UUID)];
+        _id_decorators = [(0, sequelize_typescript_1.Default)(uuid_1.v4), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.UUID)];
         _creatorId_decorators = [(0, sequelize_typescript_1.ForeignKey)(() => user_model_1.UsersModel), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.UUID)];
         _creator_decorators = [(0, sequelize_typescript_1.BelongsTo)(() => user_model_1.UsersModel, {
                 foreignKey: "userId",

@@ -24,7 +24,7 @@ export enum creatorType {
 
 @Table({ timestamps: true, tableName: "designs" })
 export class DesignModel extends Model {
-  @PrimaryKey
+  
   @Default(uuidv4) // Ensure consistent UUID generation
   @Column(DataType.UUID)
   id!: string;

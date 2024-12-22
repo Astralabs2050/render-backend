@@ -81,7 +81,7 @@ let PieceModel = (() => {
     var PieceModel = _classThis = class extends _classSuper {
         constructor() {
             super(...arguments);
-            this.id = __runInitializers(this, _id_initializers, void 0);
+            this.id = __runInitializers(this, _id_initializers, (0, uuid_1.v4)());
             this.designId = (__runInitializers(this, _id_extraInitializers), __runInitializers(this, _designId_initializers, void 0));
             this.design = (__runInitializers(this, _designId_extraInitializers), __runInitializers(this, _design_initializers, void 0));
             this.pieceType = (__runInitializers(this, _design_extraInitializers), __runInitializers(this, _pieceType_initializers, void 0));
@@ -96,7 +96,7 @@ let PieceModel = (() => {
     (() => {
         var _a;
         const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create((_a = _classSuper[Symbol.metadata]) !== null && _a !== void 0 ? _a : null) : void 0;
-        _id_decorators = [sequelize_typescript_1.PrimaryKey, (0, sequelize_typescript_1.Default)(uuid_1.v4), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.UUID)];
+        _id_decorators = [(0, sequelize_typescript_1.Default)(uuid_1.v4), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.UUID)];
         _designId_decorators = [(0, sequelize_typescript_1.ForeignKey)(() => design_model_1.DesignModel), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.UUID)];
         _design_decorators = [(0, sequelize_typescript_1.BelongsTo)(() => design_model_1.DesignModel, {
                 foreignKey: "designId",

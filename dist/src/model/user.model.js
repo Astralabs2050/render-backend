@@ -119,7 +119,7 @@ let UsersModel = (() => {
         }
         constructor() {
             super(...arguments);
-            this.id = __runInitializers(this, _id_initializers, void 0);
+            this.id = __runInitializers(this, _id_initializers, (0, uuid_1.v4)());
             this.creator = (__runInitializers(this, _id_extraInitializers), __runInitializers(this, _creator_initializers, void 0));
             this.brand = (__runInitializers(this, _creator_extraInitializers), __runInitializers(this, _brand_initializers, void 0));
             // Add the HasMany association for MediaModel
@@ -143,7 +143,7 @@ let UsersModel = (() => {
     (() => {
         var _a;
         const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create((_a = _classSuper[Symbol.metadata]) !== null && _a !== void 0 ? _a : null) : void 0;
-        _id_decorators = [sequelize_typescript_1.PrimaryKey, (0, sequelize_typescript_1.Default)(uuid_1.v4), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.UUID)];
+        _id_decorators = [(0, sequelize_typescript_1.Default)(uuid_1.v4), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.UUID)];
         _creator_decorators = [(0, sequelize_typescript_1.HasOne)(() => creator_model_1.CreatorModel, {
                 foreignKey: "userId", // Reference to the user's id
                 as: "creator", // Alias for the association

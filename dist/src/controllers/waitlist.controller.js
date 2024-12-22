@@ -10,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const waitlist_model_1 = require("../model/waitlist.model");
-class waitlistController {
+class WaitlistController {
     constructor() {
         this.joinWaitlist = (req, res) => __awaiter(this, void 0, void 0, function* () {
             try {
@@ -25,14 +25,14 @@ class waitlistController {
                     });
                 }
                 // Create the new waitlist entry
-                const waitlist = yield waitlist_model_1.Waitlist.create(req.body);
-                return res.json({
+                yield waitlist_model_1.Waitlist.create(req.body);
+                return res.status(201).json({
                     message: "Added to waitlist",
                     status: true,
                 });
             }
             catch (error) {
-                return res.status(400).json({
+                return res.status(500).json({
                     status: false,
                     message: `An error occurred: ${(error === null || error === void 0 ? void 0 : error.message) || error}`,
                 });
@@ -40,5 +40,4 @@ class waitlistController {
         });
     }
 }
-const WaitlistController = new waitlistController();
-exports.default = WaitlistController;
+exports.default = new WaitlistController();

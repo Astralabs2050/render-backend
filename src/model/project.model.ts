@@ -19,7 +19,7 @@ import { JobApplicationProjects } from "./JobApplicationProjects.model";
 
 @Table({ timestamps: true, tableName: "project" })
 export class ProjectModel extends Model {
-  @PrimaryKey
+  
   @Default(uuidv4) // Automatically generate a UUID for new records
   @Column(DataType.UUID)
   id!: string;

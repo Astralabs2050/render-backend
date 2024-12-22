@@ -4,41 +4,41 @@ import JobController from "../controllers/job.controller";
 
 const jobRouter = Router();
 
-jobRouter.post("/create-job", isAuthenticated, JobController.createJob);
-jobRouter.get("/get-job", isAuthenticated, JobController.getJob);
-jobRouter.get("/get-all-job", isAuthenticated, JobController.getAllJobs);
-jobRouter.get("/get-job/:id", isAuthenticated, JobController.getEachJob);
-jobRouter.post("/apply-job", isAuthenticated, JobController.applyJob);
-jobRouter.post("/save-job", isAuthenticated, JobController.saveJob);
-jobRouter.get("/save-job", isAuthenticated, JobController.getSaveJob);
-jobRouter.patch("/update-job", isAuthenticated, JobController.updateJob);
+jobRouter.post("/create-job", isAuthenticated as any, JobController.createJob as any);
+jobRouter.get("/get-job", isAuthenticated as any, JobController.getJob as any);
+jobRouter.get("/get-all-job", isAuthenticated as any, JobController.getAllJobs as any);
+jobRouter.get("/get-job/:id", isAuthenticated as any, JobController.getEachJob as any);
+jobRouter.post("/apply-job", isAuthenticated as any, JobController.applyJob as any);
+jobRouter.post("/save-job", isAuthenticated as any, JobController.saveJob as any);
+jobRouter.get("/save-job", isAuthenticated as any, JobController.getSaveJob as any);
+jobRouter.patch("/update-job", isAuthenticated as any, JobController.updateJob as any);
 
 jobRouter.post(
   "/generate-job-desc",
-  isAuthenticated,
-  JobController.getJobDescWithAi,
+  isAuthenticated as any,
+  JobController.getJobDescWithAi as any,
 );
-jobRouter.get("/makers-job", isAuthenticated);
+jobRouter.get("/makers-job", isAuthenticated as any);
 jobRouter.patch(
   "/appcept-reject-job",
-  isAuthenticated,
-  JobController.acceptDeclineJob,
+  isAuthenticated as any,
+  JobController.acceptDeclineJob as any,
 );
 jobRouter.get(
   "/job-application",
-  isAuthenticated,
-  JobController.getJobApplicants,
+  isAuthenticated as any,
+  JobController.getJobApplicants as any,
 );
 
 jobRouter.get(
   "/job-application/:id",
-  isAuthenticated,
-  JobController.getOneJobApplicants,
+  isAuthenticated as any,
+  JobController.getOneJobApplicants as any,
 );
 
 jobRouter.get(
   "/ongoing-job-application",
-  isAuthenticated,
-  JobController.getOngoingJobs,
+  isAuthenticated as any,
+  JobController.getOngoingJobs as any,
 );
 export default jobRouter;

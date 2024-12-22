@@ -67,7 +67,7 @@ let SavedJobsModel = (() => {
     var SavedJobsModel = _classThis = class extends _classSuper {
         constructor() {
             super(...arguments);
-            this.id = __runInitializers(this, _id_initializers, void 0);
+            this.id = __runInitializers(this, _id_initializers, (0, uuid_1.v4)());
             this.jobId = (__runInitializers(this, _id_extraInitializers), __runInitializers(this, _jobId_initializers, void 0));
             this.job = (__runInitializers(this, _jobId_extraInitializers), __runInitializers(this, _job_initializers, void 0));
             this.userId = (__runInitializers(this, _job_extraInitializers), __runInitializers(this, _userId_initializers, void 0));
@@ -79,7 +79,7 @@ let SavedJobsModel = (() => {
     (() => {
         var _a;
         const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create((_a = _classSuper[Symbol.metadata]) !== null && _a !== void 0 ? _a : null) : void 0;
-        _id_decorators = [sequelize_typescript_1.PrimaryKey, (0, sequelize_typescript_1.Default)(uuid_1.v4), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.UUID)];
+        _id_decorators = [(0, sequelize_typescript_1.Default)(uuid_1.v4), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.UUID)];
         _jobId_decorators = [(0, sequelize_typescript_1.AllowNull)(false), (0, sequelize_typescript_1.ForeignKey)(() => job_model_1.JobModel), (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.UUID)];
         _job_decorators = [(0, sequelize_typescript_1.BelongsTo)(() => job_model_1.JobModel, {
                 foreignKey: "jobId",

@@ -6,5 +6,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const waitlist_controller_1 = __importDefault(require("../controllers/waitlist.controller"));
 const waitListRouter = (0, express_1.Router)();
+// @ts-ignore
 waitListRouter.post("/join", waitlist_controller_1.default.joinWaitlist);
 exports.default = waitListRouter;

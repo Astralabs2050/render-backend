@@ -4,9 +4,9 @@ import isAuthenticated from "../middleware/authorization";
 
 const userRouter = Router();
 
-userRouter.get("/get/:userType/:level", UserController.getSelf);
-userRouter.post("/upload-profile-image", UserController.uploadProfileImage);
-userRouter.get("/self", isAuthenticated, UserController.getSelf);
-userRouter.get("/project", isAuthenticated, UserController.getProjects);
+userRouter.get("/get/:userType/:level", UserController.getSelf as any);
+userRouter.post("/upload-profile-image", UserController.uploadProfileImage as any);
+userRouter.get("/self", isAuthenticated as any, UserController.getSelf as any);
+userRouter.get("/project", isAuthenticated as any, UserController.getProjects as any);
 
 export default userRouter;
