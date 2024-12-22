@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "nodemon src/index.ts --watch --exec ts-node"
+    "dev": "npx nodemon src/index.ts"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
