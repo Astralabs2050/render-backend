@@ -24,6 +24,7 @@ export enum timelineStatus {
 @Table({ timestamps: true, tableName: "jobs" })
 export class JobModel extends Model {
   
+  @PrimaryKey
   @Default(uuidv4)
   @Column(DataType.UUID)
   id: string = uuidv4();

@@ -21,6 +21,7 @@ enum creatorType {
 @Table({ timestamps: true, tableName: "pieces" }) // Updated table name to "pieces"
 export class PieceModel extends Model {
   
+  @PrimaryKey
   @Default(uuidv4)
   @Column(DataType.UUID)
   id: string = uuidv4();

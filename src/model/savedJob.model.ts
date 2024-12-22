@@ -18,6 +18,7 @@ import { ProjectModel } from "./project.model";
 @Table({ timestamps: true, tableName: "saved_jobs" })
 export class SavedJobsModel extends Model {
   
+  @PrimaryKey
   @Default(uuidv4)
   @Column(DataType.UUID)
   id: string = uuidv4();

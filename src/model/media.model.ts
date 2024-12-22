@@ -19,6 +19,7 @@ import { DesignModel } from "./design.model";
 @Table({ timestamps: true, tableName: "media" })
 export class MediaModel extends Model {
   
+  @PrimaryKey
   @Default(uuidv4)
   @Column(DataType.UUID)
   id: string = uuidv4();

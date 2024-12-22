@@ -16,6 +16,7 @@ import { UsersModel as User } from "./user.model";
 @Table({ timestamps: true, tableName: "messages" })
 export class MessageModel extends Model {
   
+  @PrimaryKey
   @Default(uuidv4)
   @Column(DataType.UUID)
   id: string = uuidv4();

@@ -15,10 +15,10 @@ import { UsersModel as User } from "./user.model"; // Assuming you have a User m
 
 @Table({ timestamps: true, tableName: "analysis" })
 export class AnalysisModel extends Model {
-  
-  @Default(uuidv4)
+  @PrimaryKey
+  @Default(uuidv4) // Generate a default UUID
   @Column(DataType.UUID)
-  id: string = uuidv4();
+  id!: string; // Use non-initialized field syntax
 
   @AllowNull(false)
   @Column(DataType.FLOAT)
@@ -33,6 +33,7 @@ export class AnalysisModel extends Model {
   impression!: number;
 
   @ForeignKey(() => User)
+  @AllowNull(false) // Ensure foreign key is not null
   @Column(DataType.UUID)
   userId!: string;
 

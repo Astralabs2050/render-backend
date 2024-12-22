@@ -17,6 +17,7 @@ import { v4 as uuidv4 } from "uuid";
 @Table({ timestamps: true, tableName: "measurement" })
 export class MeasurementModel extends Model {
   
+  @PrimaryKey
   @Default(uuidv4)
   @Column(DataType.UUID)
   id: string = uuidv4();

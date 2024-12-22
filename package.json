@@ -4,8 +4,8 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "build": "yarn install --ignore-engines ",
+    "start": "npx ts-node src/index.ts",
     "dev": "npx nodemon src/index.ts"
   },
   "dependencies": {
@@ -25,7 +25,6 @@
     "sequelize-typescript": "^2.1.6",
     "socket.io": "^4.8.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.2",
     "uuid": "^11.0.3"
   },
   "devDependencies": {
@@ -33,6 +32,7 @@
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.2",
-    "@types/nodemailer": "^6.4.17"
+    "@types/nodemailer": "^6.4.17",
+    "typescript": "^5.7.2"
   }
 }

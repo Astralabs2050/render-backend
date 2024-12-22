@@ -19,6 +19,7 @@ import { JobApplicationProjects } from "./JobApplicationProjects.model";
 @Table({ timestamps: true, tableName: "job_applications" })
 export class JobApplicationModel extends Model {
   
+  @PrimaryKey
   @Default(uuidv4)
   @Column(DataType.UUID)
   id: string = uuidv4();
