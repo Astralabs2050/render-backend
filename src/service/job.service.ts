@@ -16,6 +16,7 @@ import { SavedJobsModel } from "../model/savedJob.model";
 import { timelineStatus } from "../model/job.model";
 import axios from "axios";
 import { String } from "aws-sdk/clients/acm";
+import { JobImpressionModel } from "../model/jobViewImpression";
 
 class jobService {
   public createJob = async (data: any, userId: string) => {
@@ -519,6 +520,12 @@ class jobService {
       // if the user is authenticated and the owner, return the job with increased impression count
 
       if (job?.dataValues?.userId !== authUser?.id) {
+        //create a new job impression 
+        await JobImpressionModel.create({
+          jobId:jobId,
+          veiwerId: authUser?.id
+        })
+
         //increasing impression
         console.log("increasing job impression", job?.dataValues?.impression);
         //null case
