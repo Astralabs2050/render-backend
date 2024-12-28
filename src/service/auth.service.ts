@@ -419,7 +419,7 @@ export class AuthService {
     const transaction = await sequelize.transaction();
 
     try {
-      const { email, password, username } = data;
+      const { email, password, username, country, city } = data;
 
       // Check if the user already exists
       const userWithEmailExists = await UsersModel.findOne({
@@ -442,6 +442,8 @@ export class AuthService {
         email,
         password: hashPassword,
         otp,
+        country,
+        city
       };
 
       // Create user with transaction

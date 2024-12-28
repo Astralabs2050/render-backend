@@ -46,12 +46,12 @@ async function startServer() {
   });
 
   //handle socke connection
-  //handleSocketConnection(io);
+  handleSocketConnection(io);
 
   // PARSE JSON
   app.use(express.json());
   // Database connection
-  //initDB();
+  initDB();
 
   // Routes
   app.use(routes);
