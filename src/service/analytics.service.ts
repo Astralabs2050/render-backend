@@ -1,4 +1,4 @@
-import { JobApplicationModel, JobModel } from "../model";
+import { JobApplicationModel, JobImpressionModel, JobModel } from "../model";
 import { timelineStatus } from "../model/job.model";
 
 export class AnalyticsService {
@@ -73,7 +73,51 @@ export class AnalyticsService {
             message: err?.message || 'An error occurred while getting analytics',
             status: false,
           };
-        }
+        } 
       };
-      
+      public impressionWithRespectToTime = async (userId: string) => {
+        try {
+            const jobImpressionWithRespectToTime = await JobImpressionModel.findAll({
+                where: {
+                    '$job.userId$': userId,
+                },
+                include: [
+                    {
+                        model: JobModel,
+                        as: 'job',
+                    },
+                ],
+            });
+    
+            // Process the data to count impressions per month
+            const impressionsByMonth: { [key: string]: number } = {};
+    
+            jobImpressionWithRespectToTime.forEach((item: any) => {
+                const job = item.job;
+                if (job && job.timeline) {
+                    const month = new Date(job.timeline).toLocaleString('en-US', { month: 'long' }).toLowerCase();
+    
+                    // Accumulate impressions for the month
+                    impressionsByMonth[month] = (impressionsByMonth[month] || 0) + job.impression;
+                }
+            });
+    
+            // Transform the result into an array of objects
+            const result = Object.entries(impressionsByMonth).map(([month, impressions]) => ({
+                [month]: impressions,
+            }));
+    
+            return {
+                message: 'Analytics fetched successfully',
+                status: true,
+                data: result,
+            };
+        } catch (err: any) {
+            return {
+                message: err?.message || 'An error occurred while getting analytics',
+                status: false,
+            };
+        }
+    };
+    
 }
