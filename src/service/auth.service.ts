@@ -303,9 +303,11 @@ export class AuthService {
                   data.projects[index]?.image,
                 );
                 const uploadPromises =
-                  data.projects[index]?.image?.map((image: any) =>
-                    uploadImageToS3("PROJECT_IMAGE", image, project.id),
-                  ) ?? [];
+                Array.isArray(data.projects[index]?.image)
+                  ? data.projects[index].image.map((image: any) =>
+                      uploadImageToS3("PROJECT_IMAGE", image, project.id),
+                    )
+                  : [];
 
                 console.log("uploadPromises", uploadPromises);
 
@@ -370,32 +372,43 @@ export class AuthService {
 
       // Upload profile picture after transaction is successful
       if (profileImage) {
-        // Step 1: Upload to Cloudinary
-        const uploadResult: any = await uploadSingleMedia(
-          userWithEmailExists.id,
-          "PROFILE_PICTURE",
-          profileImage,
-          "user",
-        );
-
-        // Check if the upload was successful
-        if (!uploadResult.success) {
-          console.warn("Failed to upload profile image to Cloudinary.");
-          throw new Error("Profile image upload failed. Please try again.");
+        try {
+          console.log("profileImageprofileImage",profileImage)
+          // Step 1: Upload to AWS S3
+          const uploadResult: any = await uploadImageToS3(
+            "PROFILE_PICTURE",
+            profileImage,
+            userWithEmailExists.id,
+          );
+      
+          // Check if the upload was successful
+          if (!uploadResult.success) {
+            console.warn("Failed to upload profile image to S3.");
+            throw new Error("Failed to upload profile image. Please try again.");
+          }
+      
+          // Step 2: Save the uploaded image link to the MediaModel
+          const mediaRecord = {
+            link: uploadResult.url, // Use the URL returned from S3
+            mediaType: "PROFILE_PICTURE",
+            userId: userWithEmailExists.id, // Link to the user
+          };
+      
+          await MediaModel.create(mediaRecord);
+          console.log(
+            "Profile image successfully uploaded and saved to MediaModel.",
+          );
+        } catch (error: any) {
+          console.error("Error uploading profile image to S3:", error.message);
+          //throw new Error("Failed to upload profile image. Please try again.");
+          return {
+            status: false,
+            message: "Error uploading profile image",
+            error: `Error uploading profile image to S3: ${error.message}`
+          }
         }
-
-        // Step 2: Save the uploaded image link to the MediaModel
-        const mediaRecord = {
-          link: uploadResult?.url, // Use the URL returned from Cloudinary
-          mediaType: "PROFILE_PICTURE",
-          userId: userWithEmailExists.id, // Link to the user
-        };
-
-        await MediaModel.create(mediaRecord);
-        console.log(
-          "Profile image successfully uploaded and saved to MediaModel.",
-        );
       }
+      
 
       return {
         status: true,
