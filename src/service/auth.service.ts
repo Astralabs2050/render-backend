@@ -34,14 +34,14 @@ interface Brand {
 
 export class AuthService {
   public async register(userData: any) {
-    const { email, username, password } = userData;
+    const { email, username, password,language } = userData;
 
     const userWithEmailExists = await UsersModel.findOne({ where: { email } });
 
     if (userWithEmailExists)
       return {
         status: false,
-        message: `User with email ${email} already exists`,
+        message: `User with email ${email} already exists 1`,
       };
 
     const salt: string = await bcrypt.genSalt(15);
@@ -53,6 +53,7 @@ export class AuthService {
       password: hashPassword,
       username,
       otp,
+      language
     };
 
     const newCreateUser = await UsersModel.create(newUser);
@@ -74,52 +75,64 @@ export class AuthService {
   public async verifyCreator(data: any) {
     const transaction = await sequelize.transaction();
     try {
-      const { fullName, email, password } = data;
+      const { fullName, email, password, language } = data;
+      console.log("Processing registration...");
+  
       // Check if the user already exists
-      const userWithEmailExists = await UsersModel.findOne({
-        where: { email },
-        transaction,
-      });
+      const userWithEmailExists = await UsersModel.findOne({ where: { email } });
       if (userWithEmailExists) {
         return {
           status: false,
           message: `User with email ${email} already exists`,
         };
       }
+  
       // Hash the password
-      const salt: string = await bcrypt.genSalt(15);
-      const hashPassword: string = await bcrypt.hash(password, salt);
+      const salt = await bcrypt.genSalt(15);
+      const hashPassword = await bcrypt.hash(password, salt);
+  
+      // Generate OTP
       const otp = uuidv4().slice(0, 4);
-
-      const newUser = {
-        email,
-        password: hashPassword,
-        otp,
-      };
-      // Create user within transaction
-      const newCreateUser = await UsersModel.create(newUser, { transaction });
-      // Create the creator profile
-      const creator = {
-        userId: newCreateUser.id,
-        fullName,
-      };
-      const newCreator = await CreatorModel.create(creator, { transaction });
-      // Commit the transaction
-
-      try {
-        await sendEmail(email, "OTP", `otp ${otp}`);
-      } catch (err: any) {
-        return {
-          status: false,
-          message: "Error registering creator",
-          error: err.message,
-        };
-        console.log("Error sending mail:", err);
-      }
+      console.log("Generated OTP:", otp);
+  
+      // Create user
+      const newUser = await UsersModel.create(
+        {
+          email,
+          language,
+          password: hashPassword,
+          otp,
+        },
+        { transaction }
+      );
+  
+      // Create creator profile
+      await CreatorModel.create(
+        {
+          userId: newUser.id,
+          fullName,
+        },
+        { transaction }
+      );
+  
+      // Commit transaction before sending email
       await transaction.commit();
+  
+      // Send OTP email
+      try {
+        await sendEmail(email, "OTP", `Your OTP is ${otp}`);
+      } catch (emailError:any) {
+        console.error("Error sending email:", emailError.message);
+        return {
+          status: true,
+          message: "Registration successful, but OTP email failed",
+          error: emailError.message,
+        };
+      }
+  
       return {
         status: true,
-        message: "OTP Sent",
+        message: "Registration successful, OTP sent",
       };
     } catch (error: any) {
       // Rollback transaction on error
@@ -132,6 +145,7 @@ export class AuthService {
       };
     }
   }
+  
   public async login(credentials: any) {
     const { email, password } = credentials;
 
@@ -432,7 +446,7 @@ export class AuthService {
     const transaction = await sequelize.transaction();
 
     try {
-      const { email, password, username, country, city } = data;
+      const { email, password, username, country, city,language } = data;
 
       // Check if the user already exists
       const userWithEmailExists = await UsersModel.findOne({
@@ -456,6 +470,7 @@ export class AuthService {
         password: hashPassword,
         otp,
         country,
+        language,
         city
       };
 
