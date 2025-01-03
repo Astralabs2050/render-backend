@@ -41,10 +41,10 @@ export const uploadImageToS3 = async (
       fileData = await fetchImageBufferFromUrl(data);
     } else if (
       typeof data === "string" &&
-      /^data:image\/\w+;base64,/.test(data)
+      /^data:image\/[a-zA-Z0-9+.-]+;base64,/.test(data)
     ) {
       // Handle Base64-encoded string
-      const base64Data = data.replace(/^data:image\/\w+;base64,/, "");
+      const base64Data = data.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, "");
       fileData = Buffer.from(base64Data, "base64");
     } else if (Buffer.isBuffer(data)) {
       // Use buffer directly if data is already a Buffer
