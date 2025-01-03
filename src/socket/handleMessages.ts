@@ -8,6 +8,7 @@ import {
 } from "../model";
 import { MessageModel } from "../model/ChatMessage.model";
 import sendEmail from "../../util/sendMail";
+import { uploadImageToS3 } from "../../util/aws";
 
 export function sendMessage(io: any) {}
 
@@ -63,10 +64,36 @@ const saveAndBroadcastMessage = async (data: any) => {
       where: { id: data.receiverId },
       attributes: ["active"],
     });
+    //check if the message is an image or text
+    let uploadResult:any
+    if(data.type === "image"){
+      //upload it to the s3 storage and save
+        uploadResult = await uploadImageToS3(
+                  "CHAT_MEDIA",
+                  data.message,
+                  data.senderId,
+                );
+                if (!uploadResult.success) {
+                  console.warn("Failed to upload profile image to S3.");
+                  throw new Error("Failed to upload profile image. Please try again.");
+                }
 
+          // Step 2: Save the uploaded image link to the MediaModel
+          const mediaRecord = {
+            link: uploadResult.url, // Use the URL returned from S3
+            mediaType: "PROFILE_PICTURE",
+            userId: data.senderId, // Link to the user
+          };
+      
+          await MediaModel.create(mediaRecord);
+          console.log(
+            "Profile image successfully uploaded and saved to MediaModel.",
+          );
+    }
+    
     // Create the message with a seen status based on receiver's availability
     const message = await MessageModel.create({
-      message: data.message,
+      message: data.type === "image" ? uploadResult?.url :data.message,
       type: data.type,
       receiverId: data.receiverId,
       senderId: data.senderId,

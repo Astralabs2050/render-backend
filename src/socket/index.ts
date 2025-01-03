@@ -20,6 +20,7 @@ const handleSocketConnection = (io: {
 }) => {
   io.use(async (socket, next) => {
     try {
+      console.log("reaching here")
       const token =
         socket?.handshake?.headers?.token || socket?.handshake?.auth?.token;
       console.log("token from socket12", socket);
