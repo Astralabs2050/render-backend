@@ -110,8 +110,8 @@ class DesignClass {
       const imageUrls = await Promise.all([
         generateDesign(),
         generateDesign(),
-        generateDesign(),
-        generateDesign(),
+        // generateDesign(),
+        // generateDesign(),
       ]);
 
       // Check if the user exists
@@ -132,11 +132,18 @@ class DesignClass {
       console.log("New design created:", newDesign);
 
       // Save the generated images in the MediaModel and link them to the design
-      const mediaEntries = imageUrls.map(async (url: string) => {
+      const mediaEntries = imageUrls.map(async (url: string,index:number) => {
+       const aiImageToS3 = await uploadImageToS3(`AI_GENERATED_IMAGE_${index}`,  url)
+       console.log("aiImageToS3",aiImageToS3)
+        // Check if the upload was successful
+        if (!aiImageToS3.success) {
+          console.warn("Failed to upload profile image to S3.");
+          throw new Error("Failed to upload profile image. Please try again.");
+        }
         return MediaModel.create(
           {
-            link: url,
-            mediaType: "AI_GENERATED_IMAGE",
+            link: aiImageToS3?.url,
+            mediaType: `AI_GENERATED_IMAGE_${index}`,
             designIds: newDesign.id,
           },
           { transaction },

@@ -20,6 +20,7 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^6.9.16",
+    "openai": "^4.77.3",
     "pg": "^8.13.1",
     "portfinder": "^1.0.32",
     "reflect-metadata": "^0.2.2",

@@ -11,6 +11,8 @@ import {
   MediaModel,
   UsersModel,
 } from "../model";
+import DesignAgent, { AgentType } from "../agent/design.class";
+import Agent from "../agent/agent.class";
 
 const JWT_SECRET: string = process.env.JWT_SECRET as string;
 
@@ -56,7 +58,14 @@ const handleSocketConnection = (io: {
 
     // Emit connection status
     socket.emit("connection_status", true);
-
+    // for the ai agent
+    const agent:any = new Agent()
+      //design agent 
+      const designAgent = new DesignAgent(agent as AgentType, socket);
+      // genertae design
+      designAgent.generateDesign();
+      //create job
+      designAgent.createJob();
     //get the brands
     socket.on("get_brands", async (data: any) => {
       try {

@@ -33,6 +33,10 @@ export class DesignModel extends Model {
   @Column(DataType.STRING)
   outfitName?: string;
 
+  @Default(true)
+  @Column(DataType.BOOLEAN)
+  fabricDelivary?: boolean;
+
   @Column(DataType.INTEGER)
   pieceNumber?: number;
 
