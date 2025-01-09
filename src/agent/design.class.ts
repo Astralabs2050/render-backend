@@ -519,12 +519,12 @@ export default class DesignAgent {
           );
           return;
         }
-
+        const desc = await this.agent.generateSentenceBasedOnContext(`write a description for a fashion design job the client is in this city ${userCity}, has a budget of ${budget} and a timeline of ${userChoice}`)
         //create a job 
         await JobService.createJob({
           designId:generatedDesignId,
           timeline:userChoice,
-          description: await this.agent.generateSentenceBasedOnContext(`write a description for a fashion design job the client is in this city ${userCity}, has a budget of ${budget} and a timeline of ${userChoice}`)
+          description: desc
 
         },this.socket?.user?.id)
         const generationPrompt = `tell the user that the agent would find makers based in the users location ${userCity}, budget ${budget} and timeline ${userChoice} `;
