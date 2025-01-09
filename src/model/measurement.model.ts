@@ -16,7 +16,6 @@ import { v4 as uuidv4 } from "uuid";
 
 @Table({ timestamps: true, tableName: "measurement" })
 export class MeasurementModel extends Model {
-  
   @PrimaryKey
   @Default(uuidv4)
   @Column(DataType.UUID)
@@ -74,7 +73,7 @@ export class MeasurementModel extends Model {
   trouserLength?: number; // Trouser length
 
   // Validation logic for ensuring measurements based on pieceType
-  
+
   static validateMeasurement(model: MeasurementModel) {
     // Ensure all required fields are filled based on pieceType
     if (model.pieceType === "shirt") {

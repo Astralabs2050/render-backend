@@ -2,7 +2,11 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import { test } from "./handlers";
-import { getPreviousMessages, handlePrivateMessage, translateMessage } from "./handleMessages";
+import {
+  getPreviousMessages,
+  handlePrivateMessage,
+  translateMessage,
+} from "./handleMessages";
 import {
   BrandModel,
   CreatorModel,
@@ -22,7 +26,7 @@ const handleSocketConnection = (io: {
 }) => {
   io.use(async (socket, next) => {
     try {
-      console.log("reaching here")
+      console.log("reaching here");
       const token =
         socket?.handshake?.headers?.token || socket?.handshake?.auth?.token;
       console.log("token from socket12", socket);
@@ -59,13 +63,13 @@ const handleSocketConnection = (io: {
     // Emit connection status
     socket.emit("connection_status", true);
     // for the ai agent
-    const agent:any = new Agent()
-      //design agent 
-      const designAgent = new DesignAgent(agent as AgentType, socket);
-      // genertae design
-      designAgent.generateDesign();
-      //create job
-      designAgent.createJob();
+    const agent: any = new Agent();
+    //design agent
+    const designAgent = new DesignAgent(agent as AgentType, socket);
+    // genertae design
+    designAgent.generateDesign();
+    //create job
+    designAgent.createJob();
     //get the brands
     socket.on("get_brands", async (data: any) => {
       try {
@@ -244,24 +248,27 @@ const handleSocketConnection = (io: {
     //handle private messages
     handlePrivateMessage(socket, io);
     //handle translation
-    socket.on("translation", async(data: any)=>{
-      try{
-      const receiver = await UsersModel.findOne({
-        where: { id: socket.id},
-        attributes: ["language"],
-      });
-      console.log("receiver111", receiver?.dataValues?.language);
-      const translatedMessage = await translateMessage(data.message, receiver?.dataValues?.language);
+    socket.on("translation", async (data: any) => {
+      try {
+        const receiver = await UsersModel.findOne({
+          where: { id: socket.id },
+          attributes: ["language"],
+        });
+        console.log("receiver111", receiver?.dataValues?.language);
+        const translatedMessage = await translateMessage(
+          data.message,
+          receiver?.dataValues?.language,
+        );
 
-      socket.emit("translation", translatedMessage);
-      console.log("translatedMessage", translatedMessage);
-      }catch (error) {
+        socket.emit("translation", translatedMessage);
+        console.log("translatedMessage", translatedMessage);
+      } catch (error) {
         console.error("Error in translation:", error);
         socket.emit("error", {
           message: "An error occurred while translating",
         });
       }
-    })
+    });
     //get private message
     getPreviousMessages(socket);
 
@@ -273,4 +280,3 @@ const handleSocketConnection = (io: {
 };
 
 export { handleSocketConnection };
-

@@ -4,14 +4,42 @@ import JobController from "../controllers/job.controller";
 
 const jobRouter = Router();
 
-jobRouter.post("/create-job", isAuthenticated as any, JobController.createJob as any);
+jobRouter.post(
+  "/create-job",
+  isAuthenticated as any,
+  JobController.createJob as any,
+);
 jobRouter.get("/get-job", isAuthenticated as any, JobController.getJob as any);
-jobRouter.get("/get-all-job", isAuthenticated as any, JobController.getAllJobs as any);
-jobRouter.get("/get-job/:id", isAuthenticated as any, JobController.getEachJob as any);
-jobRouter.post("/apply-job", isAuthenticated as any, JobController.applyJob as any);
-jobRouter.post("/save-job", isAuthenticated as any, JobController.saveJob as any);
-jobRouter.get("/save-job", isAuthenticated as any, JobController.getSaveJob as any);
-jobRouter.patch("/update-job", isAuthenticated as any, JobController.updateJob as any);
+jobRouter.get(
+  "/get-all-job",
+  isAuthenticated as any,
+  JobController.getAllJobs as any,
+);
+jobRouter.get(
+  "/get-job/:id",
+  isAuthenticated as any,
+  JobController.getEachJob as any,
+);
+jobRouter.post(
+  "/apply-job",
+  isAuthenticated as any,
+  JobController.applyJob as any,
+);
+jobRouter.post(
+  "/save-job",
+  isAuthenticated as any,
+  JobController.saveJob as any,
+);
+jobRouter.get(
+  "/save-job",
+  isAuthenticated as any,
+  JobController.getSaveJob as any,
+);
+jobRouter.patch(
+  "/update-job",
+  isAuthenticated as any,
+  JobController.updateJob as any,
+);
 
 jobRouter.post(
   "/generate-job-desc",

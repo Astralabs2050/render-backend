@@ -23,7 +23,6 @@ import { MediaModel } from "./media.model"; // Adjust the import path as needed
 
 @Table({ timestamps: true, tableName: "users" })
 export class UsersModel extends Model {
-  
   @PrimaryKey
   @Default(uuidv4)
   @Column(DataType.UUID)
@@ -122,4 +121,3 @@ export class UsersModel extends Model {
     return new Date() > expirationTime;
   }
 }
-

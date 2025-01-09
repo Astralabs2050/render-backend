@@ -10,6 +10,7 @@ class DesignClass {
   public generateNewDesign = async (
     data: {
       prompt: string;
+      fabricDelivary?: boolean; // Fabric delivery is optional
       image?: string; // Image is optional (base64)
     },
     userId: string,
@@ -125,6 +126,7 @@ class DesignClass {
         {
           prompt: prompt_engine(data.prompt, texture_info), // Save summarized prompt
           userId,
+          fabricDelivary: data?.fabricDelivary,
         },
         { transaction },
       );
@@ -132,9 +134,12 @@ class DesignClass {
       console.log("New design created:", newDesign);
 
       // Save the generated images in the MediaModel and link them to the design
-      const mediaEntries = imageUrls.map(async (url: string,index:number) => {
-       const aiImageToS3 = await uploadImageToS3(`AI_GENERATED_IMAGE_${index}`,  url)
-       console.log("aiImageToS3",aiImageToS3)
+      const mediaEntries = imageUrls.map(async (url: string, index: number) => {
+        const aiImageToS3 = await uploadImageToS3(
+          `AI_GENERATED_IMAGE_${index + 1}`,
+          url,
+        );
+        console.log("aiImageToS3", aiImageToS3);
         // Check if the upload was successful
         if (!aiImageToS3.success) {
           console.warn("Failed to upload profile image to S3.");
@@ -143,7 +148,7 @@ class DesignClass {
         return MediaModel.create(
           {
             link: aiImageToS3?.url,
-            mediaType: `AI_GENERATED_IMAGE_${index}`,
+            mediaType: `AI_GENERATED_IMAGE_${index + 1}`,
             designIds: newDesign.id,
           },
           { transaction },

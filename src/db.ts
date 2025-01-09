@@ -1,4 +1,3 @@
-
 import { Sequelize } from "sequelize-typescript";
 import { dbConfig } from "../common/utility";
 import { Dialect } from "sequelize/types/sequelize";
@@ -19,12 +18,12 @@ import {
   MessageModel,
   SalestModel,
   AnalysisModel,
-  JobImpressionModel
+  JobImpressionModel,
 } from "./model";
 
 // Load environment variables (ensure your .env file has POSTGRES_URL defined)
 
-console.log("dbConfig?.dbUrl",dbConfig?.dbUrl)
+console.log("dbConfig?.dbUrl", dbConfig?.dbUrl);
 // Define sequelize options
 const sequelizeOptions: any = {
   dialect: "postgres" as Dialect,
@@ -52,7 +51,7 @@ const sequelizeOptions: any = {
     MessageModel,
     SalestModel,
     AnalysisModel,
-    JobImpressionModel
+    JobImpressionModel,
   ],
 };
 

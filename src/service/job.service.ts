@@ -520,11 +520,11 @@ class jobService {
       // if the user is authenticated and the owner, return the job with increased impression count
 
       if (job?.dataValues?.userId !== authUser?.id) {
-        //create a new job impression 
+        //create a new job impression
         await JobImpressionModel.create({
-          jobId:jobId,
-          veiwerId: authUser?.id
-        })
+          jobId: jobId,
+          veiwerId: authUser?.id,
+        });
 
         //increasing impression
         console.log("increasing job impression", job?.dataValues?.impression);

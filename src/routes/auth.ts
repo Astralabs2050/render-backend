@@ -33,7 +33,10 @@ authRouter.post(
 );
 
 // @ts-ignore
-authRouter.post("/resend-otp", authcontroller.resendOtp.bind(authcontroller) as any);
+authRouter.post(
+  "/resend-otp",
+  authcontroller.resendOtp.bind(authcontroller) as any,
+);
 
 // @ts-ignore
 authRouter.post(
@@ -51,7 +54,7 @@ authRouter.post(
 // @ts-ignore
 authRouter.patch(
   "/reset-password",
-  authcontroller.resetPasswordLink.bind(authcontroller)  as any,
+  authcontroller.resetPasswordLink.bind(authcontroller) as any,
 );
 
 export default authRouter;

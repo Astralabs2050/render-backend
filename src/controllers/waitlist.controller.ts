@@ -2,7 +2,10 @@ import { Request, Response } from "express";
 import { Waitlist } from "../model/waitlist.model";
 
 class WaitlistController {
-  public joinWaitlist = async (req: Request, res: Response): Promise<Response> => {
+  public joinWaitlist = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response> => {
     try {
       // Check if the email already exists
       const existingWaitlistEntry = await Waitlist.findOne({

@@ -23,6 +23,7 @@
     "openai": "^4.77.3",
     "pg": "^8.13.1",
     "portfinder": "^1.0.32",
+    "prettier": "^3.4.2",
     "reflect-metadata": "^0.2.2",
     "sequelize": "^6.37.5",
     "sequelize-typescript": "^2.1.6",

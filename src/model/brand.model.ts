@@ -15,7 +15,6 @@ import { UsersModel as User } from "./user.model"; // Assuming you have a User m
 
 @Table({ timestamps: true, tableName: "brands" })
 export class BrandModel extends Model {
-  
   @PrimaryKey
   @Default(uuidv4)
   @Column(DataType.UUID)

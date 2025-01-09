@@ -65,35 +65,35 @@ const saveAndBroadcastMessage = async (data: any) => {
       attributes: ["active"],
     });
     //check if the message is an image or text
-    let uploadResult:any
-    if(data.type === "image"){
+    let uploadResult: any;
+    if (data.type === "image") {
       //upload it to the s3 storage and save
-        uploadResult = await uploadImageToS3(
-                  "CHAT_MEDIA",
-                  data.message,
-                  data.senderId,
-                );
-                if (!uploadResult.success) {
-                  console.warn("Failed to upload profile image to S3.");
-                  throw new Error("Failed to upload profile image. Please try again.");
-                }
+      uploadResult = await uploadImageToS3(
+        "CHAT_MEDIA",
+        data.message,
+        data.senderId,
+      );
+      if (!uploadResult.success) {
+        console.warn("Failed to upload profile image to S3.");
+        throw new Error("Failed to upload profile image. Please try again.");
+      }
 
-          // Step 2: Save the uploaded image link to the MediaModel
-          const mediaRecord = {
-            link: uploadResult.url, // Use the URL returned from S3
-            mediaType: "PROFILE_PICTURE",
-            userId: data.senderId, // Link to the user
-          };
-      
-          await MediaModel.create(mediaRecord);
-          console.log(
-            "Profile image successfully uploaded and saved to MediaModel.",
-          );
+      // Step 2: Save the uploaded image link to the MediaModel
+      const mediaRecord = {
+        link: uploadResult.url, // Use the URL returned from S3
+        mediaType: "PROFILE_PICTURE",
+        userId: data.senderId, // Link to the user
+      };
+
+      await MediaModel.create(mediaRecord);
+      console.log(
+        "Profile image successfully uploaded and saved to MediaModel.",
+      );
     }
-    
+
     // Create the message with a seen status based on receiver's availability
     const message = await MessageModel.create({
-      message: data.type === "image" ? uploadResult?.url :data.message,
+      message: data.type === "image" ? uploadResult?.url : data.message,
       type: data.type,
       receiverId: data.receiverId,
       senderId: data.senderId,
@@ -190,7 +190,10 @@ export async function getPreviousMessages(socket: any) {
     }
   });
 }
-export async function translateMessage(message: string, language: string): Promise<string> {
+export async function translateMessage(
+  message: string,
+  language: string,
+): Promise<string> {
   const apiKey = process.env.OPEN_API_KEY; // Ensure your OpenAI API key is set in environment variables
   const apiUrl = "https://api.openai.com/v1/chat/completions";
 
@@ -202,7 +205,10 @@ export async function translateMessage(message: string, language: string): Promi
     model: "gpt-3.5-turbo",
     messages: [
       { role: "system", content: `You are a translation assistant.` },
-      { role: "user", content: `Translate the following message to ${language || "english"}, only return the translated text: "${message}"` },
+      {
+        role: "user",
+        content: `Translate the following message to ${language || "english"}, only return the translated text: "${message}"`,
+      },
     ],
     max_tokens: 100,
     temperature: 0.3,
@@ -221,8 +227,8 @@ export async function translateMessage(message: string, language: string): Promi
     const errorDetails = await response.json();
     throw new Error(
       `OpenAI API request failed: ${response.status} - ${response.statusText} - ${JSON.stringify(
-        errorDetails
-      )}`
+        errorDetails,
+      )}`,
     );
   }
 
@@ -235,7 +241,6 @@ export async function translateMessage(message: string, language: string): Promi
 
   return translatedText.trim();
 }
-
 
 export async function handlePrivateMessage(socket: any, io: any) {
   socket.on("privateMessage", async (data: any) => {

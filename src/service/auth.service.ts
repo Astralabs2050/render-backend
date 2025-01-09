@@ -34,7 +34,7 @@ interface Brand {
 
 export class AuthService {
   public async register(userData: any) {
-    const { email, username, password,language } = userData;
+    const { email, username, password, language } = userData;
 
     const userWithEmailExists = await UsersModel.findOne({ where: { email } });
 
@@ -53,7 +53,7 @@ export class AuthService {
       password: hashPassword,
       username,
       otp,
-      language
+      language,
     };
 
     const newCreateUser = await UsersModel.create(newUser);
@@ -77,24 +77,26 @@ export class AuthService {
     try {
       const { fullName, email, password, language } = data;
       console.log("Processing registration...");
-  
+
       // Check if the user already exists
-      const userWithEmailExists = await UsersModel.findOne({ where: { email } });
+      const userWithEmailExists = await UsersModel.findOne({
+        where: { email },
+      });
       if (userWithEmailExists) {
         return {
           status: false,
           message: `User with email ${email} already exists`,
         };
       }
-  
+
       // Hash the password
       const salt = await bcrypt.genSalt(15);
       const hashPassword = await bcrypt.hash(password, salt);
-  
+
       // Generate OTP
       const otp = uuidv4().slice(0, 4);
       console.log("Generated OTP:", otp);
-  
+
       // Create user
       const newUser = await UsersModel.create(
         {
@@ -103,25 +105,25 @@ export class AuthService {
           password: hashPassword,
           otp,
         },
-        { transaction }
+        { transaction },
       );
-  
+
       // Create creator profile
       await CreatorModel.create(
         {
           userId: newUser.id,
           fullName,
         },
-        { transaction }
+        { transaction },
       );
-  
+
       // Commit transaction before sending email
       await transaction.commit();
-  
+
       // Send OTP email
       try {
         await sendEmail(email, "OTP", `Your OTP is ${otp}`);
-      } catch (emailError:any) {
+      } catch (emailError: any) {
         console.error("Error sending email:", emailError.message);
         return {
           status: true,
@@ -129,7 +131,7 @@ export class AuthService {
           error: emailError.message,
         };
       }
-  
+
       return {
         status: true,
         message: "Registration successful, OTP sent",
@@ -145,7 +147,7 @@ export class AuthService {
       };
     }
   }
-  
+
   public async login(credentials: any) {
     const { email, password } = credentials;
 
@@ -316,8 +318,9 @@ export class AuthService {
                   "data.projects[index]?.image",
                   data.projects[index]?.image,
                 );
-                const uploadPromises =
-                Array.isArray(data.projects[index]?.image)
+                const uploadPromises = Array.isArray(
+                  data.projects[index]?.image,
+                )
                   ? data.projects[index].image.map((image: any) =>
                       uploadImageToS3("PROJECT_IMAGE", image, project.id),
                     )
@@ -387,27 +390,29 @@ export class AuthService {
       // Upload profile picture after transaction is successful
       if (profileImage) {
         try {
-          console.log("profileImageprofileImage",profileImage)
+          console.log("profileImageprofileImage", profileImage);
           // Step 1: Upload to AWS S3
           const uploadResult: any = await uploadImageToS3(
             "PROFILE_PICTURE",
             profileImage,
             userWithEmailExists.id,
           );
-      
+
           // Check if the upload was successful
           if (!uploadResult.success) {
             console.warn("Failed to upload profile image to S3.");
-            throw new Error("Failed to upload profile image. Please try again.");
+            throw new Error(
+              "Failed to upload profile image. Please try again.",
+            );
           }
-      
+
           // Step 2: Save the uploaded image link to the MediaModel
           const mediaRecord = {
             link: uploadResult.url, // Use the URL returned from S3
             mediaType: "PROFILE_PICTURE",
             userId: userWithEmailExists.id, // Link to the user
           };
-      
+
           await MediaModel.create(mediaRecord);
           console.log(
             "Profile image successfully uploaded and saved to MediaModel.",
@@ -418,11 +423,10 @@ export class AuthService {
           return {
             status: false,
             message: "Error uploading profile image",
-            error: `Error uploading profile image to S3: ${error.message}`
-          }
+            error: `Error uploading profile image to S3: ${error.message}`,
+          };
         }
       }
-      
 
       return {
         status: true,
@@ -446,7 +450,7 @@ export class AuthService {
     const transaction = await sequelize.transaction();
 
     try {
-      const { email, password, username, country, city,language } = data;
+      const { email, password, username, country, city, language } = data;
 
       // Check if the user already exists
       const userWithEmailExists = await UsersModel.findOne({
@@ -471,7 +475,7 @@ export class AuthService {
         otp,
         country,
         language,
-        city
+        city,
       };
 
       // Create user with transaction

@@ -33,5 +33,5 @@ export {
   MessageModel,
   SalestModel,
   AnalysisModel,
-  JobImpressionModel
+  JobImpressionModel,
 };

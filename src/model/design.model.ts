@@ -24,11 +24,10 @@ export enum creatorType {
 
 @Table({ timestamps: true, tableName: "designs" })
 export class DesignModel extends Model {
-  
   @PrimaryKey
   @Default(uuidv4) // Ensure consistent UUID generation
   @Column(DataType.UUID)
- id: string = uuidv4();
+  id: string = uuidv4();
 
   @Column(DataType.STRING)
   outfitName?: string;
@@ -45,6 +44,15 @@ export class DesignModel extends Model {
 
   @Column(DataType.STRING)
   publicKey?: string;
+
+  @Column(DataType.STRING)
+  selectedOutfit?: string;
+
+  @Column(DataType.STRING)
+  budget?: string;
+
+  @Column(DataType.STRING)
+  timeline?: string;
 
   @Column(DataType.ENUM(...Object.values(creatorType)))
   creatorType?: creatorType;
