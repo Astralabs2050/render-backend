@@ -41,7 +41,12 @@ async function startServer() {
   // Create Socket.IO server
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: allowedOrigins, // Allow frontend port
+      origin: [
+        "http://localhost:3000",
+        "http://localhost:3000",
+        "http://51.20.37.218:3005/",
+        // Add more origins as needed
+      ], // Allow frontend port
     },
   });
 

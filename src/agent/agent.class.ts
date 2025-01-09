@@ -18,8 +18,10 @@ export default class Agent {
   ): Promise<string> {
     try {
       const systemMessage = context
-        ? `You are a helpful assistant for the Astra application. You assist users in ${context}. Provide helpful, context-aware questions to guide the user.`
-        : "You are  a helpful assistant for the Astra application. Guide the user through their process with relevant questions.";
+  ? context === "greeting"
+    ? "You are Astra, an AI assistant for the Astra application. Start by introducing yourself to the user before asking any questions. Be sure to greet them warmly and provide helpful context about how you can assist with their fashion design ideas."
+    : `You are Astra, an AI assistant for the Astra application. You assist users in ${context}. Provide helpful, context-aware questions to guide the user.`
+  : "You are Astra, an AI assistant for the Astra application. Guide the user through their process with relevant questions.";
 
       const response = await this.model.chat.completions.create({
         model: "gpt-3.5-turbo-0125",
@@ -29,11 +31,11 @@ export default class Agent {
             role: "system",
             content:
               systemMessage +
-              " make the generated question at most 500 characters",
+              " Note: make the generated question less than 500 characters",
           },
           { role: "user", content: prompt },
         ],
-        max_tokens: 30,
+        max_tokens: 50,
       });
       return response.choices[0].message["content"];
     } catch (error) {
@@ -198,6 +200,7 @@ Only return the selected choice without any additional explanation. If none of t
     response: string,
   ): Promise<boolean> {
     try {
+      console.log("prompt from agent", prompt, response);
       const validationPrompt = `Analyze the user's response to determine if it is positive or negative in the context of the question.
 
 Question: ${prompt}

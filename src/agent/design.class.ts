@@ -1,6 +1,7 @@
 import { DesignModel, UsersModel } from "../model";
 import { Socket } from "socket.io";
 import DesignService from "../service/design.service";
+import JobService from "../service/job.service";
 
 export interface AgentType {
   generateDynamicQuestion(prompt: string, context?: string): Promise<string>;
@@ -92,10 +93,13 @@ export default class DesignAgent {
        * Sends a greeting message personalized with the user's city (if available).
        */
       greeting: async (): Promise<void> => {
-        const greetingPrompt = `Welcome to Astra!${userCity ? ` It looks like you're joining us from ${userCity}.` : ""} We’re excited to help bring your fashion design ideas to life! Could you share the project you have in mind?`;
+        const greetingPrompt = `Hi, I'm Astra, your AI assistant here to help you bring your fashion design ideas to life. ${
+          userCity ? `I see you're from ${userCity}.` : ""
+        } I’ll help you find local makers who can bring your vision to reality. What fashion design would you like to create?`;
+        
         const greeting = await this.agent.generateDynamicQuestion(
           greetingPrompt,
-          "welcome users",
+          "greeting"
         );
         prompt = greeting;
         this.socket.emit("ask", {
@@ -163,7 +167,7 @@ export default class DesignAgent {
           );
           return;
         }
-
+        console.log("  prompt,patternPrompt,",prompt,patternPrompt)
         const patternResponse = await this.agent.checkPositiveResponse(
           prompt,
           patternPrompt,
@@ -217,7 +221,7 @@ export default class DesignAgent {
               "design successfully generated",
             );
             prompt = succPrompt;
-            this.socket.emit("sucess", {
+            this.socket.emit("success", {
               content: succPrompt,
               data: newDesign,
               status: true,
@@ -312,7 +316,7 @@ export default class DesignAgent {
           );
           generatedDesignId = newDesign?.data?.designId as string;
           prompt = succPrompt;
-          this.socket.emit("sucess", {
+          this.socket.emit("success", {
             content: succPrompt,
             data: newDesign,
             status: true,
@@ -459,13 +463,15 @@ export default class DesignAgent {
         const isValidResponse = await this.agent.validateUserResponse(
           prompt+ `
           Calculate the exact date based on the user's input relative to today's date, which is ${new Date()}. Always use the format dd/mm/yy for the final output. Examples:
-      - "5 weeks" should be calculated as 35 days added to ${new Date()}.
-      - If the user says "1 month," assume it as one calendar month from ${new Date()}.
-      - For "yesterday," return the date one day before ${new Date()} should return false.
+      - "5 weeks" should be calculated as 35 days added to ${new Date()} format it directly to dd/mm/yy.
+      - If the user says "1 month," assume it as one calendar month from ${new Date()} format it directly to dd/mm/yy.
       - If a specific date like "15th January 2025" is mentioned, format it directly to dd/mm/yy.
-      
+      - "5 days" should be calculated as 5 days added to ${new Date()} format it directly to dd/mm/yy.
+      - "yesterday" should return ${new Date()} format it directly to dd/mm/yy.
+      - "tomorrow" should return 1day added to ${new Date()} format it directly to dd/mm/yy.
       Ensure the date is accurate and reflects the correct addition of days, weeks, or months relative to the current date.
-      If the input is ambiguous, ask the user for clarification any date before ${new Date()} should return false.
+      If the input is ambiguous, ask the user for clarification any date before ${new Date()} should return ${new Date()}.
+      Note: all dates returned must be in this format dd/mm/yy only.
           `,
           response,
         );
@@ -482,15 +488,16 @@ export default class DesignAgent {
           "string",
          {
             customPrompt:`
-             Calculate the exact date based on the user's input relative to today's date, which is ${new Date()}. Always use the format dd/mm/yy for the final output. Examples:
-      - "5 weeks" should be calculated as 35 days added to ${new Date()}.
-      - If the user says "1 month," assume it as one calendar month from ${new Date()}.
-      - For "yesterday," return ${new Date()}.
+            Calculate the exact date based on the user's input relative to today's date, which is ${new Date()}. Always use the format dd/mm/yy for the final output. Examples:
+      - "5 weeks" should be calculated as 35 days added to ${new Date()} format it directly to dd/mm/yy.
+      - If the user says "1 month," assume it as one calendar month from ${new Date()} format it directly to dd/mm/yy.
       - If a specific date like "15th January 2025" is mentioned, format it directly to dd/mm/yy.
-      
+      - "5 days" should be calculated as 5 days added to ${new Date()} format it directly to dd/mm/yy.
+      - "yesterday" should return ${new Date()} format it directly to dd/mm/yy.
+      - "tomorrow" should return 1day added to ${new Date()} format it directly to dd/mm/yy.
       Ensure the date is accurate and reflects the correct addition of days, weeks, or months relative to the current date.
-      If the input is ambiguous, ask the user for clarification.
-       any date before ${new Date()} should return ${new Date()}
+      If the input is ambiguous, ask the user for clarification any date before ${new Date()} should return ${new Date()}.
+      Note: all dates returned must be in this format dd/mm/yy only.
             `
          }
         );
@@ -512,13 +519,21 @@ export default class DesignAgent {
           );
           return;
         }
+
+        //create a job 
+        await JobService.createJob({
+          designId:generatedDesignId,
+          timeline:userChoice,
+          description: await this.agent.generateSentenceBasedOnContext(`write a description for a fashion design job the client is in this city ${userCity}, has a budget of ${budget} and a timeline of ${userChoice}`)
+
+        },this.socket?.user?.id)
         const generationPrompt = `tell the user that the agent would find makers based in the users location ${userCity}, budget ${budget} and timeline ${userChoice} `;
         const succPrompt = await this.agent.generateSentenceBasedOnContext(
           generationPrompt,
           "design successfully generated",
         );
         prompt = succPrompt;
-        this.socket.emit("sucess", {
+        this.socket.emit("success", {
           content: succPrompt,
           status: true,
           nextevent: "",
