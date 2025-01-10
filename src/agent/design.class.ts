@@ -479,18 +479,7 @@ export default class DesignAgent {
           return;
         }
         const isValidResponse = await this.agent.validateUserResponse(
-          prompt+ `
-          Calculate the exact date based on the user's input relative to today's date, which is ${new Date()}. Always use the format dd/mm/yy for the final output. Examples:
-      - "5 weeks" should be calculated as 35 days added to ${new Date()} format it directly to dd/mm/yy.
-      - If the user says "1 month," assume it as one calendar month from ${new Date()} format it directly to dd/mm/yy.
-      - If a specific date like "15th January 2025" is mentioned, format it directly to dd/mm/yy.
-      - "5 days" should be calculated as 5 days added to ${new Date()} format it directly to dd/mm/yy.
-      - "yesterday" should return ${new Date()} format it directly to dd/mm/yy.
-      - "tomorrow" should return 1day added to ${new Date()} format it directly to dd/mm/yy.
-      Ensure the date is accurate and reflects the correct addition of days, weeks, or months relative to the current date.
-      If the input is ambiguous, ask the user for clarification any date before ${new Date()} should return ${new Date()}.
-      Note: all dates returned must be in this format dd/mm/yy only.
-          `,
+          prompt,
           response,
         );
         if (!isValidResponse) {
@@ -500,32 +489,32 @@ export default class DesignAgent {
           );
           return;
         }
-        const userChoice = await this.agent.extractAnswer(
-          prompt,
-          response,
-          "string",
-         {
-            customPrompt:`
-            Calculate the exact date based on the user's input relative to today's date, which is ${new Date()}. Always use the format dd/mm/yy for the final output. Examples:
-      - "5 weeks" should be calculated as 35 days added to ${new Date()} format it directly to dd/mm/yy.
-      - If the user says "1 month," assume it as one calendar month from ${new Date()} format it directly to dd/mm/yy.
-      - If a specific date like "15th January 2025" is mentioned, format it directly to dd/mm/yy.
-      - "5 days" should be calculated as 5 days added to ${new Date()} format it directly to dd/mm/yy.
-      - "yesterday" should return ${new Date()} format it directly to dd/mm/yy.
-      - "tomorrow" should return 1day added to ${new Date()} format it directly to dd/mm/yy.
-      Ensure the date is accurate and reflects the correct addition of days, weeks, or months relative to the current date.
-      If the input is ambiguous, ask the user for clarification any date before ${new Date()} should return ${new Date()}.
-      Note: all dates returned must be in this format dd/mm/yy only.
-            `
-         }
-        );
+      //   const userChoice = await this.agent.extractAnswer(
+      //     prompt,
+      //     response,
+      //     "string",
+      //    {
+      //       customPrompt:`
+      //       Calculate the exact date based on the user's input relative to today's date, which is ${new Date()}. Always use the format dd/mm/yy for the final output. Examples:
+      // - "5 weeks" should be calculated as 35 days added to ${new Date()} format it directly to dd/mm/yy.
+      // - If the user says "1 month," assume it as one calendar month from ${new Date()} format it directly to dd/mm/yy.
+      // - If a specific date like "15th January 2025" is mentioned, format it directly to dd/mm/yy.
+      // - "5 days" should be calculated as 5 days added to ${new Date()} format it directly to dd/mm/yy.
+      // - "yesterday" should return ${new Date()} format it directly to dd/mm/yy.
+      // - "tomorrow" should return 1day added to ${new Date()} format it directly to dd/mm/yy.
+      // Ensure the date is accurate and reflects the correct addition of days, weeks, or months relative to the current date.
+      // If the input is ambiguous, ask the user for clarification any date before ${new Date()} should return ${new Date()}.
+      // Note: all dates returned must be in this format dd/mm/yy only.
+      //       `
+      //    }
+      //   );
         function isValidDate(dateString: string): boolean {
           const date = new Date(dateString);
         
           // Check if the date is valid
           return date instanceof Date && !isNaN(date.getTime());
         }
-        if(!isValidDate(userChoice)){
+        if(!isValidDate(response)){
           await this.handleError("Ask the user for thier timeline", "timeline");
           this.socket.once("timeline", (data: SocketEventData) =>
             events.timeline(data.response),
@@ -534,7 +523,7 @@ export default class DesignAgent {
         }
         // update the design with the users timeline
         const updateDesign = await DesignModel.update(
-          { timeline: userChoice },
+          { timeline: response },
           { where: { id: generatedDesignId } },
         );
         if (!updateDesign[0]) {
@@ -547,18 +536,18 @@ export default class DesignAgent {
           );
           return;
         }
-        const desc = await this.agent.generateSentenceBasedOnContext(`Write a description for a fashion design job. The client is in ${userCity}, has a budget of ${budget}, and a timeline of ${userChoice}. Create the description as a single string without extra formatting or line breaks.`);
+        const desc = await this.agent.generateSentenceBasedOnContext(`Write a description for a fashion design job. The client is in ${userCity}, has a budget of ${budget}, and a timeline of ${response}. Create the description as a single string without extra formatting or line breaks.`);
         try{
             //create a job 
        const jobCreated = await JobService.createJob({
           designId:generatedDesignId,
-          timeline: new Date(userChoice),
+          timeline: new Date(response),
           description: desc
 
         },this.socket?.user?.id)
         console.log("this job was created",jobCreated,{
           designId:generatedDesignId,
-          timeline:userChoice,
+          timeline:response,
           description: desc
 
         })
@@ -571,7 +560,7 @@ export default class DesignAgent {
           );
           return;
         }
-        const generationPrompt = `tell the user that the agent would find makers based in the users location ${userCity}, budget ${budget} and timeline ${userChoice} `;
+        const generationPrompt = `tell the user that the agent would find makers based in the users location ${userCity}, budget ${budget} and timeline ${response} `;
         const succPrompt = await this.agent.generateSentenceBasedOnContext(
           generationPrompt,
           "design successfully generated",
