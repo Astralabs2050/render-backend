@@ -149,7 +149,7 @@ class DesignClass {
           {
             link: aiImageToS3?.url,
             mediaType: `AI_GENERATED_IMAGE_${index + 1}`,
-            designIds: newDesign.id,
+            designId: newDesign?.dataValues?.id,
           },
           { transaction },
         );
@@ -163,7 +163,7 @@ class DesignClass {
         message: "Designs generated successfully.",
         data: {
           images: imageUrls,
-          designId: newDesign.id,
+          designId: newDesign?.dataValues?.id,
         },
         status: true,
       };

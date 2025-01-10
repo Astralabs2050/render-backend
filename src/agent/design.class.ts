@@ -312,7 +312,7 @@ export default class DesignAgent {
             );
           }
           generatedImage = newDesign?.data?.images
-          const generationPrompt = `tell the user that thier design has been generated and ask them to  select an outfit thier prefer of of the generated design ${newDesign?.data?.images}`;
+          const generationPrompt = `tell the user that thier design has been generated and ask them to  select an outfit thier prefer of of the generated design `;
           const succPrompt = await this.agent.generateDynamicQuestion(
             generationPrompt,
             "design successfully generated",
