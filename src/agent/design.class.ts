@@ -536,14 +536,24 @@ export default class DesignAgent {
           return;
         }
         const desc = await this.agent.generateSentenceBasedOnContext(`Write a description for a fashion design job. The client is in ${userCity}, has a budget of ${budget}, and a timeline of ${userChoice}. Create the description as a single string without extra formatting or line breaks.`);
-
-        //create a job 
-        await JobService.createJob({
+        try{
+            //create a job 
+       const jobCreated = await JobService.createJob({
           designId:generatedDesignId,
           timeline:userChoice,
           description: desc
 
         },this.socket?.user?.id)
+        console.log("this job was created",jobCreated)
+        }catch(err:any){
+          console.log("Error while creating job", err);
+          const errorPrompt = `tell the user that thier was an error creating job this is the error ${err?.message}. tell user to try again`;
+          await this.handleError(errorPrompt, "timeline");
+          this.socket.once("timeline", (data: SocketEventData) =>
+            events.timeline(data.response),
+          );
+          return;
+        }
         const generationPrompt = `tell the user that the agent would find makers based in the users location ${userCity}, budget ${budget} and timeline ${userChoice} `;
         const succPrompt = await this.agent.generateSentenceBasedOnContext(
           generationPrompt,
