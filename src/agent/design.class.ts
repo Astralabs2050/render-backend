@@ -371,6 +371,16 @@ export default class DesignAgent {
 
         console.log(isValidResponse, generatedDesignId);
         // update the design with the selected outfit
+        if(!generatedDesignId){
+          await this.handleError(
+            "Tell the user that thier was an error updating the design. Please try again later.",
+            "selectDesign",
+          );
+          this.socket.once("selectDesign", (data: SocketEventData) =>
+            events.selectDesign(data?.response),
+          );
+          return;
+        }
         const updateDesign = await DesignModel.update(
           { selectedOutfit: userChoice },
           { where: { id: generatedDesignId } },
