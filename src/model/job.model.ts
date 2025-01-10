@@ -48,7 +48,7 @@ export class JobModel extends Model {
   @Column(DataType.ENUM(...Object.values(timelineStatus)))
   timelineStatus?: timelineStatus;
 
-  @AllowNull(false)
+  @AllowNull(true)
   @Column(DataType.BOOLEAN)
   manufacturer!: boolean;
 

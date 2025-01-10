@@ -480,16 +480,48 @@ export default class DesignAgent {
         }
         const isValidResponse = await this.agent.validateUserResponse(
           prompt+ `
-          Calculate the exact date based on the user's input relative to today's date, which is ${new Date()}. Always use the format dd/mm/yy for the final output. Examples:
-      - "5 weeks" should be calculated as 35 days added to ${new Date()} format it directly to dd/mm/yy.
-      - If the user says "1 month," assume it as one calendar month from ${new Date()} format it directly to dd/mm/yy.
-      - If a specific date like "15th January 2025" is mentioned, format it directly to dd/mm/yy.
-      - "5 days" should be calculated as 5 days added to ${new Date()} format it directly to dd/mm/yy.
-      - "yesterday" should return ${new Date()} format it directly to dd/mm/yy.
-      - "tomorrow" should return 1day added to ${new Date()} format it directly to dd/mm/yy.
-      Ensure the date is accurate and reflects the correct addition of days, weeks, or months relative to the current date.
-      If the input is ambiguous, ask the user for clarification any date before ${new Date()} should return ${new Date()}.
-      Note: all dates returned must be in this format dd/mm/yy only.
+         Calculate the exact date based on the user's input relative to today's date, which is \`${new Date()}\`. Ensure that the output is always presented in the \`dd/mm/yy\` format. Follow the detailed instructions below to handle various scenarios and inputs accurately.  
+
+### Detailed Instructions:  
+1. **For Time Durations (e.g., days, weeks, months):**  
+   - If the input specifies a duration such as "5 weeks," calculate the equivalent number of days (e.g., 5 weeks = 35 days) and add it to today's date (\`${new Date()}\`). Format the resulting date directly as \`dd/mm/yy\`.  
+   - For "1 month," add one full calendar month to today's date. This means adding the same day of the following month (e.g., if today is 10th January 2025, "1 month" becomes 10th February 2025). Format the final date as \`dd/mm/yy\`.  
+
+2. **For Specific Dates (e.g., "15th January 2025"):**  
+   - When a specific date is provided in the input, directly interpret it and reformat it into the \`dd/mm/yy\` format.  
+   - Example: If the input is "15th January 2025," the output must be formatted as "15/01/25".  
+
+3. **For Short Keywords (e.g., "yesterday," "tomorrow"):**  
+   - If the input is "yesterday," subtract one day from today's date (\`${new Date()}\`) and format the result in the \`dd/mm/yy\` format.  
+   - If the input is "tomorrow," add one day to today's date (\`${new Date()}\`) and format the result as \`dd/mm/yy\`.  
+
+4. **Ambiguous or Invalid Inputs:**  
+   - If the input cannot be interpreted clearly or is ambiguous (e.g., "next spring"), ask the user for clarification.  
+   - For any dates that are calculated or provided but fall before today's date (\`${new Date()}\`), automatically return today's date formatted as \`dd/mm/yy\`.  
+
+5. **Edge Cases and Calendar Accuracy:**  
+   - Ensure leap years are correctly accounted for when adding months or years.  
+   - When adding months, if the resulting month has fewer days than the current day, default to the last valid day of that month (e.g., adding one month to "31st January" should return "28th February" in a non-leap year).  
+   - For week-based calculations, assume one week equals exactly 7 days.  
+
+6. **Output Format Requirements:**  
+   - All output must strictly adhere to the \`dd/mm/yy\` format.  
+   - Ensure the day, month, and year components are always two digits, with leading zeros added where necessary (e.g., "5th January 2025" should be formatted as "05/01/25").  
+
+### Examples:  
+- Input: "5 weeks" → Output: Add 35 days to \`${new Date()}\` → Format as \`dd/mm/yy\`.  
+- Input: "1 month" → Output: Add one calendar month to \`${new Date()}\` → Format as \`dd/mm/yy\`.  
+- Input: "15th January 2025" → Output: Format directly as \`15/01/25\`.  
+- Input: "5 days" → Output: Add 5 days to \`${new Date()}\` → Format as \`dd/mm/yy\`.  
+- Input: "yesterday" → Output: Subtract 1 day from \`${new Date()}\` → Format as \`dd/mm/yy\`.  
+- Input: "tomorrow" → Output: Add 1 day to \`${new Date()}\` → Format as \`dd/mm/yy\`.  
+- Input: "next spring" → Output: Request clarification from the user.  
+- Input: "1 year ago" (or any past date) → Output: Return today's date formatted as \`dd/mm/yy\`.  
+
+### Additional Notes:  
+- Ensure the date is accurate and reflects the correct addition or subtraction of days, weeks, or months relative to today's date (\`${new Date()}\`).  
+- If any input is unclear or results in ambiguity, always seek clarification from the user before proceeding.  
+- The final output must be precise, error-free, and strictly formatted as \`dd/mm/yy\`.  
           `,
           response,
         );
@@ -505,21 +537,66 @@ export default class DesignAgent {
           response,
           "string",
          {
-            customPrompt:`
-            Calculate the exact date based on the user's input relative to today's date, which is ${new Date()}. Always use the format dd/mm/yy for the final output. Examples:
-      - "5 weeks" should be calculated as 35 days added to ${new Date()} format it directly to dd/mm/yy.
-      - If the user says "1 month," assume it as one calendar month from ${new Date()} format it directly to dd/mm/yy.
-      - If a specific date like "15th January 2025" is mentioned, format it directly to dd/mm/yy.
-      - "5 days" should be calculated as 5 days added to ${new Date()} format it directly to dd/mm/yy.
-      - "yesterday" should return ${new Date()} format it directly to dd/mm/yy.
-      - "tomorrow" should return 1day added to ${new Date()} format it directly to dd/mm/yy.
-      Ensure the date is accurate and reflects the correct addition of days, weeks, or months relative to the current date.
-      If the input is ambiguous, ask the user for clarification any date before ${new Date()} should return ${new Date()}.
-      Note: all dates returned must be in this format dd/mm/yy only.
-            `
+         customPrompt : `
+Calculate the exact date based on the user's input relative to today's date, which is \`${new Date()}\`. Ensure that the output is always presented in the \`dd/mm/yy\` format. Follow the detailed instructions below to handle various scenarios and inputs accurately.  
+
+### Detailed Instructions:  
+1. **For Time Durations (e.g., days, weeks, months):**  
+   - If the input specifies a duration such as "5 weeks," calculate the equivalent number of days (e.g., 5 weeks = 35 days) and add it to today's date (\`${new Date()}\`). Format the resulting date directly as \`dd/mm/yy\`.  
+   - For "1 month," add one full calendar month to today's date. This means adding the same day of the following month (e.g., if today is 10th January 2025, "1 month" becomes 10th February 2025). Format the final date as \`dd/mm/yy\`.  
+
+2. **For Specific Dates (e.g., "15th January 2025"):**  
+   - When a specific date is provided in the input, directly interpret it and reformat it into the \`dd/mm/yy\` format.  
+   - Example: If the input is "15th January 2025," the output must be formatted as "15/01/25".  
+
+3. **For Short Keywords (e.g., "yesterday," "tomorrow"):**  
+   - If the input is "yesterday," subtract one day from today's date (\`${new Date()}\`) and format the result in the \`dd/mm/yy\` format.  
+   - If the input is "tomorrow," add one day to today's date (\`${new Date()}\`) and format the result as \`dd/mm/yy\`.  
+
+4. **Ambiguous or Invalid Inputs:**  
+   - If the input cannot be interpreted clearly or is ambiguous (e.g., "next spring"), ask the user for clarification.  
+   - For any dates that are calculated or provided but fall before today's date (\`${new Date()}\`), automatically return today's date formatted as \`dd/mm/yy\`.  
+
+5. **Edge Cases and Calendar Accuracy:**  
+   - Ensure leap years are correctly accounted for when adding months or years.  
+   - When adding months, if the resulting month has fewer days than the current day, default to the last valid day of that month (e.g., adding one month to "31st January" should return "28th February" in a non-leap year).  
+   - For week-based calculations, assume one week equals exactly 7 days.  
+
+6. **Output Format Requirements:**  
+   - All output must strictly adhere to the \`dd/mm/yy\` format.  
+   - Ensure the day, month, and year components are always two digits, with leading zeros added where necessary (e.g., "5th January 2025" should be formatted as "05/01/25").  
+
+### Examples:  
+- Input: "5 weeks" → Output: Add 35 days to \`${new Date()}\` → Format as \`dd/mm/yy\`.  
+- Input: "1 month" → Output: Add one calendar month to \`${new Date()}\` → Format as \`dd/mm/yy\`.  
+- Input: "15th January 2025" → Output: Format directly as \`15/01/25\`.  
+- Input: "5 days" → Output: Add 5 days to \`${new Date()}\` → Format as \`dd/mm/yy\`.  
+- Input: "yesterday" → Output: Subtract 1 day from \`${new Date()}\` → Format as \`dd/mm/yy\`.  
+- Input: "tomorrow" → Output: Add 1 day to \`${new Date()}\` → Format as \`dd/mm/yy\`.  
+- Input: "next spring" → Output: Request clarification from the user.  
+- Input: "1 year ago" (or any past date) → Output: Return today's date formatted as \`dd/mm/yy\`.  
+
+### Additional Notes:  
+- Ensure the date is accurate and reflects the correct addition or subtraction of days, weeks, or months relative to today's date (\`${new Date()}\`).  
+- If any input is unclear or results in ambiguity, always seek clarification from the user before proceeding.  
+- The final output must be precise, error-free, and strictly formatted as \`dd/mm/yy\`.  
+`
+
          }
         );
-
+        function isValidDate(dateString: string): boolean {
+          const date = new Date(dateString);
+        
+          // Check if the date is valid
+          return date instanceof Date && !isNaN(date.getTime());
+        }
+        if(!isValidDate(userChoice)){
+          await this.handleError("Ask the user for thier timeline", "timeline");
+          this.socket.once("timeline", (data: SocketEventData) =>
+            events.timeline(data.response),
+          );
+          return;
+        }
         // update the design with the users timeline
         const updateDesign = await DesignModel.update(
           { timeline: userChoice },
@@ -540,11 +617,16 @@ export default class DesignAgent {
             //create a job 
        const jobCreated = await JobService.createJob({
           designId:generatedDesignId,
-          timeline:userChoice,
+          timeline: new Date(userChoice),
           description: desc
 
         },this.socket?.user?.id)
-        console.log("this job was created",jobCreated)
+        console.log("this job was created",jobCreated,{
+          designId:generatedDesignId,
+          timeline:userChoice,
+          description: desc
+
+        })
         }catch(err:any){
           console.log("Error while creating job", err);
           const errorPrompt = `tell the user that thier was an error creating job this is the error ${err?.message}. tell user to try again`;
