@@ -551,11 +551,23 @@ class jobService {
         where: {
           status: false,
         },
+        
         include: [
           {
             model: DesignModel,
             as: "design",
+            include: [
+              {
+                model: MediaModel,
+                as: "media", // Include all media associated with the design
+              },
+              {
+                model: PieceModel,
+                as: "pieces", // Include all pieces associated with the design
+              },
+            ],
           },
+         
           {
             model: UsersModel,
             as: "user",

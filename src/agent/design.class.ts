@@ -88,6 +88,7 @@ export default class DesignAgent {
     const userCity = user?.dataValues?.city;
     let generatedDesignId = "";
     let budget: string;
+    let generatedImage :any
     const events = {
       /**
        * Sends a greeting message personalized with the user's city (if available).
@@ -215,6 +216,8 @@ export default class DesignAgent {
                 events.pattern(data.response),
               );
             }
+            generatedImage = newDesign?.data?.images
+            generatedDesignId = newDesign?.data?.designId as string;
             const generationPrompt = `tell the user that thier design has been generated and ask them to  select an outfit thier prefer of of the generated design ${newDesign?.data?.images}`;
             const succPrompt = await this.agent.generateDynamicQuestion(
               generationPrompt,
@@ -308,12 +311,13 @@ export default class DesignAgent {
               events.pattern(data.response),
             );
           }
-
+          generatedImage = newDesign?.data?.images
           const generationPrompt = `tell the user that thier design has been generated and ask them to  select an outfit thier prefer of of the generated design ${newDesign?.data?.images}`;
           const succPrompt = await this.agent.generateDynamicQuestion(
             generationPrompt,
             "design successfully generated",
           );
+          generatedImage = newDesign?.data?.images
           generatedDesignId = newDesign?.data?.designId as string;
           prompt = succPrompt;
           this.socket.emit("success", {
@@ -343,7 +347,7 @@ export default class DesignAgent {
           );
           return;
         }
-        console.log("design Id", generatedDesignId);
+        console.log("design 11", generatedDesignId);
         const isValidResponse = await this.agent.validateUserResponse(
           prompt + " note thier are only 2 outfit present",
           response,
@@ -388,8 +392,12 @@ export default class DesignAgent {
           "ask the user for thier budget",
         );
         prompt = succPrompt;
+        console.log("generatedDesignId[Number(userChoice)]",generatedDesignId[Number(userChoice)-1])
         this.socket.emit("ask", {
           content: succPrompt,
+          data:{
+            selectedImage: generatedImage[Number(userChoice)-1]
+          },
           status: true,
           nextevent: "budget",
         });
@@ -502,8 +510,6 @@ export default class DesignAgent {
          }
         );
 
-        console.log("userChoice timeline", userChoice);
-
         // update the design with the users timeline
         const updateDesign = await DesignModel.update(
           { timeline: userChoice },
@@ -519,7 +525,8 @@ export default class DesignAgent {
           );
           return;
         }
-        const desc = await this.agent.generateSentenceBasedOnContext(`write a description for a fashion design job the client is in this city ${userCity}, has a budget of ${budget} and a timeline of ${userChoice}`)
+        const desc = await this.agent.generateSentenceBasedOnContext(`Write a description for a fashion design job. The client is in ${userCity}, has a budget of ${budget}, and a timeline of ${userChoice}. Create the description as a single string without extra formatting or line breaks.`);
+
         //create a job 
         await JobService.createJob({
           designId:generatedDesignId,
