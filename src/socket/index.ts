@@ -155,7 +155,7 @@ const handleSocketConnection = (io: {
             },
           ],
         });
-
+        console.log("socket?.id",socket?.id)
         //find jobs where the user is the maker
         const makersJob = await JobModel.findAll({
           where: {
