@@ -15,6 +15,7 @@ import { MessageModel } from "./ChatMessage.model";
 import { SalestModel } from "./sales.model";
 import { AnalysisModel } from "./analytics.model";
 import { JobImpressionModel } from "./jobViewImpression";
+import { EscrowDetailssModel } from "./escorowDetails.model";
 
 export {
   UsersModel,
@@ -34,4 +35,5 @@ export {
   SalestModel,
   AnalysisModel,
   JobImpressionModel,
+  EscrowDetailssModel
 };
