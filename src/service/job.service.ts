@@ -75,10 +75,13 @@ class jobService {
     }
   };
 
-  public updateJob = async (jobId: string, timelineStatus: timelineStatus) => {
+  public updateJob = async (jobId: string, timelineStatus: timelineStatus, escorowId?: string) => {
     try {
       const updatedJob = await JobModel.update(
-        { timelineStatus },
+        { timelineStatus,
+          escorowId
+
+         },
         { where: { id: jobId } },
       );
 

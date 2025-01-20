@@ -19,6 +19,7 @@ import {
   SalestModel,
   AnalysisModel,
   JobImpressionModel,
+  EscrowDetailssModel
 } from "./model";
 
 // Load environment variables (ensure your .env file has POSTGRES_URL defined)
@@ -50,6 +51,7 @@ const sequelizeOptions: any = {
     SavedJobsModel,
     MessageModel,
     SalestModel,
+    EscrowDetailssModel,
     AnalysisModel,
     JobImpressionModel,
   ],
