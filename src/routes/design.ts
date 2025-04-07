@@ -28,4 +28,6 @@ designRouter.patch(
   DesignController.additionalInfromation as any,
 );
 
+designRouter.post("/design-agent",isAuthenticated as any, DesignController.designAgent as any);
+
 export default designRouter;

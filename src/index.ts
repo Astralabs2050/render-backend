@@ -60,7 +60,7 @@ async function startServer() {
 
   // Routes
   app.use(routes);
-  const PORT = Number(process.env.APP_URL) || 3002;
+  const PORT = Number(process.env.APP_URL) || 3004;
   httpServer.listen(PORT, "0.0.0.0", () => {
     // Ensure that PORT is a number
     console.log(`Server is running on port ${PORT}`);
@@ -72,3 +72,5 @@ startServer().catch((error) => {
   console.error("Error starting the server:", error.message);
   process.exit(1);
 });
+
+

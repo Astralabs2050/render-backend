@@ -79,6 +79,7 @@ class jobController {
     try {
       const { id } = (req as any)?.user;
       const { jobId, status, escorowId } = (req as any)?.body;
+      console.log("jobId, status, escorowId",jobId, status, escorowId)
       const response = await JobService.updateJob(jobId, status,escorowId);
       return res.json(response);
     } catch (error: any) {
