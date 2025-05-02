@@ -16,7 +16,7 @@ import { SalestModel } from "./sales.model";
 import { AnalysisModel } from "./analytics.model";
 import { JobImpressionModel } from "./jobViewImpression";
 import { EscrowDetailssModel } from "./escorowDetails.model";
-
+import { CollectionModel } from "./collection.model";
 export {
   UsersModel,
   MediaModel,
@@ -35,5 +35,6 @@ export {
   SalestModel,
   AnalysisModel,
   JobImpressionModel,
-  EscrowDetailssModel
+  EscrowDetailssModel,
+  CollectionModel,
 };

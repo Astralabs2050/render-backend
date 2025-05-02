@@ -52,7 +52,7 @@ class DesignClass {
           const imageInput:any = prepareImageForApi(imageData);
           
           const response = await openai.responses.create({
-            model: "gpt-4.5-preview-2025-02-27",
+            model: "gpt-4o",
             input: [
               {
                 role: "user",
@@ -492,7 +492,7 @@ class DesignClass {
   
       // Build request payload with proper type
       const requestPayload: any = {
-        model: "gpt-4.5-preview-2025-02-27",
+        model: "gpt-4o",
         input: [
           { role: "system", content: designConfig.instructions },
           { role: "user", content: message },
@@ -547,11 +547,10 @@ class DesignClass {
       }
       
       // Handle text responses
-      const outputText = JSON.parse(agentResponse?.output_text);
-
+      const outputText = agentResponse?.output_text;
       const outputArgs = agentResponse?.output?.[0]?.arguments;
-      console.log("agentResponse",outputText.user_input)
-      if (outputText && !outputText.user_input) {
+      
+      if (outputText) {
         // Text response
         return {
           message: "message from agent",
@@ -562,7 +561,7 @@ class DesignClass {
           },
           status: true,
         };
-      } else if (outputArgs && outputText.user_input) {
+      } else if (outputArgs) {
         // Parse arguments for design generation
         let parsedArgs;
         try {
@@ -580,9 +579,9 @@ class DesignClass {
         // Generate design with validated arguments
         const generateDesign = await this.generateNewDesign(
           {
-            prompt: `a user is trying to create this ${ outputText.user_input?.fashion_type}, this is more information about the design ${  outputText.user_input?.design_description} `,
-            fabricDelivary: outputText.user_input?.delivery_method,
-            image: outputText.user_input?.design_image,
+            prompt: `a user is trying to create this ${parsedArgs.fashion_type}, this is more information about the design ${parsedArgs.design_description}`,
+            fabricDelivary: parsedArgs.delivery_method,
+            image: parsedArgs.design_image,
           },
           userId
         );

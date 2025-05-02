@@ -253,6 +253,10 @@ export async function handlePrivateMessage(socket: any, io: any) {
   });
 }
 
+export async function handleAgentPrivateMessage(socket:any, io:any){
+  socket.on("")
+}
+
 export async function updateUserAvailability(status: boolean, id: string) {
   try {
     await UsersModel.update({ active: status }, { where: { id } });
