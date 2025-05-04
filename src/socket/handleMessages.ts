@@ -9,6 +9,10 @@ import {
 import { MessageModel } from "../model/ChatMessage.model";
 import sendEmail from "../../util/sendMail";
 import { uploadImageToS3 } from "../../util/aws";
+import e from "express";
+import  { design_onboarding_astra } from "../agent/collection.config";
+import client from "./llm";
+import collectionAgentClass from "../service/collection.service";
 
 export function sendMessage(io: any) {}
 
@@ -254,7 +258,20 @@ export async function handlePrivateMessage(socket: any, io: any) {
 }
 
 export async function handleAgentPrivateMessage(socket:any, io:any){
-  socket.on("")
+  socket.on("agentMessage",async(data:any)=>{
+    try{
+     const response = await collectionAgentClass.collectionAgent(data)
+      io.to(data.senderId).emit("agent_message", {
+        data:{
+          message:response?.output_text,
+          id:response?.id
+        }
+      });
+    }catch(error:any){
+      console.error("Error handling agent message:", error);
+      throw new Error(error?.message || error || "Error in agent message");
+    }
+  })
 }
 
 export async function updateUserAvailability(status: boolean, id: string) {

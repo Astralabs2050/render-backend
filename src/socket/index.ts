@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { test } from "./handlers";
 import {
   getPreviousMessages,
+  handleAgentPrivateMessage,
   handlePrivateMessage,
   translateMessage,
 } from "./handleMessages";
@@ -247,6 +248,8 @@ const handleSocketConnection = (io: {
 
     //handle private messages
     handlePrivateMessage(socket, io);
+    //handle agent message
+    handleAgentPrivateMessage(socket, io)
     //handle translation
     socket.on("translation", async (data: any) => {
       try {
