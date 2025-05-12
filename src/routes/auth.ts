@@ -11,6 +11,11 @@ authRouter.post(
   authcontroller.registerBrand.bind(authcontroller) as any,
 );
 
+authRouter.patch(
+  "/register/brand/step-2",
+  authcontroller.registerBrandStep2.bind(authcontroller) as any
+)
+
 // @ts-ignore
 authRouter.post("/login", authcontroller.login.bind(authcontroller) as any);
 
@@ -39,7 +44,7 @@ authRouter.post(
 );
 
 // @ts-ignore
-authRouter.post(
+authRouter.get(
   "/get-auth-user",
   isAuthenticated as any,
   authcontroller.getAuthUser.bind(authcontroller) as any,

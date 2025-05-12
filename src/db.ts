@@ -48,6 +48,7 @@ const models = [
   EscrowDetailssModel,
   AnalysisModel,
   JobImpressionModel,
+  CollectionModel
 ];
 
 // Define sequelize options

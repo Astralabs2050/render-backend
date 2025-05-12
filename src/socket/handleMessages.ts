@@ -257,23 +257,163 @@ export async function handlePrivateMessage(socket: any, io: any) {
   });
 }
 
-export async function handleAgentPrivateMessage(socket:any, io:any){
-  socket.on("agentMessage",async(data:any)=>{
-    try{
-     const response = await collectionAgentClass.collectionAgent(data)
-      io.to(data.senderId).emit("agent_message", {
-        data:{
-          message:response?.output_text,
-          id:response?.id
+/**
+ * Handles agent private messages through socket communication
+ * @param socket The socket instance for the current connection
+ * @param io The socket.io server instance
+ */
+export async function handleAgentPrivateMessage(socket: any, io: any) {
+  if (!socket) {
+    console.error("Invalid socket provided to handleAgentPrivateMessage");
+    return;
+  }
+
+  if (!io) {
+    console.error("Invalid io instance provided to handleAgentPrivateMessage");
+    return;
+  }
+
+  socket.on("agentMessage", async (data: any) => {
+    console.log("this is getting here11")
+    // Validate incoming data
+    if (!data) {
+      console.error("Empty or undefined data received in agentMessage event");
+      return emitError(io, socket, data?.senderId, "Invalid request data");
+    }
+
+    if (!data.senderId) {
+      console.error("Missing senderId in agentMessage event data");
+      return emitError(io, socket, "unknown", "Missing sender ID");
+    }
+
+    try {
+      // Log incoming request (excluding large payloads)
+      const logSafeData = { ...data };
+      if (logSafeData.image) logSafeData.image = "[IMAGE DATA]";
+      if (logSafeData.images) logSafeData.images = `[${logSafeData.images.length} IMAGES]`;
+      console.log("Processing agent message request:", logSafeData);
+
+      // Process the agent request
+      const response = await collectionAgentClass.collectionAgent(data);
+
+      // Validate response
+      if (!response) {
+        throw new Error("Empty response received from collection agent");
+      }
+
+      // Parse output text with error handling
+      let parsedMessage;
+      try {
+        const outputText = response?.response?.output_text;
+        if (!outputText) {
+          throw new Error("Missing output_text in agent response");
+        }
+        parsedMessage = JSON.parse(outputText);
+      } catch (parseError: any) {
+        console.error("Failed to parse agent response:", parseError);
+        return emitError(
+          io, 
+          socket, 
+          data.senderId,
+          "Failed to process agent response",
+          response?.id,
+          response?.collectionId
+        );
+      }
+
+      // Emit successful response
+      return io.to(data.senderId).emit("agent_message", {
+        data: {
+          message: parsedMessage,
+          collectionId: response?.collectionId || null,
+          id: response?.id || null
         }
       });
-    }catch(error:any){
-      console.error("Error handling agent message:", error);
-      throw new Error(error?.message || error || "Error in agent message");
+    } catch (error: any) {
+      // Log detailed error information
+      console.error("Error handling agent message:", {
+        error: error.message || String(error),
+        stack: error.stack,
+        senderId: data?.senderId,
+        type: data?.type
+      });
+
+      // Send appropriate error message to client
+      return emitError(
+        io, 
+        socket, 
+        data.senderId, 
+        getClientFriendlyErrorMessage(error)
+      );
     }
-  })
+  });
 }
 
+/**
+ * Emit an error message to the client via socket
+ * @param io Socket.io server instance
+ * @param socket Current socket connection
+ * @param senderId ID of the recipient
+ * @param errorMessage User-friendly error message
+ * @param responseId Optional response ID to include
+ * @param collectionId Optional collection ID to include
+ */
+function emitError(
+  io: any, 
+  socket: any, 
+  senderId: string, 
+  errorMessage: string,
+  responseId?: string,
+  collectionId?: string
+) {
+  if (!senderId || !io) {
+    // Fallback to socket if io or senderId is invalid
+    return socket.emit("agent_error", {
+      error: errorMessage || "An unknown error occurred"
+    });
+  }
+
+  // Emit error to specific user
+  return io.to(senderId).emit("agent_error", {
+    error: errorMessage || "An unknown error occurred",
+    collectionId: collectionId || null,
+    id: responseId || null
+  });
+}
+
+/**
+ * Convert technical error messages to user-friendly messages
+ * @param error The original error object
+ * @returns A user-friendly error message
+ */
+function getClientFriendlyErrorMessage(error: any): string {
+  // Extract error message
+  const errorMsg = error?.message || String(error);
+
+  // Map known error types to user-friendly messages
+  if (errorMsg.includes("Missing images")) {
+    return "Please provide at least one valid image to process";
+  }
+  
+  if (errorMsg.includes("Failed to upload")) {
+    return "We couldn't upload your image(s). Please try again with a different image format or size";
+  }
+  
+  if (errorMsg.includes("Collection with ID") && errorMsg.includes("not found")) {
+    return "The collection you're trying to update doesn't exist";
+  }
+  
+  if (errorMsg.includes("AI model request failed")) {
+    return "Our AI service is currently experiencing issues. Please try again in a few moments";
+  }
+  
+  if (errorMsg.includes("Missing senderId")) {
+    return "Authentication error. Please log in again";
+  }
+
+  // Default error message for unexpected errors
+  return "Something went wrong while processing your request. Please try again";
+}
 export async function updateUserAvailability(status: boolean, id: string) {
   try {
     await UsersModel.update({ active: status }, { where: { id } });

@@ -446,12 +446,89 @@ export class AuthService {
     }
   }
 
+  public async registerBrandStep2(data:any){
+    try{
+      const {id,name,origin,logo} = data
+      //find the brand
+      const brandExist = await BrandModel.findByPk(id)
+      if(!brandExist){
+        return { status: false, message: "Invalid brand id" };
+      }
+
+
+      if (logo) {
+        try {
+          console.log("profileImageprofileImage", logo);
+          // Step 1: Upload to AWS S3
+          const uploadResult: any = await uploadImageToS3(
+            "BRAND_LOGO",
+            logo,
+            brandExist?.userId,
+          );
+
+          // Check if the upload was successful
+          if (!uploadResult.success) {
+            console.warn("Failed to upload profile image to S3.");
+            throw new Error(
+              "Failed to upload profile image. Please try again.",
+            );
+          }
+
+          // Step 2: Save the uploaded image link to the MediaModel
+          const mediaRecord = {
+            link: uploadResult.url, // Use the URL returned from S3
+            mediaType: "BRAND_LOGO",
+            userId: brandExist?.userId, // Link to the user
+          };
+
+          await MediaModel.create(mediaRecord);
+          console.log(
+            "Profile image successfully uploaded and saved to MediaModel.",
+          );
+        } catch (error: any) {
+          console.error("Error uploading profile image to S3:", error.message);
+          //throw new Error("Failed to upload profile image. Please try again.");
+          return {
+            status: false,
+            message: "Error uploading profile image",
+            error: `Error uploading profile image to S3: ${error.message}`,
+          };
+        }
+      }
+      brandExist.update({
+        name,
+        origin,
+        story: data?.story || null
+      })
+      await brandExist.save()
+      const jwtSecret: any = process.env.JWT_SECRET;
+      let userExists = await UsersModel.findOne({ where: { id:brandExist?.userId } });
+      const expirationTime = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60;
+        const token = jwt.sign({ data:userExists }, jwtSecret, {
+          expiresIn: expirationTime,
+        });
+      return {
+        status: true,
+        message:"brand profile updated",
+        data: brandExist,
+        token
+      }
+
+    }catch(error:any){
+      return {
+        status: false,
+        message: "Error uploading brand",
+        error: error.message,
+      };
+    }
+  }
+
   public async registerBrandService(data: any) {
     const transaction = await sequelize.transaction();
 
     try {
-      const { email, password, username, country, city, language } = data;
-
+      const { email, password } = data;
+      const username = email.split("@")[0]
       // Check if the user already exists
       const userWithEmailExists = await UsersModel.findOne({
         where: { email },
@@ -473,9 +550,7 @@ export class AuthService {
         email,
         password: hashPassword,
         otp,
-        country,
-        language,
-        city,
+        
       };
 
       // Create user with transaction
@@ -514,7 +589,7 @@ export class AuthService {
       return {
         message: "Brand created successfully",
         status: true,
-        data: brandData,
+        data: brandData?.id,
       };
     } catch (error: any) {
       // Rollback the transaction in case of error
@@ -551,7 +626,7 @@ export class AuthService {
           },
         ],
       });
-
+      console.log("user from the database",user)
       if (!user) {
         return {
           message: "User not found",
