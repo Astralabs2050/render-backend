@@ -20,8 +20,8 @@ const fetchImageBufferFromUrl = (url: string): Promise<Buffer> => {
   });
 };
 
-// Function to upload a single image to S3
-const uploadSingleImageToS3 = async (
+// Function to upload image to S3
+export const uploadImageToS3 = async (
   mediaType: string,
   data: Buffer | string,
   id?: string,
@@ -31,6 +31,8 @@ const uploadSingleImageToS3 = async (
   message?: string;
   error?: any;
 }> => {
+  console.log("Received data:", data);
+
   // Create a random file name if no ID is provided
   const randomString = Math.ceil(1000000000 * Math.random()).toString();
   const fileName = `${mediaType}_${id || randomString}`;
@@ -42,6 +44,7 @@ const uploadSingleImageToS3 = async (
     if (typeof data === "string" && data.startsWith("http")) {
       console.log("Fetching image from URL:", data);
       fileData = await fetchImageBufferFromUrl(data);
+
     // Check if data is a Base64 string (starts with 'data:image/')
     } else if (
       typeof data === "string" &&
@@ -53,10 +56,12 @@ const uploadSingleImageToS3 = async (
         "",
       );
       fileData = Buffer.from(base64Data, "base64");
+
     // If data is already a Buffer, use it directly
     } else if (Buffer.isBuffer(data)) {
       console.log("Data is already a Buffer.");
       fileData = data;
+
     } else {
       throw new Error(
         "Invalid data format. Expected URL, Base64 string, or Buffer.",
@@ -85,100 +90,10 @@ const uploadSingleImageToS3 = async (
         : "processing image"
     }: ${error.message}`;
     console.error(errorMessage, error);
-
     return {
       success: false,
       message: errorMessage,
       error,
     };
   }
-};
-
-// Main function to upload image(s) to S3
-export const uploadImageToS3 = async (
-  mediaType: string,
-  data: Buffer | string | Buffer[] | string[],
-  id?: string,
-): Promise<{
-  success: boolean;
-  url?: string;
-  urls?: string[];
-  message?: string;
-  error?: any;
-}> => {
-  console.log("Received data:", data);
-
-  try {
-    // Check if data is an array
-    if (Array.isArray(data)) {
-      console.log(`Processing array of ${data.length} items`);
-      const uploadPromises = data.map((item, index) => 
-        uploadSingleImageToS3(
-          mediaType, 
-          item, 
-          id ? `${id}_${index}` : undefined
-        )
-      );
-      
-      const results = await Promise.all(uploadPromises);
-      const successfulUploads = results.filter(r => r.success);
-      
-      if (successfulUploads.length === results.length) {
-        return {
-          success: true,
-          urls: successfulUploads.map(r => r.url!),
-        };
-      } else {
-        const failedUploads = results.filter(r => !r.success);
-        return {
-          success: false,
-          message: `Failed to upload ${failedUploads.length} out of ${results.length} images`,
-          urls: successfulUploads.map(r => r.url!),
-          error: failedUploads.map(r => r.error),
-        };
-      }
-    } else {
-      // Handle single image upload
-      const result = await uploadSingleImageToS3(mediaType, data, id);
-      return result;
-    }
-  } catch (error: any) {
-    console.error("Error processing image(s):", error);
-    return {
-      success: false,
-      message: `Error processing image(s): ${error.message}`,
-      error,
-    };
-  }
-};
-
-// Optional: Function to upload multiple images separately
-export const uploadMultipleImagesToS3 = async (
-  mediaType: string,
-  dataArray: (Buffer | string)[],
-  idPrefix?: string,
-): Promise<{
-  success: boolean;
-  results: Array<{
-    success: boolean;
-    url?: string;
-    message?: string;
-    error?: any;
-  }>;
-}> => {
-  const uploadPromises = dataArray.map((data, index) => 
-    uploadSingleImageToS3(
-      mediaType, 
-      data, 
-      idPrefix ? `${idPrefix}_${index}` : undefined
-    )
-  );
-  
-  const results = await Promise.all(uploadPromises);
-  const allSuccessful = results.every(r => r.success);
-  
-  return {
-    success: allSuccessful,
-    results,
-  };
 };

@@ -3,7 +3,7 @@ import { creatorType, DesignModel } from "../model/design.model";
 import { MediaModel } from "../model/media.model";
 import { sequelize } from "../db"; // Import your sequelize instance
 import { uploadImageToS3 } from "../../util/aws";
-import { PieceModel, UsersModel } from "../model";
+import { CollectionModel, PieceModel, UsersModel } from "../model";
 import OpenAI from "openai";
 import { designConfig } from "../agent/design.config";
 
@@ -282,6 +282,39 @@ class DesignClass {
       return { status: false, message: errorMessage };
     }
   };
+  public async getUserCollection(userId:string){
+    try{
+      //check if the userId exsits
+      const userExist = await UsersModel.findByPk(userId)
+      if(!userExist){
+        return {
+          message:"user does not exist",
+          status: false
+        }
+      }
+      const userCollection  = await CollectionModel.findAll({
+          where:{
+            userId
+          },
+          include:[
+            {
+              model:MediaModel,
+              as: "media"
+            }
+          ]
+        })
+      return {
+        message:"gotten all collection",
+        data:userCollection || [],
+        status:true
+      }
+    }catch(err:any){
+      return {
+        message: err?.message || "An error occurred while getting collection",
+        status: false,
+      };
+    }
+  } 
   public uploadNewDesign = async (data: any, userId: string) => {
     const transaction = await sequelize.transaction(); // Start a transaction
     try {

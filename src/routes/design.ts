@@ -10,6 +10,12 @@ designRouter.post(
   DesignController.createNewDesign as any,
 );
 
+designRouter.get(
+  "/get-collection",
+  isAuthenticated as any,
+  DesignController.getUserCollection as any
+)
+
 designRouter.post(
   "/post-design",
   isAuthenticated as any,

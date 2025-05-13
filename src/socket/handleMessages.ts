@@ -274,7 +274,6 @@ export async function handleAgentPrivateMessage(socket: any, io: any) {
   }
 
   socket.on("agentMessage", async (data: any) => {
-    console.log("this is getting here11")
     // Validate incoming data
     if (!data) {
       console.error("Empty or undefined data received in agentMessage event");
@@ -285,11 +284,11 @@ export async function handleAgentPrivateMessage(socket: any, io: any) {
       console.error("Missing senderId in agentMessage event data");
       return emitError(io, socket, "unknown", "Missing sender ID");
     }
-
+    console.log("this the data to be sent",data)
     try {
       // Log incoming request (excluding large payloads)
       const logSafeData = { ...data };
-      if (logSafeData.image) logSafeData.image = "[IMAGE DATA]";
+      console.log("this is the logsafedata",logSafeData)
       if (logSafeData.images) logSafeData.images = `[${logSafeData.images.length} IMAGES]`;
       console.log("Processing agent message request:", logSafeData);
 
