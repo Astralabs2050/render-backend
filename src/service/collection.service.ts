@@ -171,12 +171,18 @@ class CollectionAgent {
           // console.log("imageResponse",imageResponse)
           // Save generated image to the collection
           if (image_bytes && (createdCollectionId || data.collectionId)) {
-            await this.saveGeneratedImage(
-              image_bytes, 
-              createdCollectionId || data.collectionId!, 
-              data.senderId
-            );
+             const uploadResult:any = await uploadImageToS3("COLLECTION_IMAGE", image_bytes);
+              if (uploadResult.success && uploadResult.url) {
+               MediaModel.create({
+                link:uploadResult.url,
+                mediaType:  "COLLECTION_COVER" ,
+                userId:data.senderId,
+                collectionId: createdCollectionId || data.collectionId
+          })
+              }
+            
           }
+         
         } catch (imageError) {
           console.error("Failed to generate design image:", imageError);
           // Don't throw - continue with the response even if image generation fails
@@ -257,7 +263,7 @@ class CollectionAgent {
       // const blob = await response.blob();
       // const base64 = await this.blobToBase64(blob);
       
-      const uploadResult = await uploadImageToS3("COLLECTION_IMAGE", base64);
+      const uploadResult:any = await uploadImageToS3("COLLECTION_IMAGE", base64);
       
       if (uploadResult.success && uploadResult.url) {
         await MediaModel.create({
@@ -266,7 +272,9 @@ class CollectionAgent {
           userId,
           collectionId
         });
+        
       }
+      
     } catch (error) {
       console.error("Failed to save generated image:", error);
       // Don't throw - this is a non-critical operation
@@ -602,7 +610,8 @@ class CollectionAgent {
 
   private async createCollectionWithMedia(
     uploadedUrls: string[], 
-    userId: string
+    userId: string,
+    cover?:boolean
   ): Promise<any> {
     let collection;
     
@@ -623,7 +632,7 @@ class CollectionAgent {
         uploadedUrls.map(link => 
           MediaModel.create({
             link,
-            mediaType: "image",
+            mediaType: cover ? "COLLECTION_COVER" :"COLLECTION_IMAGE",
             userId,
             collectionId: collection.id
           })
