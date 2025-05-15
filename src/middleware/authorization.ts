@@ -6,6 +6,7 @@ const secretKey: any = process.env.JWT_SECRET;
 function isAuthenticated(req: any, res: Response, next: NextFunction) {
   // Get the token from the request headers
   let token: any = req.header("Authorization");
+  console.log("this is the auth token",token)
   token = token && token.split(" ")[1];
   // Check if the token is missing
   if (!token) {

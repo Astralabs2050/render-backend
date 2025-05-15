@@ -19,6 +19,17 @@ export class AuthController {
       });
     }
   };
+  public async registerBrandStep2(req:Request, res: Response){
+    try{
+      const response = await this.authService.registerBrandStep2(req.body);
+      return res.json(response)
+    }catch(error:any){
+      return res.status(400).json({
+        status: false,
+        message: `An error occurred: ${error?.message || error}`,
+      });
+    }
+  }
   public registerCreatorEmailVerification = async (
     req: Request,
     res: Response,
@@ -95,6 +106,7 @@ export class AuthController {
     try {
       const { id } = (req as any)?.user;
       const result = await this.authService.getAuthUser(id);
+      return res.json(result)
     } catch (error: any) {
       return {
         status: false,
@@ -126,4 +138,15 @@ export class AuthController {
       };
     }
   };
+  
+  public updateWallet = async(req:Request, res:Response) =>{
+    try{
+      const response = await this.authService.updateWallet(req.body)
+    }catch(error:any){
+       return {
+        status: false,
+        message: `An error occurred: ${error?.message || error}`,
+      };
+    }
+  }
 }

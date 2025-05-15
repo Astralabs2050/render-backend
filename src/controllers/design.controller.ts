@@ -16,6 +16,19 @@ class designController {
     }
   };
 
+  public getUserCollection =  async(req:Request, res: Response)=>{
+    try{
+       const { id } = (req as any)?.user;
+        const response = await DesignService.getUserCollection(id)
+        return res.json(response) 
+    }catch(error:any){
+       return res.status(400).json({
+        status: false,
+        message: `An error occurred: ${error?.message || error}`,
+      });
+    }
+  }
+
   public uploadNewDesign = async (req: Request, res: Response) => {
     try {
       const { id } = (req as any)?.user;
@@ -60,6 +73,20 @@ class designController {
       });
     }
   };
+
+  public designAgent = async (req:Request,res:Response)=>{
+    try{
+      const {message} = req.body;
+      const { id } = (req as any)?.user;
+      const response = await DesignService.designAgent(message,id, req.body?.id);
+      return res.json(response);
+    }catch(error:any){
+      return res.status(400).json({
+        status: false,
+        message: `An error occurred: ${error?.message || error}`,
+      });
+    }
+  }
 }
 
 const DesignController = new designController();

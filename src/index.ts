@@ -16,6 +16,7 @@ app.use(bodyParser.json({ limit: "100mb" })); // Set the limit to an appropriate
 const allowedOrigins = [
   "http://localhost:3000",
   "http://51.20.37.218:3004",
+  "http://localhost:3001",
   "http://51.20.37.218:3005/",
   // Add more origins as needed
 ];
@@ -44,6 +45,7 @@ async function startServer() {
       origin: [
         "http://localhost:3000",
         "http://localhost:3000",
+        "http://localhost:3001",
         "http://51.20.37.218:3005/",
         // Add more origins as needed
       ], // Allow frontend port
@@ -60,7 +62,7 @@ async function startServer() {
 
   // Routes
   app.use(routes);
-  const PORT = Number(process.env.APP_URL) || 3002;
+  const PORT = Number(process.env.APP_URL) || 3004;
   httpServer.listen(PORT, "0.0.0.0", () => {
     // Ensure that PORT is a number
     console.log(`Server is running on port ${PORT}`);
@@ -72,3 +74,5 @@ startServer().catch((error) => {
   console.error("Error starting the server:", error.message);
   process.exit(1);
 });
+
+

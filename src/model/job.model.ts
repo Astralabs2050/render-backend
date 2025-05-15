@@ -35,6 +35,10 @@ export class JobModel extends Model {
   @Column(DataType.DATE)
   timeline?: Date;
 
+    @AllowNull(true)
+    @Column(DataType.STRING)
+    escorowId?: string;
+
   @AllowNull(true)
   @Default(0)
   @Column(DataType.INTEGER)

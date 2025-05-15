@@ -1,7 +1,7 @@
-import AWS from "aws-sdk";
-import https from "https";
+import AWS from 'aws-sdk';
+import https from 'https';
 
-// Configure the AWS SDK
+// Initialize the S3 client
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -20,6 +20,7 @@ const fetchImageBufferFromUrl = (url: string): Promise<Buffer> => {
   });
 };
 
+// Function to upload image to S3
 export const uploadImageToS3 = async (
   mediaType: string,
   data: Buffer | string,
@@ -30,34 +31,44 @@ export const uploadImageToS3 = async (
   message?: string;
   error?: any;
 }> => {
-  console.log("data", data);
+  console.log("Received data:", data);
+
+  // Create a random file name if no ID is provided
   const randomString = Math.ceil(1000000000 * Math.random()).toString();
   const fileName = `${mediaType}_${id || randomString}`;
+
   try {
     let fileData: Buffer;
 
+    // Check if data is a URL (starts with 'http')
     if (typeof data === "string" && data.startsWith("http")) {
-      // Fetch image from URL if data is a URL
+      console.log("Fetching image from URL:", data);
       fileData = await fetchImageBufferFromUrl(data);
+
+    // Check if data is a Base64 string (starts with 'data:image/')
     } else if (
       typeof data === "string" &&
       /^data:image\/[a-zA-Z0-9+.-]+;base64,/.test(data)
     ) {
-      // Handle Base64-encoded string
+      console.log("Processing Base64 string.");
       const base64Data = data.replace(
         /^data:image\/[a-zA-Z0-9+.-]+;base64,/,
         "",
       );
       fileData = Buffer.from(base64Data, "base64");
+
+    // If data is already a Buffer, use it directly
     } else if (Buffer.isBuffer(data)) {
-      // Use buffer directly if data is already a Buffer
+      console.log("Data is already a Buffer.");
       fileData = data;
+
     } else {
       throw new Error(
         "Invalid data format. Expected URL, Base64 string, or Buffer.",
       );
     }
 
+    // Upload the image to S3
     const params: AWS.S3.PutObjectRequest = {
       Bucket: process.env.AWS_S3_BUCKET_NAME!,
       Key: fileName,

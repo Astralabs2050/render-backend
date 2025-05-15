@@ -492,8 +492,8 @@ export default class DesignAgent {
       //   const userChoice = await this.agent.extractAnswer(
       //     prompt,
       //     response,
-      //     "string",
-      //    {
+      //     "string", 678198ddc16ff9084e3e8180
+      //    {{"_id":{"$oid":"678198ddc16ff9084e3e8180"},"accountName":"Walter Cronkite","pin":{"$numberInt":"5678"},"AccountNumber":{"$numberInt":"673683585"},"verified":true,"AccountType":"current","users_permissions_user":{"$oid":"67819838d8bece97557c76cc"},"amount":{"$numberInt":"5000"},"available_amount":{"$numberInt":"4800"},"transactions":[],"otp":{"$numberInt":"4321"},"createdAt":{"$date":{"$numberLong":"1733702400000"}},"updatedAt":{"$date":{"$numberLong":"1733702400000"}}}
       //       customPrompt:`
       //       Calculate the exact date based on the user's input relative to today's date, which is ${new Date()}. Always use the format dd/mm/yy for the final output. Examples:
       // - "5 weeks" should be calculated as 35 days added to ${new Date()} format it directly to dd/mm/yy.

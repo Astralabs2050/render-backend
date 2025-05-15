@@ -78,8 +78,9 @@ class jobController {
   public updateJob = async (req: Request, res: Response) => {
     try {
       const { id } = (req as any)?.user;
-      const { jobId, status } = (req as any)?.body;
-      const response = await JobService.updateJob(jobId, status);
+      const { jobId, status, escorowId } = (req as any)?.body;
+      console.log("jobId, status, escorowId",jobId, status, escorowId)
+      const response = await JobService.updateJob(jobId, status,escorowId);
       return res.json(response);
     } catch (error: any) {
       return res.status(400).json({

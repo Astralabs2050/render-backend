@@ -15,6 +15,7 @@ import { ProjectModel } from "./project.model";
 import { CreatorModel } from "./creator.model";
 import { PieceModel } from "./piece.model";
 import { DesignModel } from "./design.model";
+import { CollectionModel } from "./collection.model";
 
 @Table({ timestamps: true, tableName: "media" })
 export class MediaModel extends Model {
@@ -52,6 +53,19 @@ export class MediaModel extends Model {
     onDelete: "CASCADE",
   })
   design?: DesignModel;
+
+
+  @AllowNull(true)
+  @ForeignKey(() => CollectionModel)
+  @Column(DataType.UUID)
+  collectionId?: string;
+
+  @BelongsTo(() => CollectionModel, {
+    foreignKey: "collectionId",
+    as: "collection",
+    onDelete: "CASCADE",
+  })
+  collection?: ProjectModel;
 
   @AllowNull(true)
   @ForeignKey(() => ProjectModel)

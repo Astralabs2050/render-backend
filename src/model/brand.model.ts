@@ -24,6 +24,18 @@ export class BrandModel extends Model {
   @Column(DataType.STRING)
   username!: string;
 
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  name!: string;
+
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  origin!: string;
+
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  story!: string;
+
   @ForeignKey(() => User)
   @Column(DataType.UUID)
   userId!: string;

@@ -3,7 +3,9 @@ import { creatorType, DesignModel } from "../model/design.model";
 import { MediaModel } from "../model/media.model";
 import { sequelize } from "../db"; // Import your sequelize instance
 import { uploadImageToS3 } from "../../util/aws";
-import { PieceModel, UsersModel } from "../model";
+import { CollectionModel, PieceModel, UsersModel } from "../model";
+import OpenAI from "openai";
+import { designConfig } from "../agent/design.config";
 
 class DesignClass {
   // Method to generate new fashion design iterations
@@ -11,140 +13,198 @@ class DesignClass {
     data: {
       prompt: string;
       fabricDelivary?: boolean; // Fabric delivery is optional
-      image?: string; // Image is optional (base64)
+      image?: string; // Texture image is optional (base64 or URL)
+      sketch?: string; // Design sketch is optional (base64 or URL)
+      realisticMode?: boolean; // Option to generate more realistic designs
     },
     userId: string,
   ) => {
     const transaction = await sequelize.transaction(); // Start a new transaction
     try {
-      const apiKey = process.env.OPEN_API_KEY;
-      const imageUrl = "https://api.openai.com/v1/images/generations"; // DALL·E endpoint
-
-      // Helper function to analyze image texture
-      const photo_to_text = async (b64photo: string) => {
+      // Initialize OpenAI client with API key
+      const openai = new OpenAI({
+        apiKey: process.env.OPEN_API_KEY,
+      });
+  
+      // Helper function to determine if string is a URL or base64
+      const isUrl = (str: string): boolean => {
         try {
-          const resp = await fetch(
-            "https://api.openai.com/v1/chat/completions",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
-              },
-              body: JSON.stringify({
-                model: "gpt-4o-mini",
-                messages: [
-                  {
-                    role: "user",
-                    content: [
-                      { type: "text", text: "Summarize this texture..." },
-                      { type: "image_url", image_url: { url: b64photo } },
-                    ],
-                  },
+          new URL(str);
+          return str.startsWith('http://') || str.startsWith('https://');
+        } catch {
+          return false;
+        }
+      };
+  
+      // Helper function to prepare image for API (handle both URL and base64)
+      const prepareImageForApi = (imageData: string): { type: string; image_url: string } => {
+        if (isUrl(imageData)) {
+          return { type: "input_image", image_url: imageData };
+        } else {
+          // Assuming base64 format
+          return { type: "input_image", image_url: imageData };
+        }
+      };
+  
+      // Helper function to analyze images using OpenAI SDK
+      const analyzeImage = async (imageData: string, prompt: string) => {
+        try {
+          const imageInput:any = prepareImageForApi(imageData);
+          
+          const response = await openai.responses.create({
+            model: "gpt-4o",
+            input: [
+              {
+                role: "user",
+                content: [
+                  { type: "input_text", text: prompt },
+                  imageInput,
                 ],
-                max_tokens: 300,
-              }),
-            },
-          );
-
-          if (!resp.ok) {
-            throw new Error(
-              `OpenAI API returned an error: ${resp.status} ${resp.statusText}`,
-            );
-          }
-
-          const jsonResponse = await resp.json();
-          return jsonResponse.choices[0].message.content;
+              },
+            ],
+          });
+  
+          return response.output_text;
         } catch (error: any) {
-          console.error("Error in photo_to_text:", error?.message || error);
+          console.error(`Error in image analysis: ${error?.message || error}`);
           throw error;
         }
       };
-
+  
+      // Process texture image if provided
       let texture_info = "";
       if (data.image) {
         console.log("Analyzing texture from provided image...");
-        texture_info = await photo_to_text(data.image);
+        const result = await analyzeImage(
+          data.image,
+          "Analyze this textile/fabric texture in detail. Describe the material, weave pattern, texture characteristics, and any visible properties that would be relevant for clothing design."
+        );
+        texture_info = result ?? "";
         console.log("Texture Analysis Result:", texture_info);
       }
-
-      // Generate prompt
-      const prompt_engine = (prompt: string, texture_info = "") => {
+  
+      // Process sketch image if provided
+      let sketch_info = "";
+      if (data.sketch) {
+        console.log("Analyzing design sketch...");
+        const result = await analyzeImage(
+          data.sketch,
+          "Analyze this clothing design sketch in detail. Describe the silhouette, cut, style elements, proportions, notable features, and any design elements that should be preserved in the final design. Focus on translating the sketch into precise design terminology."
+        );
+        sketch_info = result ?? "";
+        console.log("Sketch Analysis Result:", sketch_info);
+      }
+  
+      // Enhanced prompt engine
+      const prompt_engine = (prompt: string, texture_info = "", sketch_info = "", realistic = false) => {
         const texture_note = texture_info
           ? `
-          * the material used to make the cloth should be as stated below:
+          * The material used to make the cloth should be as described below:
           -------------------------------
           ${texture_info}
           -------------------------------
-        `
+          `
           : "";
+  
+        const sketch_note = sketch_info
+          ? `
+          * The design should follow the key elements from this sketch analysis:
+          -------------------------------
+          ${sketch_info}
+          -------------------------------
+          `
+          : "";
+       
+        const realistic_note = realistic
+          ? `
+          * IMPORTANT: Create a realistic, manufacturable clothing design that a fashion designer could actually produce.
+          * The design should consider practical construction methods, seam placements, and fabric behavior.
+          * Avoid impossible or impractical elements that couldn't be physically created.
+          * The image should look like a high-quality fashion photograph of a real garment on a model, not a digital illustration.
+          `
+          : "";
+  
         return `
           Description: ${prompt}
           ---------------
-          From the above text description, extract various clothing attributes...
+          From the above text description, design a detailed, fashionable clothing item with the following considerations:
+          * Focus on creating a cohesive, stylish design that matches the description
+          * Include appropriate details like stitching, closures, and texture
+          * Ensure the proportions and fit would be flattering on a human body
           ${texture_note}
+          ${sketch_note}
+          ${realistic_note}
+          * Generate a clean, high-quality fashion design image that clearly shows the entire garment
         `;
       };
-
-      // Prepare the request data for DALL·E (single iteration at a time)
-      const requestData = {
-        model: "dall-e-3",
-        quality: "hd",
-        prompt: prompt_engine(data.prompt, texture_info),
-        n: 1, // Request one iteration at a time
-        size: "1024x1024",
-      };
-
-      // Function to make API request
+  
+      // Function to generate design using OpenAI SDK with improved prompting
       const generateDesign = async () => {
-        const imageResponse = await axios.post(imageUrl, requestData, {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
+        const imageResponse = await openai.images.generate({
+          model: "dall-e-3",
+          prompt: prompt_engine(data.prompt, texture_info, sketch_info, data.realisticMode ?? false),
+          n: 1,
+          size: "1024x1024",
+          quality: "hd",
+          style: data.realisticMode ? "natural" : "vivid", // Use natural style for realistic designs
         });
-
-        return imageResponse.data.data[0].url;
+  
+        return imageResponse.data[0].url;
       };
-
-      // Generate four iterations
-      const imageUrls = await Promise.all([
-        generateDesign(),
-        generateDesign(),
-        // generateDesign(),
-        // generateDesign(),
-      ]);
-
+  
+      // Generate iterations (configurable)
+      const numIterations = 2; // Can be adjusted based on requirements
+      const designPromises = Array(numIterations).fill(null).map(() => generateDesign());
+      const imageUrls = await Promise.all(designPromises);
+  
       // Check if the user exists
       const userExists = await UsersModel.findByPk(userId);
       if (!userExists) {
+        await transaction.rollback();
         return { status: false, message: "User ID not found in the database." };
       }
-
+  
+      // Save the final prompt used for generation
+      const finalPrompt = prompt_engine(data.prompt, texture_info, sketch_info, data.realisticMode ?? false);
+  
       // Create a new design in the database
       const newDesign = await DesignModel.create(
         {
-          prompt: prompt_engine(data.prompt, texture_info), // Save summarized prompt
+          prompt: finalPrompt,
           userId,
           fabricDelivary: data?.fabricDelivary,
+          hasSketch: !!data.sketch,
+          hasTextureReference: !!data.image,
+          isRealistic: data.realisticMode ?? false,
         },
         { transaction },
       );
-
+  
       console.log("New design created:", newDesign);
-
+  
+      // Helper function to save images to S3 based on whether they're URLs or base64
+      const saveImageToS3 = async (mediaType: string, imageData: string) => {
+        // If it's already a URL, just store the URL directly
+        if (isUrl(imageData)) {
+          return { success: true, url: imageData };
+        } 
+        // Otherwise, it's a base64 image that needs to be uploaded to S3
+        else {
+          return await uploadImageToS3(mediaType, imageData);
+        }
+      };
+  
       // Save the generated images in the MediaModel and link them to the design
-      const mediaEntries = imageUrls.map(async (url: string, index: number) => {
-        const aiImageToS3 = await uploadImageToS3(
-          `AI_GENERATED_IMAGE_${index + 1}`,
-          url,
-        );
+      const mediaEntries = imageUrls.filter((url): url is string => !!url).map(async (url: string, index: number) => {
+        const aiImageToS3 = await saveImageToS3(`AI_GENERATED_IMAGE_${index + 1}`, url);
         console.log("aiImageToS3", aiImageToS3);
+        
         // Check if the upload was successful
         if (!aiImageToS3.success) {
-          console.warn("Failed to upload profile image to S3.");
-          throw new Error("Failed to upload profile image. Please try again.");
+          console.warn("Failed to upload image to S3.");
+          throw new Error("Failed to upload generated image. Please try again.");
         }
+        
         return MediaModel.create(
           {
             link: aiImageToS3?.url,
@@ -154,40 +214,107 @@ class DesignClass {
           { transaction },
         );
       });
-
+  
+      // If sketch was provided, also save it as reference media
+      if (data.sketch) {
+        const sketchToS3 = await saveImageToS3("USER_SKETCH", data.sketch);
+        if (sketchToS3.success) {
+          mediaEntries.push(
+            MediaModel.create(
+              {
+                link: sketchToS3.url,
+                mediaType: "USER_SKETCH",
+                designId: newDesign?.dataValues?.id,
+              },
+              { transaction },
+            )
+          );
+        }
+      }
+  
+      // If texture image was provided, also save it as reference media
+      if (data.image) {
+        const textureToS3 = await saveImageToS3("TEXTURE_REFERENCE", data.image);
+        if (textureToS3.success) {
+          mediaEntries.push(
+            MediaModel.create(
+              {
+                link: textureToS3.url,
+                mediaType: "TEXTURE_REFERENCE",
+                designId: newDesign?.dataValues?.id,
+              },
+              { transaction },
+            )
+          );
+        }
+      }
+  
       await Promise.all(mediaEntries); // Await all media entries to be created
-
+  
       await transaction.commit(); // Commit the transaction
-
+  
       return {
         message: "Designs generated successfully.",
         data: {
           images: imageUrls,
           designId: newDesign?.dataValues?.id,
+          prompt: finalPrompt,
+          textureAnalysis: texture_info || undefined,
+          sketchAnalysis: sketch_info || undefined,
         },
         status: true,
       };
     } catch (err: any) {
       if (transaction) await transaction.rollback();
-
+  
       console.error("Error generating design:", err.message || err);
-
-      let errorMessage =
-        "An unexpected error occurred while generating designs.";
-      if (err.response) {
-        console.error("OpenAI API Error Response:", err.response.data);
-        const apiError = err.response.data.error || err.response.data;
-        errorMessage = `API Error: ${JSON.stringify(apiError)}`;
-      } else if (err.request) {
-        errorMessage = "Network error: No response received from the API.";
+  
+      let errorMessage = "An unexpected error occurred while generating designs.";
+      if (err instanceof OpenAI.APIError) {
+        console.error("OpenAI API Error:", err);
+        errorMessage = `OpenAI API Error: ${err.message}`;
       } else if (err.name === "SequelizeValidationError") {
         errorMessage = "Database validation error: " + err.message;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
-
-      return { message: errorMessage, status: false };
+  
+      return { status: false, message: errorMessage };
     }
   };
-
+  public async getUserCollection(userId:string){
+    try{
+      //check if the userId exsits
+      const userExist = await UsersModel.findByPk(userId)
+      if(!userExist){
+        return {
+          message:"user does not exist",
+          status: false
+        }
+      }
+      const userCollection  = await CollectionModel.findAll({
+          where:{
+            userId
+          },
+          include:[
+            {
+              model:MediaModel,
+              as: "media"
+            }
+          ]
+        })
+      return {
+        message:"gotten all collection",
+        data:userCollection || [],
+        status:true
+      }
+    }catch(err:any){
+      return {
+        message: err?.message || "An error occurred while getting collection",
+        status: false,
+      };
+    }
+  } 
   public uploadNewDesign = async (data: any, userId: string) => {
     const transaction = await sequelize.transaction(); // Start a transaction
     try {
@@ -387,6 +514,134 @@ class DesignClass {
       return {
         message: err?.message || "An error occurred during upload",
         status: false,
+      };
+    }
+  };
+  public designAgent = async (message: string, userId: string, prevId?: string) => {
+    try {
+      const openai = new OpenAI({
+        apiKey: process.env.OPEN_API_KEY, // Fixed: Corrected environment variable name
+      });
+  
+      // Build request payload with proper type
+      const requestPayload: any = {
+        model: "gpt-4o",
+        input: [
+          { role: "system", content: designConfig.instructions },
+          { role: "user", content: message },
+        ],
+        tools: designConfig.tools,
+        store: true
+      };
+  
+      // Only add previous_response_id if it exists
+      if (prevId) {
+        requestPayload.previous_response_id = prevId;
+      }
+  
+      // Make API call
+      const agentResponse:any = await openai.responses.create(requestPayload);
+      
+      // Handle responses with tool calls
+      if (agentResponse?.output?.[0]?.arguments) {
+        let args = agentResponse.output[0].arguments;
+          console.log("argsss",args)
+        // Parse arguments if they're a string
+        if (typeof args === 'string') {
+          try {
+            args = JSON.parse(args);
+          } catch (error) {
+            console.error("Error parsing arguments:", error);
+            throw new Error("Failed to parse arguments from AI response");
+          }
+        }
+        
+        // Validate required fields
+        if (!args.fashion_type || !args.design_description) {
+          throw new Error("Missing required arguments from AI response");
+        }
+        console.log("argsssss",args)
+        // Generate design with validated arguments
+        const generateDesign = await this.generateNewDesign(
+          {
+            prompt: `a user is trying to create this ${args.fashion_type}, this is more information about the design ${args.design_description}`,
+            fabricDelivary: args.delivery_method,
+            image: args.design_image,
+            realisticMode:false
+          },
+          userId
+        );
+        
+        return {
+          status: true,
+          message: "Design generated successfully",
+          data: generateDesign
+        };
+      }
+      
+      // Handle text responses
+      const outputText = agentResponse?.output_text;
+      const outputArgs = agentResponse?.output?.[0]?.arguments;
+      
+      if (outputText) {
+        // Text response
+        return {
+          message: "message from agent",
+          data: {
+            agentResponseData: outputText,
+            id: agentResponse?.id,
+            completed: false
+          },
+          status: true,
+        };
+      } else if (outputArgs) {
+        // Parse arguments for design generation
+        let parsedArgs;
+        try {
+          parsedArgs = typeof outputArgs === 'string' ? JSON.parse(outputArgs) : outputArgs;
+        } catch (parseError) {
+          console.error("Error parsing JSON response:", parseError);
+          throw new Error("Failed to parse arguments from AI response");
+        }
+        
+        // Validate required fields
+        if (!parsedArgs.fashion_type || !parsedArgs.design_description) {
+          throw new Error("Missing required arguments from AI response");
+        }
+        
+        // Generate design with validated arguments
+        const generateDesign = await this.generateNewDesign(
+          {
+            prompt: `a user is trying to create this ${parsedArgs.fashion_type}, this is more information about the design ${parsedArgs.design_description}`,
+            fabricDelivary: parsedArgs.delivery_method,
+            image: parsedArgs.design_image,
+          },
+          userId
+        );
+        
+        return {
+          status: true,
+          message: "Design generated successfully",
+          data: generateDesign
+        };
+      } else {
+        // No recognized output format
+        return {
+          message: "Received unexpected response format",
+          data: {
+            agentResponseData: {},
+            id: agentResponse?.id,
+            completed: false
+          },
+          status: true,
+        };
+      }
+    } catch (err: any) {
+      console.error("Design agent error:", err);
+      return {
+        message: err?.message || "An error occurred",
+        status: false,
+        error: err.toString(), // Convert error to string instead of passing full error object
       };
     }
   };

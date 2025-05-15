@@ -10,6 +10,12 @@ designRouter.post(
   DesignController.createNewDesign as any,
 );
 
+designRouter.get(
+  "/get-collection",
+  isAuthenticated as any,
+  DesignController.getUserCollection as any
+)
+
 designRouter.post(
   "/post-design",
   isAuthenticated as any,
@@ -27,5 +33,7 @@ designRouter.patch(
   isAuthenticated as any,
   DesignController.additionalInfromation as any,
 );
+
+designRouter.post("/design-agent",isAuthenticated as any, DesignController.designAgent as any);
 
 export default designRouter;
