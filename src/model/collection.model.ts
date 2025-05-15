@@ -29,7 +29,7 @@ import { UsersModel } from "./user.model";
     price?: number;
 
 
-    @Column(DataType.STRING)
+    @Column(DataType.TEXT)
     description?: string;
 
     @Column(DataType.STRING)

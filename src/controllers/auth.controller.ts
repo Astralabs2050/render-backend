@@ -138,4 +138,15 @@ export class AuthController {
       };
     }
   };
+  
+  public updateWallet = async(req:Request, res:Response) =>{
+    try{
+      const response = await this.authService.updateWallet(req.body)
+    }catch(error:any){
+       return {
+        status: false,
+        message: `An error occurred: ${error?.message || error}`,
+      };
+    }
+  }
 }

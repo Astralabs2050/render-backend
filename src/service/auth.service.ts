@@ -727,6 +727,13 @@ export class AuthService {
     }
   }
 
+  public async updateWallet(data:any){
+    try{
+
+    }catch(err){
+      
+    }
+  }
   public async resetPasswordLink(data: any) {
     try {
       // Check if the data exists

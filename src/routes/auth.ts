@@ -62,4 +62,11 @@ authRouter.patch(
   authcontroller.resetPasswordLink.bind(authcontroller) as any,
 );
 
+authRouter.patch(
+  "/update-wallet",
+  isAuthenticated as any,
+  authcontroller.updateWallet.bind(authcontroller) as any
+
+)
+
 export default authRouter;

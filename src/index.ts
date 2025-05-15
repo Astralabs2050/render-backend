@@ -16,6 +16,7 @@ app.use(bodyParser.json({ limit: "100mb" })); // Set the limit to an appropriate
 const allowedOrigins = [
   "http://localhost:3000",
   "http://51.20.37.218:3004",
+  "http://localhost:3001",
   "http://51.20.37.218:3005/",
   // Add more origins as needed
 ];
@@ -44,6 +45,7 @@ async function startServer() {
       origin: [
         "http://localhost:3000",
         "http://localhost:3000",
+        "http://localhost:3001",
         "http://51.20.37.218:3005/",
         // Add more origins as needed
       ], // Allow frontend port
