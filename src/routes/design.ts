@@ -16,6 +16,11 @@ designRouter.get(
   DesignController.getUserCollection as any
 )
 
+designRouter.get(
+  "/get-all-collection",
+  DesignController.getAllCollection as any
+)
+
 designRouter.post(
   "/post-design",
   isAuthenticated as any,
