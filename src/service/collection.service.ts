@@ -103,7 +103,7 @@ interface UploadProgress {
 // ===== Main CollectionAgent Class =====
 
 class CollectionAgent {
-  private readonly AI_MODEL = "gpt-4.1";
+  private readonly AI_MODEL = "gpt-4.1-mini";
   private readonly MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
   private readonly ALLOWED_IMAGE_FORMATS = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
   private readonly MAX_IMAGES_PER_REQUEST = 10;
