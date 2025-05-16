@@ -207,51 +207,52 @@ class CollectionAgent {
    * Generate prompt for image creation
    */
   private generatePrompt(
-    description: string, 
-    textureInfo?: string, 
-    sketchInfo?: string, 
-    realistic?: boolean
-  ): string {
-    const textureNote = textureInfo
-      ? `
-      * The material used to make the cloth should be as described below:
-      -------------------------------
-      ${textureInfo}
-      -------------------------------
-      `
-      : "";
+  description: string,
+  textureInfo?: string,
+  sketchInfo?: string,
+  realistic?: boolean
+): string {
+  const textureNote = textureInfo
+    ? `
+    * The material or texture used for this fashion item should follow the description below:
+    -------------------------------
+    ${textureInfo}
+    -------------------------------
+    `
+    : "";
 
-    const sketchNote = sketchInfo
-      ? `
-      * The design should follow the key elements from this sketch analysis:
-      -------------------------------
-      ${sketchInfo}
-      -------------------------------
-      `
-      : "";
-    
-    const realisticNote = realistic
-      ? `
-      * IMPORTANT: Create a realistic, manufacturable clothing design that a fashion designer could actually produce.
-      * The design should consider practical construction methods, seam placements, and fabric behavior.
-      * Avoid impossible or impractical elements that couldn't be physically created.
-      * The image should look like a high-quality fashion photograph of a real garment on a model, not a digital illustration.
-      `
-      : "";
+  const sketchNote = sketchInfo
+    ? `
+    * The design should incorporate key elements from the sketch analysis below:
+    -------------------------------
+    ${sketchInfo}
+    -------------------------------
+    `
+    : "";
 
-    return `
-      Description: ${description}
-      ---------------
-      From the above text description, design a detailed, fashionable clothing item with the following considerations:
-      * Focus on creating a cohesive, stylish design that matches the description
-      * Include appropriate details like stitching, closures, and texture
-      * Ensure the proportions and fit would be flattering on a human body
-      ${textureNote}
-      ${sketchNote}
-      ${realisticNote}
-      * Generate a clean, high-quality fashion design image that clearly shows the entire garment
-    `;
-  }
+  const realisticNote = realistic
+    ? `
+    * IMPORTANT: Create a realistic, manufacturable fashion design that a designer or artisan could actually produce.
+    * Consider practical construction methods, materials, and structural integrity relevant to the type of fashion item.
+    * Avoid fantastical or physically impossible elements.
+    * The image should resemble a high-quality product photo or fashion shoot of a real item.
+    `
+    : "";
+
+  return `
+    Description: ${description}
+    ---------------
+    Based on the above description, design a detailed and stylish fashion item or accessory. Consider the following:
+    * Focus on a cohesive design that fits the intended aesthetic and purpose
+    * Include appropriate functional and decorative details (e.g., fasteners, stitching, texture, embellishments)
+    * Ensure proportions, ergonomics, and usability make sense for the intended user
+    ${textureNote}
+    ${sketchNote}
+    ${realisticNote}
+    * Generate a clean, high-quality image that clearly shows the full design of the item
+  `;
+}
+
 
   /**
    * Save generated image to collection
