@@ -56,7 +56,7 @@ At the end of the conversation, return all collected user input in JSON format w
     transitions: [
       {
         condition: "userProvidesCollectionName",
-        next_step: "3_design_choice",
+        next_step: "3_quantity",
         action: {
           set: {
             collectionName: "{{collection_name}}"
@@ -66,7 +66,58 @@ At the end of the conversation, return all collected user input in JSON format w
     ]
   },
   {
-    id: "3_design_choice",
+    id: "3_quantity",
+    instructions: [
+      "Say: 'How many pieces do you want to produce for this design?'"
+    ],
+    transitions: [
+      {
+        condition: "userProvidesQuantity",
+        next_step: "4_price",
+        action: {
+          set: {
+            quantity: "{{quantity}}"
+          }
+        }
+      }
+    ]
+  },
+  {
+    id: "4_price",
+    instructions: [
+      "Say: 'How much would you like to charge for each item in this collection?'"
+    ],
+    transitions: [
+      {
+        condition: "userProvidesPrice",
+        next_step: "5_delivery_time",
+        action: {
+          set: {
+            price: "{{price}}"
+          }
+        }
+      }
+    ]
+  },
+  {
+    id: "5_delivery_time",
+    instructions: [
+      "Say: 'How many days do you estimate it will take to deliver this item after production starts?'"
+    ],
+    transitions: [
+      {
+        condition: "userProvidesDeliveryTime",
+        next_step: "6_design_choice",
+        action: {
+          set: {
+            deliveryTime: "{{deliveryTime}}"
+          }
+        }
+      }
+    ]
+  },
+  {
+    id: "6_design_choice",
     instructions: [
       "Say: 'Thanks! Now, how would you like to handle your designs? You can either upload your own design or have Astra generate one using AI based on your ideas.'",
       "Ask: 'Which would you prefer?'"
@@ -74,7 +125,7 @@ At the end of the conversation, return all collected user input in JSON format w
     transitions: [
       {
         condition: "userWantsToUploadOwnDesign",
-        next_step: "4_design_description",
+        next_step: "7_design_description",
         action: {
           set: {
             generate_design: false,
@@ -84,7 +135,7 @@ At the end of the conversation, return all collected user input in JSON format w
       },
       {
         condition: "userWantsAIDesign",
-        next_step: "4_ai_prompt",
+        next_step: "7_ai_prompt",
         action: {
           set: {
             generate_design: "pending",
@@ -95,14 +146,14 @@ At the end of the conversation, return all collected user input in JSON format w
     ]
   },
   {
-    id: "4_ai_prompt",
+    id: "7_ai_prompt",
     instructions: [
       "Say: 'Great! Can you describe the concept or vibe you want the AI to bring to life? Feel free to be creative!'"
     ],
     transitions: [
       {
         condition: "userProvidesPrompt",
-        next_step: "5_ai_inspiration",
+        next_step: "8_ai_inspiration",
         action: {
           set: {
             design_prompt: "{{design_prompt}}"
@@ -112,14 +163,14 @@ At the end of the conversation, return all collected user input in JSON format w
     ]
   },
   {
-    id: "5_ai_inspiration",
+    id: "8_ai_inspiration",
     instructions: [
       "Say: 'Do you have a reference for inspiration? Maybe a style era, designer, or aesthetic you love?'"
     ],
     transitions: [
       {
         condition: "userProvidesInspiration",
-        next_step: "6_ai_fabric",
+        next_step: "9_ai_fabric",
         action: {
           set: {
             inspiration: "{{inspiration}}"
@@ -129,14 +180,14 @@ At the end of the conversation, return all collected user input in JSON format w
     ]
   },
   {
-    id: "6_ai_fabric",
+    id: "9_ai_fabric",
     instructions: [
       "Say: 'What kind of fabric are you thinking about for this design? Cotton, silk, denim, something else?'"
     ],
     transitions: [
       {
         condition: "userProvidesFabric",
-        next_step: "7_design_description",
+        next_step: "10_design_description",
         action: {
           set: {
             fabric: "{{fabric}}"
@@ -146,14 +197,14 @@ At the end of the conversation, return all collected user input in JSON format w
     ]
   },
   {
-    id: "7_design_description",
+    id: "10_design_description",
     instructions: [
       "Say: 'Lastly, how would you describe your final design? Think of this like what you’d tell a tailor or fashion illustrator.'"
     ],
     transitions: [
       {
         condition: "userProvidesDescription",
-        next_step: "8_quantity",
+        next_step: "11_review_summary",
         action: {
           set: {
             design_description: "{{design_description}}"
@@ -165,57 +216,6 @@ At the end of the conversation, return all collected user input in JSON format w
         action: {
           set: {
             generate_design: true
-          }
-        }
-      }
-    ]
-  },
-  {
-    id: "8_quantity",
-    instructions: [
-      "Say: 'How many pieces do you want to produce for this design?'"
-    ],
-    transitions: [
-      {
-        condition: "userProvidesQuantity",
-        next_step: "9_price",
-        action: {
-          set: {
-            quantity: "{{quantity}}"
-          }
-        }
-      }
-    ]
-  },
-  {
-    id: "9_price",
-    instructions: [
-      "Say: 'How much would you like to charge for each item in this collection?'"
-    ],
-    transitions: [
-      {
-        condition: "userProvidesPrice",
-        next_step: "10_delivery_time",
-        action: {
-          set: {
-            price: "{{price}}"
-          }
-        }
-      }
-    ]
-  },
-  {
-    id: "10_delivery_time",
-    instructions: [
-      "Say: 'How many days do you estimate it will take to deliver this item after production starts?'"
-    ],
-    transitions: [
-      {
-        condition: "userProvidesDeliveryTime",
-        next_step: "11_review_summary",
-        action: {
-          set: {
-            deliveryTime: "{{deliveryTime}}"
           }
         }
       }
