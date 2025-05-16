@@ -321,7 +321,7 @@ export async function handleAgentPrivateMessage(socket: any, io: any) {
           response?.collectionId
         );
       }
-
+console.log("the message is been emitted to the backend")
       // Emit successful response
       return io.to(data.senderId).emit("agent_message", {
         data: {
