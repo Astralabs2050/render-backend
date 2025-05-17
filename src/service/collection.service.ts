@@ -233,6 +233,7 @@ class CollectionAgent {
   const realisticNote = realistic
     ? `
     * IMPORTANT: Create a realistic, manufacturable fashion design that a designer or artisan could actually produce.
+    * the bacground should always be a solid color white(#fff) that provides goot contrast with the product.
     * Consider practical construction methods, materials, and structural integrity relevant to the type of fashion item.
     * Avoid fantastical or physically impossible elements.
     * The image should resemble a high-quality product photo or fashion shoot of a real item.
