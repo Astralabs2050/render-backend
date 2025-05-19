@@ -18,7 +18,8 @@ const allowedOrigins = [
   "http://51.20.37.218:3004",
   "http://localhost:3001",
   "http://51.20.37.218:3005/",
-  "www.astra.fashion"
+  "www.astra.fashion",
+  "www.astra.fashion/"
   // Add more origins as needed
 ];
 
@@ -49,6 +50,7 @@ async function startServer() {
         "http://localhost:3001",
         "www.astra.fashion",
         "http://51.20.37.218:3005/",
+        "www.astra.fashion/"
         // Add more origins as needed
       ], // Allow frontend port
     },
