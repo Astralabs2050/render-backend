@@ -52,7 +52,7 @@ async function startServer() {
         "https://www.astra.fashion",
         "http://www.astra.fashion"
         // Add more origins as needed
-      ], // Allow frontend port
+      ], 
     },
   });
 
