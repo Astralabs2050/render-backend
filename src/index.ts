@@ -38,8 +38,7 @@ async function startServer() {
   //   console.error("Error finding an available port:", error.message);
   //   // If an error occurs (e.g., no available ports), use a different port
   //   port = 3002;
-  // }
-
+  // 
   const httpServer = createServer(app);
   // Create Socket.IO server
   const io = new SocketIOServer(httpServer, {
