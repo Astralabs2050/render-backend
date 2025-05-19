@@ -18,8 +18,8 @@ const allowedOrigins = [
   "http://51.20.37.218:3004",
   "http://localhost:3001",
   "http://51.20.37.218:3005/",
-  "www.astra.fashion",
-  "www.astra.fashion/"
+  "https://www.astra.fashion",
+  "http://www.astra.fashion"
   // Add more origins as needed
 ];
 
@@ -38,8 +38,7 @@ async function startServer() {
   //   console.error("Error finding an available port:", error.message);
   //   // If an error occurs (e.g., no available ports), use a different port
   //   port = 3002;
-  // }
-
+  // 
   const httpServer = createServer(app);
   // Create Socket.IO server
   const io = new SocketIOServer(httpServer, {
@@ -48,11 +47,11 @@ async function startServer() {
         "http://localhost:3000",
         "http://localhost:3000",
         "http://localhost:3001",
-        "www.astra.fashion",
         "http://51.20.37.218:3005/",
-        "www.astra.fashion/"
+        "https://www.astra.fashion",
+        "http://www.astra.fashion"
         // Add more origins as needed
-      ], // Allow frontend port
+      ], 
     },
   });
 
