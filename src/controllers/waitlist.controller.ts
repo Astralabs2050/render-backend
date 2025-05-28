@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { Waitlist } from "../model/waitlist.model";
+import sendEmail from "../../util/sendMail";
 
 class WaitlistController {
   public joinWaitlist = async (
@@ -21,6 +22,18 @@ class WaitlistController {
 
       // Create the new waitlist entry
       await Waitlist.create(req.body);
+     await sendEmail(
+  req.body.email,
+  "You’re on the waitlist – we’ll be in touch soon!",
+  `Hi there,
+
+Thanks for joining the waitlist! We're excited to have you on board.
+
+Keep an eye on your inbox — we’ll notify you as soon as it’s your turn.
+
+Best regards,  
+Astra`
+);
 
       return res.status(201).json({
         message: "Added to waitlist",

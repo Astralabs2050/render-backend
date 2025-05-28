@@ -10,7 +10,7 @@ import { MessageModel } from "../model/ChatMessage.model";
 import sendEmail from "../../util/sendMail";
 import { uploadImageToS3 } from "../../util/aws";
 import e from "express";
-import  { design_onboarding_astra } from "../agent/collection.config";
+import { design_onboarding_astra } from "../agent/collection.config";
 import client from "./llm";
 import collectionAgentClass from "../service/collection.service";
 
@@ -61,13 +61,224 @@ const getMessages = async (senderId: string, receiverId: string) => {
   });
 };
 
-const saveAndBroadcastMessage = async (data: any) => {
+// Get chat history for AI context (limited to recent messages)
+const getChatHistoryForAI = async (senderId: string, receiverId: string, limit: number = 15) => {
+  try {
+    const messages = await MessageModel.findAll({
+      where: {
+        [Op.or]: [
+          { senderId, receiverId },
+          { senderId: receiverId, receiverId: senderId }
+        ]
+      },
+      order: [['createdAt', 'DESC']],
+      limit,
+      include: [
+        {
+          model: UsersModel,
+          as: 'sender',
+          attributes: ['id'],
+          include: [
+            { model: CreatorModel, as: 'creator', attributes: ['fullName'] },
+            { model: BrandModel, as: 'brand', attributes: ['username'] }
+          ]
+        }
+      ]
+    });
+
+    return messages.reverse().map(msg => ({
+      id: msg.id,
+      message: msg.message,
+      type: msg.type,
+      senderId: msg.senderId,
+      receiverId: msg.receiverId,
+      timestamp: msg.createdAt,
+      isAIGenerated: msg.isAIGenerated || false,
+      senderName: msg.sender?.creator?.fullName || msg.sender?.brand?.username || 'User'
+    }));
+  } catch (error) {
+    console.error("Error getting chat history for AI:", error);
+    return [];
+  }
+};
+
+// Generate AI response for offline receiver
+const generateAIResponse = async ({
+  currentMessage,
+  chatHistory,
+  previousResponseId,
+  senderName,
+  receiverName,
+  messageType
+}: {
+  currentMessage: string;
+  chatHistory: any[];
+  previousResponseId?: string;
+  senderName: string;
+  receiverName: string;
+  messageType: string;
+}) => {
+  try {
+    // Build context from chat history
+    const conversationContext = chatHistory.slice(-10).map(msg => 
+      `${msg.senderName}: ${msg.message}`
+    ).join('\n');
+
+    // Find previous response if ID is provided
+    let previousResponse = null;
+    if (previousResponseId) {
+      previousResponse = await MessageModel.findByPk(previousResponseId);
+    }
+
+    // Prepare prompt for AI
+    const systemPrompt = `You are an AI assistant responding on behalf of ${receiverName} who is currently offline. 
+    Your responses should be:
+    1. Helpful and contextually appropriate
+    2. Professional but friendly
+    3. Acknowledge you're responding as an AI assistant
+    4. Mention that ${receiverName} will get back to them
+    5. Keep responses concise (under 100 words)
+    6. Ask relevant follow-up questions when appropriate`;
+
+    const userPrompt = `
+    Chat History:
+    ${conversationContext}
+    
+    Latest Message from ${senderName}: ${currentMessage}
+    ${previousResponse ? `Previous Response Context: ${previousResponse.message}` : ''}
+    
+    Respond helpfully on behalf of ${receiverName}.
+    `;
+
+    const response = await client.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      max_tokens: 150,
+      temperature: 0.7,
+    });
+
+    const aiResponse = response.choices[0]?.message?.content;
+
+    if (!aiResponse) {
+      throw new Error("No content returned from OpenAI.");
+    }
+
+    return {
+      message: aiResponse.trim(),
+      context: conversationContext,
+      respondedAt: new Date()
+    };
+  } catch (error) {
+    console.error("Error generating AI response:", error);
+    // Fallback response
+    return {
+      message: `Hi ${senderName}! I'm an AI assistant responding for ${receiverName} who is currently offline. They'll get back to you as soon as possible. Feel free to share any additional details about what you need help with.`,
+      context: "",
+      respondedAt: new Date()
+    };
+  }
+};
+
+// Handle AI agent response when receiver is offline
+const handleAIAgentResponse = async ({
+  originalMessage,
+  senderId,
+  receiverId,
+  previousResponseId,
+  senderData,
+  receiverData,
+  io
+}: {
+  originalMessage: any;
+  senderId: string;
+  receiverId: string;
+  previousResponseId?: string;
+  senderData: any;
+  receiverData: any;
+  io: any;
+}) => {
+  try {
+    console.log("Generating AI response for offline receiver:", receiverId);
+    
+    // Get previous chat history for context
+    const chatHistory = await getChatHistoryForAI(senderId, receiverId);
+    
+    // Generate AI response
+    const aiResponse = await generateAIResponse({
+      currentMessage: originalMessage.message,
+      chatHistory,
+      previousResponseId,
+      senderName: senderData?.dataValues?.creator?.dataValues?.fullName || 
+                  senderData?.dataValues?.brand?.dataValues?.username || 'User',
+      receiverName: receiverData?.dataValues?.creator?.dataValues?.fullName || 
+                    receiverData?.dataValues?.brand?.dataValues?.username || 'User',
+      messageType: originalMessage.type
+    });
+
+    // Create AI agent message - treating it like a user message
+    const aiMessage = await MessageModel.create({
+      message: aiResponse.message,
+      type: "text",
+      receiverId: senderId, // AI responds to the sender
+      senderId: receiverId, // AI acts as the receiver
+      sent: true,
+      seen: false, // Sender hasn't seen it yet
+      createdAt: new Date(),
+      isAIGenerated: true, // Flag to identify AI messages
+      previousResponseId: originalMessage.id, // Link to the original message
+    });
+
+    console.log("AI message created:", aiMessage.id);
+
+    // Check if sender is still online and broadcast the AI response
+    const senderOnline = await UsersModel.findOne({
+      where: { id: senderId },
+      attributes: ["active"],
+    });
+
+    if (senderOnline?.active) {
+      // Format the AI message like a regular message for consistency
+      const formattedAIMessage = {
+        id: aiMessage.id,
+        message: aiMessage.message,
+        type: aiMessage.type,
+        receiverId: aiMessage.receiverId,
+        senderId: aiMessage.senderId,
+        sent: aiMessage.sent,
+        seen: aiMessage.seen,
+        createdAt: aiMessage.createdAt,
+        isAIGenerated: true,
+        // Include sender info for consistency with regular messages
+        sender: {
+          id: receiverId,
+          creator: receiverData?.dataValues?.creator,
+          brand: receiverData?.dataValues?.brand,
+          media: receiverData?.dataValues?.media
+        }
+      };
+
+      console.log("Broadcasting AI response to sender:", senderId);
+      io.to(senderId).emit("privateMessage", formattedAIMessage);
+    }
+
+    return aiMessage;
+  } catch (error) {
+    console.error("Error in AI agent response:", error);
+    throw error;
+  }
+};
+
+const saveAndBroadcastMessage = async (data: any, io?: any) => {
   try {
     // Check if the receiver is online
     const receiver = await UsersModel.findOne({
       where: { id: data.receiverId },
       attributes: ["active"],
     });
+    
     //check if the message is an image or text
     let uploadResult: any;
     if (data.type === "image") {
@@ -104,7 +315,10 @@ const saveAndBroadcastMessage = async (data: any) => {
       sent: true,
       seen: receiver?.active ?? false,
       createdAt: data.createdAt,
+      previousResponseId: data.previousResponseId || null, // Add previous response ID support
+      isAIGenerated: false, // Regular user message
     });
+
     // find the receiver on the database
     const receiverData = await UsersModel.findOne({
       where: { id: data.receiverId },
@@ -121,6 +335,7 @@ const saveAndBroadcastMessage = async (data: any) => {
         },
       ],
     });
+    
     const senderData = await UsersModel.findOne({
       where: { id: data.senderId },
       include: [
@@ -136,46 +351,61 @@ const saveAndBroadcastMessage = async (data: any) => {
         },
       ],
     });
+
     console.log(
       "receiverData",
       receiverData?.dataValues?.brand?.dataValues?.username,
     );
-    if (
-      receiverData?.dataValues?.email &&
-      senderData?.dataValues?.email &&
-      !receiver?.active
-    ) {
-      sendEmail(
-        receiverData?.dataValues?.email,
-        `You have a Message from ${
-          senderData?.dataValues?.creator?.dataValues?.fullName ||
-          senderData?.dataValues?.brand?.dataValues?.username
-        }`,
-        `
-        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #333;">
-          <h2 style="color: #4CAF50;">You have a new message!</h2>
-          <p>Hi ${
-            receiverData?.dataValues?.brand?.dataValues?.username ||
-            receiverData?.dataValues?.creator?.dataValues?.fullName ||
-            "there"
-          },</p>
-          <p>
-            You have received a message from <strong>${
-              senderData?.dataValues?.creator?.dataValues?.fullName ||
-              senderData?.dataValues?.brand?.dataValues?.username ||
-              "a user"
-            }</strong>.
-          </p>
-          <p>
-            Please check your inbox for further details.
-          </p>
-          <p style="margin-top: 20px;">Thank you,</p>
-          <p><strong>Your Team</strong></p>
-        </div>
-        `,
-      );
+
+    // If receiver is offline, trigger AI agent response and send email
+    if (!receiver?.active) {
+      // Send email notification first
+      if (receiverData?.dataValues?.email && senderData?.dataValues?.email) {
+        sendEmail(
+          receiverData?.dataValues?.email,
+          `You have a Message from ${
+            senderData?.dataValues?.creator?.dataValues?.fullName ||
+            senderData?.dataValues?.brand?.dataValues?.username
+          }`,
+          `
+          <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #333;">
+            <h2 style="color: #4CAF50;">You have a new message!</h2>
+            <p>Hi ${
+              receiverData?.dataValues?.brand?.dataValues?.username ||
+              receiverData?.dataValues?.creator?.dataValues?.fullName ||
+              "there"
+            },</p>
+            <p>
+              You have received a message from <strong>${
+                senderData?.dataValues?.creator?.dataValues?.fullName ||
+                senderData?.dataValues?.brand?.dataValues?.username ||
+                "a user"
+              }</strong>.
+            </p>
+            <p>
+              Please check your inbox for further details.
+            </p>
+            <p style="margin-top: 20px;">Thank you,</p>
+            <p><strong>Your Team</strong></p>
+          </div>
+          `,
+        );
+      }
+
+      // Trigger AI agent response if io is available
+      if (io) {
+        await handleAIAgentResponse({
+          originalMessage: message,
+          senderId: data.senderId,
+          receiverId: data.receiverId,
+          previousResponseId: data.previousResponseId,
+          senderData,
+          receiverData,
+          io
+        });
+      }
     }
-    //send mail to the receiver
+
     return message;
   } catch (error) {
     console.error("Error in saveAndBroadcastMessage:", error);
@@ -187,69 +417,48 @@ export async function getPreviousMessages(socket: any) {
   socket.on("get_previous_messages", async (data: any) => {
     try {
       const messages = await getMessages(data.senderId, data.receiverId);
-
       socket.emit("previous_messages", messages);
     } catch (error) {
       console.error("Error retrieving previous messages:", error);
     }
   });
 }
+
 export async function translateMessage(
   message: string,
   language: string,
 ): Promise<string> {
-  const apiKey = process.env.OPEN_API_KEY; // Ensure your OpenAI API key is set in environment variables
-  const apiUrl = "https://api.openai.com/v1/chat/completions";
+  try {
+    const response = await client.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        { role: "system", content: `You are a translation assistant.` },
+        {
+          role: "user",
+          content: `Translate the following message to ${language || "english"}, only return the translated text: "${message}"`,
+        },
+      ],
+      max_tokens: 100,
+      temperature: 0.3,
+    });
 
-  if (!apiKey) {
-    throw new Error("OpenAI API key is not set.");
+    const translatedText = response.choices[0]?.message?.content;
+
+    if (!translatedText) {
+      throw new Error("Translation failed: No content returned from OpenAI.");
+    }
+
+    return translatedText.trim();
+  } catch (error: any) {
+    console.error("Translation error:", error);
+    throw new Error(`Translation failed: ${error.message}`);
   }
-
-  const body = {
-    model: "gpt-3.5-turbo",
-    messages: [
-      { role: "system", content: `You are a translation assistant.` },
-      {
-        role: "user",
-        content: `Translate the following message to ${language || "english"}, only return the translated text: "${message}"`,
-      },
-    ],
-    max_tokens: 100,
-    temperature: 0.3,
-  };
-
-  const response = await fetch(apiUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const errorDetails = await response.json();
-    throw new Error(
-      `OpenAI API request failed: ${response.status} - ${response.statusText} - ${JSON.stringify(
-        errorDetails,
-      )}`,
-    );
-  }
-
-  const data = await response.json();
-  const translatedText = data.choices[0]?.message?.content;
-
-  if (!translatedText) {
-    throw new Error("Translation failed: No content returned from OpenAI.");
-  }
-
-  return translatedText.trim();
 }
 
 export async function handlePrivateMessage(socket: any, io: any) {
   socket.on("privateMessage", async (data: any) => {
     try {
-      const message = await saveAndBroadcastMessage(data);
+      const message = await saveAndBroadcastMessage(data, io); // Pass io for AI agent
       io.to(data.receiverId).emit("privateMessage", message);
     } catch (error) {
       console.error("Error handling private message:", error);
@@ -274,7 +483,7 @@ export async function handleAgentPrivateMessage(socket: any, io: any) {
   }
 
   socket.on("agentMessage", async (data: any) => {
-    console.log("this the data to be sent11111",data)
+    console.log("this the data to be sent11111", data)
     // Validate incoming data
     if (!data) {
       console.error("Empty or undefined data received in agentMessage event");
@@ -289,7 +498,7 @@ export async function handleAgentPrivateMessage(socket: any, io: any) {
     try {
       // Log incoming request (excluding large payloads)
       const logSafeData = { ...data };
-      console.log("this is the logsafedata",logSafeData)
+      console.log("this is the logsafedata", logSafeData)
       if (logSafeData.images) logSafeData.images = `[${logSafeData.images.length} IMAGES]`;
       console.log("Processing agent message request:", logSafeData);
 
@@ -309,7 +518,7 @@ export async function handleAgentPrivateMessage(socket: any, io: any) {
           throw new Error("Missing output_text in agent response");
         }
         parsedMessage = JSON.parse(outputText);
-        console.log("parsedMessage",parsedMessage)
+        console.log("parsedMessage", parsedMessage)
       } catch (parseError: any) {
         console.error("Failed to parse agent response:", parseError);
         return emitError(
@@ -321,7 +530,8 @@ export async function handleAgentPrivateMessage(socket: any, io: any) {
           response?.collectionId
         );
       }
-console.log("the message is been emitted to the backend")
+      console.log("the message is been emitted to the backend")
+      
       // Emit successful response
       return io.to(data.senderId).emit("agent_message", {
         data: {
@@ -416,6 +626,7 @@ function getClientFriendlyErrorMessage(error: any): string {
   // Default error message for unexpected errors
   return "Something went wrong while processing your request. Please try again";
 }
+
 export async function updateUserAvailability(status: boolean, id: string) {
   try {
     await UsersModel.update({ active: status }, { where: { id } });
