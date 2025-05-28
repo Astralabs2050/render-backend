@@ -31,8 +31,8 @@ class designController {
 
    public getAllCollection =  async(req:Request, res: Response)=>{
     try{
-        //const response = await DesignService.getUserCollection()
-        //return res.json(response) 
+        const response = await DesignService.getAllCollection()
+        return res.json(response) 
     }catch(error:any){
        return res.status(400).json({
         status: false,
