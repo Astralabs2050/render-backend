@@ -319,7 +319,9 @@ class DesignClass {
     try{
      
       const userCollection  = await CollectionModel.findAll({
-          where:{},
+          where:{
+            creationFeePaid:true
+          },
           include:[
             {
               model:MediaModel,
@@ -451,6 +453,27 @@ class DesignClass {
       };
     }
   };
+  public updateStatus = async(id:string, status:boolean)=>{
+    try{
+      //update the collection status
+      const collection = await CollectionModel.findOne({
+        where: { id }
+      })
+      await collection?.update({
+        creationFeePaid: status 
+      })
+      return {
+        message: "Collection status updated successfully",
+        status: true,
+        data: collection
+      }
+    }catch(err:any){
+      return {
+        message: err?.message || "An error occurred while updating collection status",
+        status: false,
+      };
+    }
+  }
   public additionalInformation = async (designId: string, data: any) => {
     const transaction = await sequelize.transaction();
     try {

@@ -70,7 +70,18 @@ class designController {
       });
     }
   };
-
+public updateStatus = async (req: Request, res: Response) => {
+  try{
+    const { collectionId, status } = req.body;
+    const response = await DesignService.updateStatus(collectionId, status);
+    return res.json(response);
+  }catch(err:any){
+    return res.status(400).json({
+      status: false,
+      message: `An error occurred: ${err?.message || err}`,
+    });
+  }
+}
   public additionalInfromation = async (req: Request, res: Response) => {
     try {
       const { designId } = req.body;
