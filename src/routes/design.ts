@@ -38,7 +38,11 @@ designRouter.patch(
   isAuthenticated as any,
   DesignController.additionalInfromation as any,
 );
-
+designRouter.patch(
+  "/update-collection-status",
+  isAuthenticated as any,
+  DesignController.updateStatus as any,
+);
 designRouter.post("/design-agent",isAuthenticated as any, DesignController.designAgent as any);
 
 export default designRouter;

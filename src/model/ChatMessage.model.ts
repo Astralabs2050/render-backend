@@ -20,6 +20,8 @@ export class MessageModel extends Model {
   @Column(DataType.UUID)
   id: string = uuidv4();
 
+
+
   @Column(DataType.TEXT)
   message?: string;
 
@@ -35,6 +37,10 @@ export class MessageModel extends Model {
 
   @Column(DataType.BOOLEAN)
   sent!: boolean;
+
+  @Default(false) // Ensures default value is applied
+  @Column(DataType.BOOLEAN)
+  isAIGenerated!: boolean;
 
   @Column(DataType.BOOLEAN)
   seen!: boolean;

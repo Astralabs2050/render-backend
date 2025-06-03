@@ -315,6 +315,32 @@ class DesignClass {
       };
     }
   } 
+  public async getAllCollection(){
+    try{
+     
+      const userCollection  = await CollectionModel.findAll({
+          where:{
+            creationFeePaid:true
+          },
+          include:[
+            {
+              model:MediaModel,
+              as: "media"
+            }
+          ]
+        })
+      return {
+        message:"gotten all collection",
+        data:userCollection || [],
+        status:true
+      }
+    }catch(err:any){
+      return {
+        message: err?.message || "An error occurred while getting collection",
+        status: false,
+      };
+    }
+  } 
   public uploadNewDesign = async (data: any, userId: string) => {
     const transaction = await sequelize.transaction(); // Start a transaction
     try {
@@ -427,6 +453,27 @@ class DesignClass {
       };
     }
   };
+  public updateStatus = async(id:string, status:boolean)=>{
+    try{
+      //update the collection status
+      const collection = await CollectionModel.findOne({
+        where: { id }
+      })
+      await collection?.update({
+        creationFeePaid: status 
+      })
+      return {
+        message: "Collection status updated successfully",
+        status: true,
+        data: collection
+      }
+    }catch(err:any){
+      return {
+        message: err?.message || "An error occurred while updating collection status",
+        status: false,
+      };
+    }
+  }
   public additionalInformation = async (designId: string, data: any) => {
     const transaction = await sequelize.transaction();
     try {
