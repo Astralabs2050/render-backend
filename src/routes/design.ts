@@ -38,7 +38,6 @@ designRouter.patch(
   isAuthenticated as any,
   DesignController.additionalInfromation as any,
 );
-
 designRouter.patch(
   "/update-collection-status",
   isAuthenticated as any,
