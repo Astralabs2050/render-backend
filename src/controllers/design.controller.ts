@@ -32,6 +32,13 @@ class designController {
   public getOneCollection =  async(req:Request, res: Response)=>{
     try{
        const { id } = req.params;
+       console.log("Collection ID:", id);
+       if(!id) {
+        return res.status(400).json({
+          status: false,
+          message: "Collection ID is required",
+        });
+       }
         const response = await DesignService.getOneCollection(id)
         return res.json(response) 
     }catch(error:any){

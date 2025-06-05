@@ -330,7 +330,7 @@ class DesignClass {
           ]
         })
       return {
-        message:"gotten all collection",
+        message:"gotten collection",
         data:userCollection || [],
         status:true
       }
