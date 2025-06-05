@@ -29,6 +29,19 @@ class designController {
     }
   }
 
+  public getOneCollection =  async(req:Request, res: Response)=>{
+    try{
+       const { id } = req.params;
+        const response = await DesignService.getOneCollection(id)
+        return res.json(response) 
+    }catch(error:any){
+       return res.status(400).json({
+        status: false,
+        message: `An error occurred: ${error?.message || error}`,
+      });
+    }
+  }
+
    public getAllCollection =  async(req:Request, res: Response)=>{
     try{
         const response = await DesignService.getAllCollection()

@@ -315,6 +315,32 @@ class DesignClass {
       };
     }
   } 
+  public async getOneCollection(id:string){
+    try{
+     
+      const userCollection  = await CollectionModel.findOne({
+          where:{
+            id
+          },
+          include:[
+            {
+              model:MediaModel,
+              as: "media"
+            }
+          ]
+        })
+      return {
+        message:"gotten all collection",
+        data:userCollection || [],
+        status:true
+      }
+    }catch(err:any){
+      return {
+        message: err?.message || "An error occurred while getting collection",
+        status: false,
+      };
+    }
+  } 
   public async getAllCollection(){
     try{
      
