@@ -15,6 +15,6 @@ routes.use("/job", jobRouter);
 routes.use("/wait-list", waitListRouter);
 routes.use("/store", storeRouter);
 routes.get("/", (req, res) => {
-  res.send("working now2");
+  res.send("working now2")
 });
 export default routes;
