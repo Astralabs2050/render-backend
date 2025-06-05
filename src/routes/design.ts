@@ -17,6 +17,12 @@ designRouter.get(
 )
 
 designRouter.get(
+  "/get-collection/:id",
+  isAuthenticated as any,
+  DesignController.getOneCollection as any
+)
+
+designRouter.get(
   "/get-all-collection",
   DesignController.getAllCollection as any
 )
