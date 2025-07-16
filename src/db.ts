@@ -1,6 +1,6 @@
 import { Sequelize } from "sequelize-typescript";
-import { dbConfig } from "../common/utility";
-import { Dialect } from "sequelize/types/sequelize";
+import { createClient } from '@supabase/supabase-js';
+import * as dotenv from "dotenv";
 import {
   UsersModel,
   MediaModel,
@@ -24,10 +24,10 @@ import {
 } from "./model";
 
 // Load environment variables
+dotenv.config();
 console.log("Current environment:", process.env.NODE_ENV);
-
-// Set dialect based on environment
-const dialect = process.env.NODE_ENV === "production" ? "postgres" : "mysql";
+console.log("Supabase URL loaded:", !!process.env.SUPABASE_URL);
+console.log("Supabase DB URL loaded:", !!process.env.SUPABASE_DB_URL);
 
 const models = [
   UsersModel,
@@ -51,48 +51,38 @@ const models = [
   CollectionModel
 ];
 
-// Define sequelize options
-const sequelizeOptions: any = {
-  dialect: dialect as Dialect,
-  logging: process.env.NODE_ENV === "development" ? console.log : false,
-  models: models,
-};
+// Supabase client (only create if credentials exist)
+let supabase: any = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+  supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY
+  );
+}
 
+// Sequelize with Supabase PostgreSQL
 let sequelize: Sequelize;
-
-// Different connection approach based on environment
-if (process.env.NODE_ENV === "production") {
-  // Production: Use connection URL with PostgreSQL
-  console.log("Using PostgreSQL connection URL for production");
-  
-  // Add PostgreSQL-specific SSL options
-  sequelizeOptions.dialectOptions = {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false,
+if (process.env.SUPABASE_DB_URL) {
+  sequelize = new Sequelize(process.env.SUPABASE_DB_URL, {
+    dialect: 'postgres',
+    logging: process.env.NODE_ENV === "development" ? console.log : false,
+    models: models,
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
     },
-  };
-  
-  sequelize = new Sequelize(dbConfig?.dbUrl, sequelizeOptions);
-} else {
-  // Development/other: Use individual MySQL connection parameters
-  console.log("Using MySQL with individual connection parameters");
-  
-  sequelize = new Sequelize({
-    database: process.env.DB_NAME,
-    port: parseInt(process.env.DBPORT || "3306"),
-    host: process.env.DB_HOST,
-    username: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    ...sequelizeOptions
   });
+} else {
+  throw new Error('SUPABASE_DB_URL is required. Please add it to your .env file.');
 }
 
 // Initialize the database
 const initDB = async () => {
   try {
     await sequelize.authenticate();
-    console.log(`Database connection established successfully using ${dialect}.`);
+    console.log('Database connection established successfully');
     
     // Sync models
     await sequelize.sync({ alter: true });
@@ -102,4 +92,4 @@ const initDB = async () => {
   }
 };
 
-export { sequelize, initDB };
+export { sequelize, supabase, initDB };
