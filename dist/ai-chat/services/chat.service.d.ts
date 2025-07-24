@@ -5,9 +5,8 @@ import { CreateChatDto, SendMessageDto, GenerateDesignDto, ListDesignDto, MakerP
 import { PromptService } from './prompt.service';
 import { OpenAIService } from './openai.service';
 import { StreamChatService } from './stream-chat.service';
+import { CloudinaryService } from '../../common/services/cloudinary.service';
 import { UsersService } from '../../users/users.service';
-import { NFTService } from '../../web3/services/nft.service';
-import { EscrowService } from '../../web3/services/escrow.service';
 export declare class ChatService {
     private chatRepository;
     private messageRepository;
@@ -15,11 +14,10 @@ export declare class ChatService {
     private promptService;
     private openaiService;
     private streamChatService;
+    private cloudinaryService;
     private usersService;
-    private nftService;
-    private escrowService;
     private readonly logger;
-    constructor(chatRepository: Repository<Chat>, messageRepository: Repository<ChatMessage>, milestoneRepository: Repository<Milestone>, promptService: PromptService, openaiService: OpenAIService, streamChatService: StreamChatService, usersService: UsersService, nftService: NFTService, escrowService: EscrowService);
+    constructor(chatRepository: Repository<Chat>, messageRepository: Repository<ChatMessage>, milestoneRepository: Repository<Milestone>, promptService: PromptService, openaiService: OpenAIService, streamChatService: StreamChatService, cloudinaryService: CloudinaryService, usersService: UsersService);
     createChat(userId: string, dto: CreateChatDto): Promise<Chat>;
     getChats(userId: string): Promise<Chat[]>;
     getChat(userId: string, chatId: string): Promise<Chat>;

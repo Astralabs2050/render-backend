@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { User, UserType } from '../../users/entities/user.entity';
 import { OAuthProvider } from './oauth.entity';
 import { Helpers } from '../../common/utils/helpers';
+import { ThirdwebService } from '../../web3/services/thirdweb.service';
 
 interface OAuthUser {
   provider: string;
@@ -28,6 +29,7 @@ export class OAuthService {
     @InjectRepository(OAuthProvider)
     private oauthRepository: Repository<OAuthProvider>,
     private jwtService: JwtService,
+    private thirdwebService: ThirdwebService,
   ) {}
 
   async validateOAuthLogin(oauthUser: OAuthUser) {
@@ -52,6 +54,17 @@ export class OAuthService {
         await this.oauthRepository.save(oauthProvider);
         
         user = oauthProvider.user;
+        
+        // Check if user has a wallet, create one if not
+        if (!user.walletAddress) {
+          const wallet = await this.thirdwebService.generateWallet();
+          const encryptedPrivateKey = Helpers.encryptPrivateKey(wallet.privateKey);
+          user.walletAddress = wallet.address;
+          user.walletPrivateKey = encryptedPrivateKey;
+          await this.userRepository.save(user);
+          this.logger.log(`Created wallet for existing user: ${user.email} - ${wallet.address}`);
+        }
+        
         this.logger.log(`User logged in via ${oauthUser.provider}: ${user.email}`);
       } else {
         // OAuth account doesn't exist
@@ -63,18 +76,32 @@ export class OAuthService {
         }
 
         if (!user && oauthUser.email) {
-          // Create new user
+          // Generate wallet for the new user
+          const wallet = await this.thirdwebService.generateWallet();
+          const encryptedPrivateKey = Helpers.encryptPrivateKey(wallet.privateKey);
+          
+          // Create new user with encrypted wallet
           user = this.userRepository.create({
             email: oauthUser.email,
             fullName: oauthUser.fullName,
             verified: true, // OAuth users are pre-verified
             userType: UserType.CREATOR, // Default to creator
+            walletAddress: wallet.address,
+            walletPrivateKey: encryptedPrivateKey,
           });
           
           await this.userRepository.save(user);
-          this.logger.log(`Created new user via ${oauthUser.provider}: ${user.email}`);
+          this.logger.log(`Created new user via ${oauthUser.provider}: ${user.email} with wallet: ${wallet.address}`);
         } else if (!user) {
           throw new UnauthorizedException('Email not provided by OAuth provider');
+        } else if (user && !user.walletAddress) {
+          // Existing user without wallet - create one
+          const wallet = await this.thirdwebService.generateWallet();
+          const encryptedPrivateKey = Helpers.encryptPrivateKey(wallet.privateKey);
+          user.walletAddress = wallet.address;
+          user.walletPrivateKey = encryptedPrivateKey;
+          await this.userRepository.save(user);
+          this.logger.log(`Created wallet for existing user: ${user.email} - ${wallet.address}`);
         }
 
         // Create OAuth provider link
@@ -101,6 +128,7 @@ export class OAuthService {
       return {
         user: Helpers.sanitizeUser(user),
         token,
+        walletAddress: user.walletAddress,
       };
     } catch (error) {
       this.logger.error(`OAuth login error: ${error.message}`, error.stack);

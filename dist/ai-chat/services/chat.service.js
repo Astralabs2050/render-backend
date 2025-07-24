@@ -22,20 +22,18 @@ const milestone_entity_1 = require("../entities/milestone.entity");
 const prompt_service_1 = require("./prompt.service");
 const openai_service_1 = require("./openai.service");
 const stream_chat_service_1 = require("./stream-chat.service");
+const cloudinary_service_1 = require("../../common/services/cloudinary.service");
 const users_service_1 = require("../../users/users.service");
-const nft_service_1 = require("../../web3/services/nft.service");
-const escrow_service_1 = require("../../web3/services/escrow.service");
 let ChatService = ChatService_1 = class ChatService {
-    constructor(chatRepository, messageRepository, milestoneRepository, promptService, openaiService, streamChatService, usersService, nftService, escrowService) {
+    constructor(chatRepository, messageRepository, milestoneRepository, promptService, openaiService, streamChatService, cloudinaryService, usersService) {
         this.chatRepository = chatRepository;
         this.messageRepository = messageRepository;
         this.milestoneRepository = milestoneRepository;
         this.promptService = promptService;
         this.openaiService = openaiService;
         this.streamChatService = streamChatService;
+        this.cloudinaryService = cloudinaryService;
         this.usersService = usersService;
-        this.nftService = nftService;
-        this.escrowService = escrowService;
         this.logger = new common_1.Logger(ChatService_1.name);
     }
     async createChat(userId, dto) {
@@ -120,19 +118,43 @@ let ChatService = ChatService_1 = class ChatService {
             throw new common_1.NotFoundException('Chat not found');
         }
         await this.addAssistantMessage(chatId, "Generating your design... This will take a moment.");
-        const imageUrl = await this.openaiService.generateDesignImage(prompt, referenceImageBase64);
+        const dalleImageUrl = await this.openaiService.generateDesignImage(prompt, referenceImageBase64);
+        let cloudinaryResult;
+        try {
+            const response = await fetch(dalleImageUrl);
+            const arrayBuffer = await response.arrayBuffer();
+            const imageBuffer = Buffer.from(arrayBuffer);
+            const designId = `design_${chatId}_${Date.now()}`;
+            cloudinaryResult = await this.cloudinaryService.uploadDesignImage(imageBuffer, designId, chat.userId);
+            this.logger.log(`Design image uploaded to Cloudinary: ${cloudinaryResult.secure_url}`);
+        }
+        catch (error) {
+            this.logger.error(`Failed to upload to Cloudinary: ${error.message}`);
+            cloudinaryResult = { secure_url: dalleImageUrl };
+        }
         const metadata = await this.openaiService.generateDesignMetadata(prompt);
-        chat.metadata = { ...chat.metadata, design: metadata };
+        chat.metadata = {
+            ...chat.metadata,
+            design: {
+                ...metadata,
+                originalImageUrl: dalleImageUrl,
+                cloudinaryUrl: cloudinaryResult.secure_url,
+                cloudinaryPublicId: cloudinaryResult.public_id,
+            }
+        };
         chat.state = chat_entity_1.ChatState.DESIGN_PREVIEW;
-        chat.designImageUrl = imageUrl;
+        chat.designImageUrl = cloudinaryResult.secure_url;
         await this.chatRepository.save(chat);
         const previewPrompt = this.promptService.getPromptForState(chat_entity_1.ChatState.DESIGN_PREVIEW, true, {
             name: metadata.name,
             price: metadata.price,
             days: metadata.timeframe,
-            imageUrl: imageUrl
+            imageUrl: cloudinaryResult.secure_url
         });
-        await this.addAssistantMessage(chatId, `${previewPrompt}\n\n🎨 **Design Image Generated!**\nView your design: ${imageUrl}`);
+        const variants = cloudinaryResult.public_id
+            ? this.cloudinaryService.getImageVariants(cloudinaryResult.public_id)
+            : { thumbnail: cloudinaryResult.secure_url, medium: cloudinaryResult.secure_url, large: cloudinaryResult.secure_url };
+        await this.addAssistantMessage(chatId, `${previewPrompt}\n\n🎨 **Design Image Generated!**\nView your design: ${cloudinaryResult.secure_url}\n\n📱 **Image Variants:**\n- Thumbnail: ${variants.thumbnail}\n- Medium: ${variants.medium}\n- Large: ${variants.large}`);
         return metadata;
     }
     async listDesign(dto) {
@@ -143,66 +165,21 @@ let ChatService = ChatService_1 = class ChatService {
         if (!chat) {
             throw new common_1.NotFoundException('Chat not found');
         }
-        try {
-            const nft = await this.nftService.createNFT({
-                name,
-                description: `Custom fashion design: ${name}`,
-                category,
-                price,
-                quantity: 1,
-                imageUrl: chat.designImageUrl || 'https://placeholder.com/512x512',
-                creatorId: chat.creatorId,
-                chatId: chat.id,
-                attributes: [
-                    { trait_type: 'Category', value: category },
-                    { trait_type: 'Price', value: price },
-                    { trait_type: 'Timeframe', value: timeframe },
-                    { trait_type: 'Created Via', value: 'AI Chat' },
-                ],
-            });
-            const mintedNFT = await this.nftService.mintNFT({
-                nftId: nft.id,
-            });
-            await this.nftService.listNFT(mintedNFT.id);
-            const jobData = {
-                id: `job-${Date.now()}`,
-                nftId: mintedNFT.id,
-                tokenId: mintedNFT.tokenId,
-                contractAddress: mintedNFT.contractAddress,
-                name,
-                category,
-                price,
-                timeframe,
-                status: 'active',
-                ipfsUrl: mintedNFT.ipfsUrl,
-            };
-            chat.metadata = { ...chat.metadata, job: jobData, nft: mintedNFT };
-            chat.state = chat_entity_1.ChatState.LISTED;
-            chat.jobId = jobData.id;
-            await this.chatRepository.save(chat);
-            const listedPrompt = this.promptService.getPromptForState(chat_entity_1.ChatState.LISTED, true);
-            await this.addAssistantMessage(chatId, `${listedPrompt}\n\n🎨 **NFT Minted Successfully!**\nToken ID: ${mintedNFT.tokenId}\nContract: ${mintedNFT.contractAddress}\nIPFS: ${mintedNFT.ipfsUrl}`);
-            return jobData;
-        }
-        catch (error) {
-            this.logger.error(`Failed to list design as NFT: ${error.message}`);
-            const jobData = {
-                id: `job-${Date.now()}`,
-                name,
-                category,
-                price,
-                timeframe,
-                status: 'active',
-                error: 'NFT minting failed, listed as regular job',
-            };
-            chat.metadata = { ...chat.metadata, job: jobData };
-            chat.state = chat_entity_1.ChatState.LISTED;
-            chat.jobId = jobData.id;
-            await this.chatRepository.save(chat);
-            const listedPrompt = this.promptService.getPromptForState(chat_entity_1.ChatState.LISTED, true);
-            await this.addAssistantMessage(chatId, `${listedPrompt}\n\n⚠️ Note: NFT minting failed, but your design is still listed as a job.`);
-            return jobData;
-        }
+        const jobData = {
+            id: `job-${Date.now()}`,
+            name,
+            category,
+            price,
+            timeframe,
+            status: 'active',
+        };
+        chat.metadata = { ...chat.metadata, job: jobData };
+        chat.state = chat_entity_1.ChatState.LISTED;
+        chat.jobId = jobData.id;
+        await this.chatRepository.save(chat);
+        const listedPrompt = this.promptService.getPromptForState(chat_entity_1.ChatState.LISTED, true);
+        await this.addAssistantMessage(chatId, listedPrompt);
+        return jobData;
     }
     async addMakerProposal(dto) {
         const { chatId, makerId, price, timeframe, portfolio } = dto;
@@ -426,8 +403,7 @@ exports.ChatService = ChatService = ChatService_1 = __decorate([
         prompt_service_1.PromptService,
         openai_service_1.OpenAIService,
         stream_chat_service_1.StreamChatService,
-        users_service_1.UsersService,
-        nft_service_1.NFTService,
-        escrow_service_1.EscrowService])
+        cloudinary_service_1.CloudinaryService,
+        users_service_1.UsersService])
 ], ChatService);
 //# sourceMappingURL=chat.service.js.map

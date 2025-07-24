@@ -16,14 +16,12 @@ const config_1 = require("@nestjs/config");
 const thirdweb_service_1 = require("./thirdweb.service");
 const escrow_service_1 = require("./escrow.service");
 const nft_service_1 = require("./nft.service");
-const stream_chat_service_1 = require("../../ai-chat/services/stream-chat.service");
 let WebhookService = WebhookService_1 = class WebhookService {
-    constructor(configService, thirdwebService, escrowService, nftService, streamChatService) {
+    constructor(configService, thirdwebService, escrowService, nftService) {
         this.configService = configService;
         this.thirdwebService = thirdwebService;
         this.escrowService = escrowService;
         this.nftService = nftService;
-        this.streamChatService = streamChatService;
         this.logger = new common_1.Logger(WebhookService_1.name);
         this.webhookSecret = this.configService.get('WEBHOOK_SECRET');
         this.initializeEventListeners();
@@ -179,7 +177,7 @@ let WebhookService = WebhookService_1 = class WebhookService {
     }
     async sendChatNotification(userId, message, type, metadata) {
         try {
-            this.logger.log(`Chat Notification - User: ${userId}, Type: ${type}, Message: ${message}`);
+            this.logger.log(`Chat Notification - User: ${userId}, Type: ${type}, Message: ${message}, Metadata: ${JSON.stringify(metadata)}`);
         }
         catch (error) {
             this.logger.error(`Failed to send chat notification: ${error.message}`);
@@ -227,7 +225,6 @@ exports.WebhookService = WebhookService = WebhookService_1 = __decorate([
     __metadata("design:paramtypes", [config_1.ConfigService,
         thirdweb_service_1.ThirdwebService,
         escrow_service_1.EscrowService,
-        nft_service_1.NFTService,
-        stream_chat_service_1.StreamChatService])
+        nft_service_1.NFTService])
 ], WebhookService);
 //# sourceMappingURL=webhook.service.js.map

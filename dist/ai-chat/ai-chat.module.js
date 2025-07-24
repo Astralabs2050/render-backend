@@ -17,7 +17,6 @@ const stream_chat_service_1 = require("./services/stream-chat.service");
 const chat_entity_1 = require("./entities/chat.entity");
 const milestone_entity_1 = require("./entities/milestone.entity");
 const users_module_1 = require("../users/users.module");
-const web3_module_1 = require("../web3/web3.module");
 let AIChatModule = class AIChatModule {
 };
 exports.AIChatModule = AIChatModule;
@@ -26,7 +25,6 @@ exports.AIChatModule = AIChatModule = __decorate([
         imports: [
             typeorm_1.TypeOrmModule.forFeature([chat_entity_1.Chat, chat_entity_1.ChatMessage, milestone_entity_1.Milestone]),
             users_module_1.UsersModule,
-            web3_module_1.Web3Module,
         ],
         controllers: [chat_controller_1.ChatController],
         providers: [

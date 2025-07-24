@@ -135,6 +135,14 @@
       <label for="reg-fullname">Full Name:</label>
       <input type="text" id="reg-fullname" placeholder="Enter your full name">
     </div>
+    <div class="form-group">
+      <label for="reg-role">Role:</label>
+      <select id="reg-role" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box;">
+        <option value="">Select your role</option>
+        <option value="creator">Creator</option>
+        <option value="maker">Maker</option>
+      </select>
+    </div>
     <button onclick="register()">Register</button>
     <div id="register-response" class="response hidden"></div>
   </div>
@@ -179,12 +187,23 @@
       <input type="text" id="test-token" placeholder="Paste JWT token from login">
     </div>
     <button onclick="testProtectedRoute()">Get Profile</button>
+    <button onclick="getWallet()" class="secondary-btn">Get Wallet</button>
     <div id="profile-response" class="response hidden"></div>
+    <div id="wallet-response" class="response hidden"></div>
   </div>
 
-  <!-- Step 5: Password Reset -->
+  <!-- Step 5: OAuth Login -->
   <div class="container">
-    <div class="step-title">Step 5: Password Reset (Optional)</div>
+    <div class="step-title">Step 5: OAuth Login (Optional)</div>
+    <button onclick="loginWithGoogle()" class="secondary-btn">Login with Google</button>
+    <button onclick="loginWithDiscord()" class="secondary-btn">Login with Discord</button>
+    <button onclick="loginWithTwitter()" class="secondary-btn">Login with Twitter</button>
+    <div id="oauth-response" class="response hidden"></div>
+  </div>
+
+  <!-- Step 6: Password Reset -->
+  <div class="container">
+    <div class="step-title">Step 6: Password Reset (Optional)</div>
     <div class="form-group">
       <label for="forgot-email">Email:</label>
       <input type="email" id="forgot-email" placeholder="Enter your email">
@@ -224,8 +243,9 @@
       const email = document.getElementById('reg-email').value;
       const password = document.getElementById('reg-password').value;
       const fullName = document.getElementById('reg-fullname').value;
+      const role = document.getElementById('reg-role').value;
 
-      if (!email || !password || !fullName) {
+      if (!email || !password || !fullName || !role) {
         showResponse('register-response', 'Please fill in all fields', 'error');
         return;
       }
@@ -239,14 +259,15 @@
           body: JSON.stringify({
             email,
             password,
-            fullName
+            fullName,
+            role
           }),
         });
 
         const data = await response.json();
 
         if (data.status) {
-          showResponse('register-response', data.message, 'success');
+          showResponse('register-response', `${data.message}${data.walletAddress ? ` - Wallet created: ${data.walletAddress}` : ''}`, 'success');
           // Auto-fill verification email
           document.getElementById('verify-email').value = email;
         } else {
@@ -463,6 +484,49 @@
       } catch (error) {
         showResponse('reset-response', `Error: ${error.message}`, 'error');
       }
+    }
+
+    async function getWallet() {
+      const token = document.getElementById('test-token').value;
+
+      if (!token) {
+        showResponse('wallet-response', 'Please enter JWT token', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/auth/wallet`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showResponse('wallet-response', `Wallet Address: ${data.address}\nBalance: ${data.balance} ETH`, 'success');
+        } else {
+          showResponse('wallet-response', data.message || 'Failed to get wallet', 'error');
+        }
+      } catch (error) {
+        showResponse('wallet-response', `Error: ${error.message}`, 'error');
+      }
+    }
+
+    function loginWithGoogle() {
+      showResponse('oauth-response', 'Redirecting to Google...', 'info');
+      window.open(`${API_BASE}/auth/signin/google`, '_blank', 'width=500,height=600');
+    }
+
+    function loginWithDiscord() {
+      showResponse('oauth-response', 'Redirecting to Discord...', 'info');
+      window.open(`${API_BASE}/auth/signin/discord`, '_blank', 'width=500,height=600');
+    }
+
+    function loginWithTwitter() {
+      showResponse('oauth-response', 'Redirecting to Twitter...', 'info');
+      window.open(`${API_BASE}/auth/signin/twitter`, '_blank', 'width=500,height=600');
     }
 
     // Auto-fill forms when moving between steps

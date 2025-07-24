@@ -45,6 +45,9 @@ let AuthController = class AuthController {
     getProfile(req) {
         return req.user;
     }
+    getWallet(req) {
+        return this.authService.getUserWallet(req.user.id);
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -104,6 +107,14 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "getProfile", null);
+__decorate([
+    (0, common_1.Get)('wallet'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "getWallet", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])

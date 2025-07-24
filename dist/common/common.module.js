@@ -13,12 +13,15 @@ const http_exception_filter_1 = require("./filters/http-exception.filter");
 const transform_interceptor_1 = require("./interceptors/transform.interceptor");
 const roles_guard_1 = require("./guards/roles.guard");
 const email_service_1 = require("./services/email.service");
+const cloudinary_service_1 = require("./services/cloudinary.service");
+const upload_controller_1 = require("./controllers/upload.controller");
 let CommonModule = class CommonModule {
 };
 exports.CommonModule = CommonModule;
 exports.CommonModule = CommonModule = __decorate([
     (0, common_1.Global)(),
     (0, common_1.Module)({
+        controllers: [upload_controller_1.UploadController],
         providers: [
             {
                 provide: core_1.APP_FILTER,
@@ -33,8 +36,9 @@ exports.CommonModule = CommonModule = __decorate([
                 useClass: roles_guard_1.RolesGuard,
             },
             email_service_1.EmailService,
+            cloudinary_service_1.CloudinaryService,
         ],
-        exports: [email_service_1.EmailService],
+        exports: [email_service_1.EmailService, cloudinary_service_1.CloudinaryService],
     })
 ], CommonModule);
 //# sourceMappingURL=common.module.js.map

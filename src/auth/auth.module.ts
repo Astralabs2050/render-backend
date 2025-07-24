@@ -8,10 +8,12 @@ import { UsersModule } from '../users/users.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { OAuthModule } from './oauth/oauth.module';
 import { RoleGuard } from './guards/role.guard';
+import { Web3Module } from '../web3/web3.module';
 
 @Module({
   imports: [
     UsersModule,
+    Web3Module,
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

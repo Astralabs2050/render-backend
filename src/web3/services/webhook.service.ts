@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { ThirdwebService } from './thirdweb.service';
 import { EscrowService } from './escrow.service';
 import { NFTService } from './nft.service';
-import { StreamChatService } from '../../ai-chat/services/stream-chat.service';
 
 export interface BlockchainEvent {
   eventName: string;
@@ -33,7 +32,6 @@ export class WebhookService {
     private thirdwebService: ThirdwebService,
     private escrowService: EscrowService,
     private nftService: NFTService,
-    private streamChatService: StreamChatService,
   ) {
     this.webhookSecret = this.configService.get<string>('WEBHOOK_SECRET');
     this.initializeEventListeners();
@@ -329,12 +327,12 @@ export class WebhookService {
     metadata: Record<string, any>
   ): Promise<void> {
     try {
-      // This would typically send a notification via Stream Chat
-      // For now, we'll log it
-      this.logger.log(`Chat Notification - User: ${userId}, Type: ${type}, Message: ${message}`);
+      // Log the notification for now
+      // In a real implementation, this would integrate with your notification system
+      this.logger.log(`Chat Notification - User: ${userId}, Type: ${type}, Message: ${message}, Metadata: ${JSON.stringify(metadata)}`);
       
-      // In a real implementation:
-      // await this.streamChatService.sendSystemMessage(userId, message, { type, ...metadata });
+      // TODO: Integrate with actual notification system when ready
+      // This could be Stream Chat, push notifications, email, etc.
       
     } catch (error) {
       this.logger.error(`Failed to send chat notification: ${error.message}`);
@@ -348,7 +346,7 @@ export class WebhookService {
     return match ? match[1] : null;
   }
 
-  async validateWebhookSignature(payload: string, signature: string): boolean {
+  async validateWebhookSignature(payload: string, signature: string): Promise<boolean> {
     try {
       // Implement webhook signature validation
       // This would typically use HMAC with your webhook secret

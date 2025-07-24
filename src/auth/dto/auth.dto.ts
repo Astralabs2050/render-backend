@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional, Matches } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength, IsEnum, Matches } from 'class-validator';
 import { UserType } from '../../users/entities/user.entity';
 
 export class RegisterDto {
@@ -17,6 +17,10 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty()
   fullName: string;
+
+  @IsEnum(UserType, { message: 'Role must be either creator or maker' })
+  @IsNotEmpty()
+  role: UserType;
 }
 
 export class LoginDto {

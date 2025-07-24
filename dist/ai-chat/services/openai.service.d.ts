@@ -11,4 +11,5 @@ export declare class OpenAIService {
     generateChatResponse(messages: any[]): Promise<string>;
     generateDesignMetadata(prompt: string, imageUrl?: string): Promise<any>;
     generateDesignImage(prompt: string, referenceImageBase64?: string): Promise<string>;
+    private enhanceDesignPrompt;
 }

@@ -6,6 +6,7 @@ export declare class AuthController {
     signupWithEmail(registerDto: RegisterDto): Promise<{
         status: boolean;
         message: string;
+        walletAddress: string;
     }>;
     signinWithEmail(loginDto: LoginDto): Promise<{
         status: boolean;
@@ -41,4 +42,8 @@ export declare class AuthController {
         };
     }>;
     getProfile(req: any): any;
+    getWallet(req: any): Promise<{
+        address: string;
+        balance: string;
+    }>;
 }

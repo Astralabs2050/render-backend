@@ -21,11 +21,13 @@ const typeorm_2 = require("typeorm");
 const user_entity_1 = require("../../users/entities/user.entity");
 const oauth_entity_1 = require("./oauth.entity");
 const helpers_1 = require("../../common/utils/helpers");
+const thirdweb_service_1 = require("../../web3/services/thirdweb.service");
 let OAuthService = OAuthService_1 = class OAuthService {
-    constructor(userRepository, oauthRepository, jwtService) {
+    constructor(userRepository, oauthRepository, jwtService, thirdwebService) {
         this.userRepository = userRepository;
         this.oauthRepository = oauthRepository;
         this.jwtService = jwtService;
+        this.thirdwebService = thirdwebService;
         this.logger = new common_1.Logger(OAuthService_1.name);
     }
     async validateOAuthLogin(oauthUser) {
@@ -45,6 +47,14 @@ let OAuthService = OAuthService_1 = class OAuthService {
                 }
                 await this.oauthRepository.save(oauthProvider);
                 user = oauthProvider.user;
+                if (!user.walletAddress) {
+                    const wallet = await this.thirdwebService.generateWallet();
+                    const encryptedPrivateKey = helpers_1.Helpers.encryptPrivateKey(wallet.privateKey);
+                    user.walletAddress = wallet.address;
+                    user.walletPrivateKey = encryptedPrivateKey;
+                    await this.userRepository.save(user);
+                    this.logger.log(`Created wallet for existing user: ${user.email} - ${wallet.address}`);
+                }
                 this.logger.log(`User logged in via ${oauthUser.provider}: ${user.email}`);
             }
             else {
@@ -54,17 +64,29 @@ let OAuthService = OAuthService_1 = class OAuthService {
                     });
                 }
                 if (!user && oauthUser.email) {
+                    const wallet = await this.thirdwebService.generateWallet();
+                    const encryptedPrivateKey = helpers_1.Helpers.encryptPrivateKey(wallet.privateKey);
                     user = this.userRepository.create({
                         email: oauthUser.email,
                         fullName: oauthUser.fullName,
                         verified: true,
                         userType: user_entity_1.UserType.CREATOR,
+                        walletAddress: wallet.address,
+                        walletPrivateKey: encryptedPrivateKey,
                     });
                     await this.userRepository.save(user);
-                    this.logger.log(`Created new user via ${oauthUser.provider}: ${user.email}`);
+                    this.logger.log(`Created new user via ${oauthUser.provider}: ${user.email} with wallet: ${wallet.address}`);
                 }
                 else if (!user) {
                     throw new common_1.UnauthorizedException('Email not provided by OAuth provider');
+                }
+                else if (user && !user.walletAddress) {
+                    const wallet = await this.thirdwebService.generateWallet();
+                    const encryptedPrivateKey = helpers_1.Helpers.encryptPrivateKey(wallet.privateKey);
+                    user.walletAddress = wallet.address;
+                    user.walletPrivateKey = encryptedPrivateKey;
+                    await this.userRepository.save(user);
+                    this.logger.log(`Created wallet for existing user: ${user.email} - ${wallet.address}`);
                 }
                 oauthProvider = this.oauthRepository.create({
                     provider: oauthUser.provider,
@@ -85,6 +107,7 @@ let OAuthService = OAuthService_1 = class OAuthService {
             return {
                 user: helpers_1.Helpers.sanitizeUser(user),
                 token,
+                walletAddress: user.walletAddress,
             };
         }
         catch (error) {
@@ -100,6 +123,7 @@ exports.OAuthService = OAuthService = OAuthService_1 = __decorate([
     __param(1, (0, typeorm_1.InjectRepository)(oauth_entity_1.OAuthProvider)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
-        jwt_1.JwtService])
+        jwt_1.JwtService,
+        thirdweb_service_1.ThirdwebService])
 ], OAuthService);
 //# sourceMappingURL=oauth.service.js.map

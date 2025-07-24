@@ -12,5 +12,7 @@ export declare class User extends BaseEntity {
     otp: string;
     otpCreatedAt: Date;
     userType: UserType;
+    walletAddress: string;
+    walletPrivateKey: string;
     oauthProviders: OAuthProvider[];
 }

@@ -4,9 +4,12 @@ import { HttpExceptionFilter } from './filters/http-exception.filter';
 import { TransformInterceptor } from './interceptors/transform.interceptor';
 import { RolesGuard } from './guards/roles.guard';
 import { EmailService } from './services/email.service';
+import { CloudinaryService } from './services/cloudinary.service';
+import { UploadController } from './controllers/upload.controller';
 
 @Global()
 @Module({
+  controllers: [UploadController],
   providers: [
     {
       provide: APP_FILTER,
@@ -21,7 +24,8 @@ import { EmailService } from './services/email.service';
       useClass: RolesGuard,
     },
     EmailService,
+    CloudinaryService,
   ],
-  exports: [EmailService],
+  exports: [EmailService, CloudinaryService],
 })
 export class CommonModule {}

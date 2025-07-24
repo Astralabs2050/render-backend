@@ -1,31 +1,38 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ThirdwebSDK } from '@thirdweb-dev/sdk';
-import { ethers } from 'ethers';
+import * as ethers from 'ethers';
 
 @Injectable()
 export class ThirdwebService {
   private readonly logger = new Logger(ThirdwebService.name);
   private sdk: ThirdwebSDK;
-  private readonly chainId: number;
-  private readonly privateKey: string;
+  private readonly clientId: string;
+  private readonly secretKey: string;
+  private readonly chain: string;
 
   constructor(private configService: ConfigService) {
-    this.chainId = this.configService.get<number>('THIRDWEB_CHAIN_ID', 137); // Polygon by default
-    this.privateKey = this.configService.get<string>('THIRDWEB_PRIVATE_KEY');
+    this.clientId = this.configService.get<string>('THIRDWEB_CLIENT_ID');
+    this.secretKey = this.configService.get<string>('THIRDWEB_SECRET_KEY');
+    this.chain = this.configService.get<string>('THIRDWEB_CHAIN_ID', '137'); // Polygon by default
     
     this.initializeSDK();
   }
 
   private async initializeSDK() {
     try {
-      if (!this.privateKey) {
-        this.logger.warn('Thirdweb private key not configured');
+      if (!this.clientId || !this.secretKey) {
+        this.logger.warn('Thirdweb client ID or secret key not configured');
         return;
       }
 
-      this.sdk = ThirdwebSDK.fromPrivateKey(this.privateKey, this.chainId);
-      this.logger.log(`Thirdweb SDK initialized for chain ${this.chainId}`);
+      // Initialize SDK in read-only mode first, then add auth for transactions
+      this.sdk = new ThirdwebSDK(this.chain, {
+        clientId: this.clientId,
+        secretKey: this.secretKey,
+      });
+
+      this.logger.log(`Thirdweb SDK initialized for chain ${this.chain} with client ID: ${this.clientId.substring(0, 8)}...`);
     } catch (error) {
       this.logger.error(`Failed to initialize Thirdweb SDK: ${error.message}`);
     }
@@ -52,6 +59,7 @@ export class ThirdwebService {
         throw new Error('Thirdweb SDK not initialized');
       }
 
+      // Create file-like object for upload
       const fileData = {
         data: file,
         name: fileName,
@@ -118,8 +126,8 @@ export class ThirdwebService {
         name,
         symbol,
         description,
-        primary_sale_recipient: await this.sdk.wallet.getAddress(),
-        fee_recipient: await this.sdk.wallet.getAddress(),
+        primary_sale_recipient: await this.getWalletAddress(),
+        fee_recipient: await this.getWalletAddress(),
         seller_fee_basis_points: 250, // 2.5% royalty
       });
 
@@ -137,8 +145,7 @@ export class ThirdwebService {
         throw new Error('Thirdweb SDK not initialized');
       }
 
-      // Deploy a custom escrow contract
-      // This would typically be a pre-built contract or custom smart contract
+      // Deploy a marketplace contract for escrow functionality
       const contractAddress = await this.sdk.deployer.deployBuiltInContract('marketplace-v3', {
         name: 'Astra Fashion Marketplace',
         description: 'Decentralized fashion marketplace with escrow',
@@ -209,6 +216,111 @@ export class ThirdwebService {
       return ethers.utils.formatEther(balance.value);
     } catch (error) {
       this.logger.error(`Failed to get balance: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async getWalletBalance(address: string): Promise<string> {
+    try {
+      if (!this.sdk) {
+        throw new Error('Thirdweb SDK not initialized');
+      }
+
+      const provider = this.sdk.getProvider();
+      const balance = await provider.getBalance(address);
+      return ethers.utils.formatEther(balance);
+    } catch (error) {
+      this.logger.error(`Failed to get wallet balance for ${address}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async generateWallet(): Promise<{ address: string; privateKey: string }> {
+    try {
+      // Generate a new random wallet
+      const wallet = ethers.Wallet.createRandom();
+      
+      this.logger.log(`Generated new wallet: ${wallet.address}`);
+      
+      return {
+        address: wallet.address,
+        privateKey: wallet.privateKey,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to generate wallet: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async createUserWalletSDK(encryptedPrivateKey: string): Promise<ThirdwebSDK> {
+    try {
+      const { Helpers } = await import('../../common/utils/helpers');
+      const privateKey = Helpers.decryptPrivateKey(encryptedPrivateKey);
+      
+      // Create SDK instance with user's private key
+      const userSDK = ThirdwebSDK.fromPrivateKey(privateKey, this.chain, {
+        clientId: this.clientId,
+      });
+      
+      this.logger.log('Created user wallet SDK');
+      return userSDK;
+    } catch (error) {
+      this.logger.error(`Failed to create user wallet SDK: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async connectUserWallet(encryptedPrivateKey: string): Promise<{ address: string; balance: string }> {
+    try {
+      const userSDK = await this.createUserWalletSDK(encryptedPrivateKey);
+      const address = await userSDK.wallet.getAddress();
+      const balance = await this.getWalletBalance(address);
+
+      return { address, balance };
+    } catch (error) {
+      this.logger.error(`Failed to connect user wallet: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async getUserNFTs(userAddress: string, contractAddress?: string): Promise<any[]> {
+    try {
+      if (!this.sdk) {
+        throw new Error('Thirdweb SDK not initialized');
+      }
+
+      if (contractAddress) {
+        // Get NFTs from specific contract
+        const contract = await this.sdk.getContract(contractAddress);
+        const nfts = await contract.erc721.getOwned(userAddress);
+        return nfts;
+      } else {
+        // This would require additional implementation to get all NFTs across contracts
+        this.logger.warn('Getting all NFTs across contracts not implemented');
+        return [];
+      }
+    } catch (error) {
+      this.logger.error(`Failed to get user NFTs: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async getChainInfo(): Promise<any> {
+    try {
+      if (!this.sdk) {
+        throw new Error('Thirdweb SDK not initialized');
+      }
+
+      const provider = this.sdk.getProvider();
+      const network = await provider.getNetwork();
+      
+      return {
+        chainId: network.chainId,
+        name: network.name,
+        blockNumber: await provider.getBlockNumber(),
+      };
+    } catch (error) {
+      this.logger.error(`Failed to get chain info: ${error.message}`);
       throw error;
     }
   }

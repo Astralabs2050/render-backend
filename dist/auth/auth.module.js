@@ -17,6 +17,7 @@ const users_module_1 = require("../users/users.module");
 const jwt_strategy_1 = require("./strategies/jwt.strategy");
 const oauth_module_1 = require("./oauth/oauth.module");
 const role_guard_1 = require("./guards/role.guard");
+const web3_module_1 = require("../web3/web3.module");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -24,6 +25,7 @@ exports.AuthModule = AuthModule = __decorate([
     (0, common_1.Module)({
         imports: [
             users_module_1.UsersModule,
+            web3_module_1.Web3Module,
             passport_1.PassportModule,
             jwt_1.JwtModule.registerAsync({
                 imports: [config_1.ConfigModule],

@@ -18,6 +18,7 @@ const discord_strategy_1 = require("./discord.strategy");
 const twitter_strategy_1 = require("./twitter.strategy");
 const oauth_entity_1 = require("./oauth.entity");
 const user_entity_1 = require("../../users/entities/user.entity");
+const web3_module_1 = require("../../web3/web3.module");
 let OAuthModule = class OAuthModule {
 };
 exports.OAuthModule = OAuthModule;
@@ -25,6 +26,7 @@ exports.OAuthModule = OAuthModule = __decorate([
     (0, common_1.Module)({
         imports: [
             typeorm_1.TypeOrmModule.forFeature([oauth_entity_1.OAuthProvider, user_entity_1.User]),
+            web3_module_1.Web3Module,
             jwt_1.JwtModule.registerAsync({
                 inject: [config_1.ConfigService],
                 useFactory: (configService) => ({

@@ -27,13 +27,22 @@ export class OpenAIService {
 
   async generateChatResponse(messages: any[]): Promise<string> {
     try {
+      // Enhanced system message for fashion design context
+      const enhancedMessages = [
+        {
+          role: 'system',
+          content: 'You are an expert fashion design AI assistant. You help creators and makers collaborate on fashion projects. You can analyze designs, suggest improvements, provide technical fashion advice, discuss trends, materials, construction techniques, and help with design ideation. You understand both creative and technical aspects of fashion design.'
+        },
+        ...messages.slice(1) // Skip original system message if present
+      ];
+
       const response = await this.axiosInstance.post(
         this.apiUrl,
         {
           model: 'gpt-4o',
-          messages,
+          messages: enhancedMessages,
           temperature: 0.7,
-          max_tokens: 500,
+          max_tokens: 600,
         },
       );
 
@@ -133,17 +142,17 @@ export class OpenAIService {
 
   async generateDesignImage(prompt: string, referenceImageBase64?: string): Promise<string> {
     try {
-      // Create a detailed fashion design prompt
-      const fashionPrompt = `Fashion design sketch: ${prompt}. Professional fashion illustration, clean lines, detailed garment construction, fashion croquis style, high quality, detailed fabric textures, elegant pose, fashion runway style.`;
+      // Use GPT-4o to enhance the prompt for better image generation
+      const enhancedPrompt = await this.enhanceDesignPrompt(prompt, referenceImageBase64);
 
       const response = await this.axiosInstance.post(
         'https://api.openai.com/v1/images/generations',
         {
           model: 'dall-e-3',
-          prompt: fashionPrompt,
+          prompt: enhancedPrompt,
           n: 1,
           size: '1024x1024',
-          quality: 'standard',
+          quality: 'hd',
           style: 'natural'
         }
       );
@@ -159,6 +168,58 @@ export class OpenAIService {
       this.logger.error(`DALL-E image generation error: ${error.message}`);
       // Return a placeholder image URL or throw error
       return 'https://via.placeholder.com/1024x1024/f0f0f0/666666?text=Design+Generation+Failed';
+    }
+  }
+
+  private async enhanceDesignPrompt(prompt: string, referenceImageBase64?: string): Promise<string> {
+    try {
+      const messages: any[] = [
+        {
+          role: 'system',
+          content: 'You are an expert fashion design prompt engineer. Transform user descriptions into detailed, professional DALL-E prompts for fashion design generation. Focus on technical fashion details, fabric textures, silhouettes, and professional fashion illustration style.'
+        },
+        {
+          role: 'user',
+          content: `Transform this fashion design request into a detailed DALL-E prompt: "${prompt}"`
+        }
+      ];
+
+      // If reference image is provided, include it in the analysis
+      if (referenceImageBase64) {
+        messages[1].content = {
+          type: 'text',
+          text: `Transform this fashion design request into a detailed DALL-E prompt, considering the reference image provided: "${prompt}"`
+        };
+        messages.push({
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:image/jpeg;base64,${referenceImageBase64}`
+              }
+            }
+          ]
+        });
+      }
+
+      const response = await this.axiosInstance.post(
+        this.apiUrl,
+        {
+          model: 'gpt-4o',
+          messages,
+          temperature: 0.7,
+          max_tokens: 300,
+        }
+      );
+
+      const enhancedPrompt = response.data.choices[0].message.content;
+      this.logger.log(`Enhanced prompt: ${enhancedPrompt}`);
+      return enhancedPrompt;
+    } catch (error) {
+      this.logger.error(`Prompt enhancement error: ${error.message}`);
+      // Fallback to basic enhancement
+      return `Professional fashion design: ${prompt}. High-quality fashion illustration, detailed garment construction, elegant silhouette, professional fashion sketch style, clean lines, detailed fabric textures, fashion runway presentation.`;
     }
   }
 }

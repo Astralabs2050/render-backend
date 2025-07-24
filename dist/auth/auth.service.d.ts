@@ -4,16 +4,19 @@ import { UsersService } from '../users/users.service';
 import { RegisterDto, LoginDto, OtpVerificationDto, ResendOtpDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
 import { User } from '../users/entities/user.entity';
 import { EmailService } from '../common/services/email.service';
+import { ThirdwebService } from '../web3/services/thirdweb.service';
 export declare class AuthService {
     private usersService;
     private jwtService;
     private configService;
     private emailService;
+    private thirdwebService;
     private readonly logger;
-    constructor(usersService: UsersService, jwtService: JwtService, configService: ConfigService, emailService: EmailService);
+    constructor(usersService: UsersService, jwtService: JwtService, configService: ConfigService, emailService: EmailService, thirdwebService: ThirdwebService);
     register(registerDto: RegisterDto): Promise<{
         status: boolean;
         message: string;
+        walletAddress: string;
     }>;
     login(loginDto: LoginDto): Promise<{
         status: boolean;
@@ -47,6 +50,10 @@ export declare class AuthService {
             accessToken: string;
             refreshToken: string;
         };
+    }>;
+    getUserWallet(userId: string): Promise<{
+        address: string;
+        balance: string;
     }>;
     private generateTokens;
 }

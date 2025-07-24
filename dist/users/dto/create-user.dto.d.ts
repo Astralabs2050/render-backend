@@ -6,4 +6,6 @@ export declare class CreateUserDto {
     userType?: UserType;
     otp?: string;
     otpCreatedAt?: Date;
+    walletAddress?: string;
+    walletPrivateKey?: string;
 }

@@ -14,7 +14,7 @@ import { Web3Module } from '../web3/web3.module';
   imports: [
     TypeOrmModule.forFeature([Chat, ChatMessage, Milestone]),
     UsersModule,
-    Web3Module,
+    // Web3Module,
   ],
   controllers: [ChatController],
   providers: [

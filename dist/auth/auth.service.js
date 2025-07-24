@@ -15,22 +15,27 @@ const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
 const users_service_1 = require("../users/users.service");
-const user_entity_1 = require("../users/entities/user.entity");
 const helpers_1 = require("../common/utils/helpers");
 const email_service_1 = require("../common/services/email.service");
+const thirdweb_service_1 = require("../web3/services/thirdweb.service");
 let AuthService = AuthService_1 = class AuthService {
-    constructor(usersService, jwtService, configService, emailService) {
+    constructor(usersService, jwtService, configService, emailService, thirdwebService) {
         this.usersService = usersService;
         this.jwtService = jwtService;
         this.configService = configService;
         this.emailService = emailService;
+        this.thirdwebService = thirdwebService;
         this.logger = new common_1.Logger(AuthService_1.name);
     }
     async register(registerDto) {
+        const wallet = await this.thirdwebService.generateWallet();
         const otp = helpers_1.Helpers.generateOtp();
+        const encryptedPrivateKey = helpers_1.Helpers.encryptPrivateKey(wallet.privateKey);
         const user = await this.usersService.create({
             ...registerDto,
-            userType: user_entity_1.UserType.CREATOR,
+            userType: registerDto.role,
+            walletAddress: wallet.address,
+            walletPrivateKey: encryptedPrivateKey,
             otp,
             otpCreatedAt: new Date(),
         });
@@ -42,6 +47,7 @@ let AuthService = AuthService_1 = class AuthService {
         return {
             status: true,
             message: 'Registration successful, OTP sent to your email',
+            walletAddress: wallet.address,
         };
     }
     async login(loginDto) {
@@ -184,6 +190,17 @@ let AuthService = AuthService_1 = class AuthService {
             throw new common_1.UnauthorizedException('Invalid refresh token');
         }
     }
+    async getUserWallet(userId) {
+        const user = await this.usersService.findOne(userId);
+        if (!user.walletAddress) {
+            throw new common_1.NotFoundException('User wallet not found');
+        }
+        const balance = await this.thirdwebService.getWalletBalance(user.walletAddress);
+        return {
+            address: user.walletAddress,
+            balance,
+        };
+    }
     generateTokens(user) {
         const payload = { sub: user.id, email: user.email };
         const accessToken = this.jwtService.sign(payload, {
@@ -201,6 +218,7 @@ exports.AuthService = AuthService = AuthService_1 = __decorate([
     __metadata("design:paramtypes", [users_service_1.UsersService,
         jwt_1.JwtService,
         config_1.ConfigService,
-        email_service_1.EmailService])
+        email_service_1.EmailService,
+        thirdweb_service_1.ThirdwebService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

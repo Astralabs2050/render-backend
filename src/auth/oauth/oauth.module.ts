@@ -9,10 +9,12 @@ import { DiscordStrategy } from './discord.strategy';
 import { TwitterStrategy } from './twitter.strategy';
 import { OAuthProvider } from './oauth.entity';
 import { User } from '../../users/entities/user.entity';
+import { Web3Module } from '../../web3/web3.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([OAuthProvider, User]),
+    Web3Module,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({

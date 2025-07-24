@@ -47,4 +47,10 @@ export class AuthController {
   getProfile(@Req() req) {
     return req.user;
   }
+
+  @Get('wallet')
+  @UseGuards(JwtAuthGuard)
+  getWallet(@Req() req) {
+    return this.authService.getUserWallet(req.user.id);
+  }
 }

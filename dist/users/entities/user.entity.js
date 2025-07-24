@@ -53,6 +53,15 @@ __decorate([
     __metadata("design:type", String)
 ], User.prototype, "userType", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], User.prototype, "walletAddress", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    (0, class_transformer_1.Exclude)({ toPlainOnly: true }),
+    __metadata("design:type", String)
+], User.prototype, "walletPrivateKey", void 0);
+__decorate([
     (0, typeorm_1.OneToMany)(() => oauth_entity_1.OAuthProvider, oauthProvider => oauthProvider.user),
     __metadata("design:type", Array)
 ], User.prototype, "oauthProviders", void 0);

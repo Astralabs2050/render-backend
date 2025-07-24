@@ -32,6 +32,13 @@ export class User extends BaseEntity {
 
   @Column({ type: 'enum', enum: UserType, nullable: true })
   userType: UserType;
+
+  @Column({ nullable: true })
+  walletAddress: string;
+
+  @Column({ nullable: true })
+  @Exclude({ toPlainOnly: true })
+  walletPrivateKey: string;
   
   @OneToMany(() => OAuthProvider, oauthProvider => oauthProvider.user)
   oauthProviders: OAuthProvider[];

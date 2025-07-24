@@ -7,9 +7,11 @@ import { CreateChatDto, SendMessageDto, GenerateDesignDto, ListDesignDto, MakerP
 import { PromptService } from './prompt.service';
 import { OpenAIService } from './openai.service';
 import { StreamChatService } from './stream-chat.service';
+import { CloudinaryService } from '../../common/services/cloudinary.service';
 import { UsersService } from '../../users/users.service';
-import { NFTService } from '../../web3/services/nft.service';
-import { EscrowService } from '../../web3/services/escrow.service';
+// Using fetch instead of axios for image download
+// import { NFTService } from '../../web3/services/nft.service';
+// import { EscrowService } from '../../web3/services/escrow.service';
 
 @Injectable()
 export class ChatService {
@@ -25,9 +27,10 @@ export class ChatService {
     private promptService: PromptService,
     private openaiService: OpenAIService,
     private streamChatService: StreamChatService,
+    private cloudinaryService: CloudinaryService,
     private usersService: UsersService,
-    private nftService: NFTService,
-    private escrowService: EscrowService,
+    // private nftService: NFTService,
+    // private escrowService: EscrowService,
   ) { }
 
   async createChat(userId: string, dto: CreateChatDto): Promise<Chat> {
@@ -148,15 +151,44 @@ export class ChatService {
     await this.addAssistantMessage(chatId, "Generating your design... This will take a moment.");
 
     // Generate design image using DALL-E
-    const imageUrl = await this.openaiService.generateDesignImage(prompt, referenceImageBase64);
+    const dalleImageUrl = await this.openaiService.generateDesignImage(prompt, referenceImageBase64);
+
+    // Download the DALL-E image and upload to Cloudinary for better performance
+    let cloudinaryResult;
+    try {
+      const response = await fetch(dalleImageUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const imageBuffer = Buffer.from(arrayBuffer);
+      
+      const designId = `design_${chatId}_${Date.now()}`;
+      cloudinaryResult = await this.cloudinaryService.uploadDesignImage(
+        imageBuffer,
+        designId,
+        chat.userId
+      );
+      
+      this.logger.log(`Design image uploaded to Cloudinary: ${cloudinaryResult.secure_url}`);
+    } catch (error) {
+      this.logger.error(`Failed to upload to Cloudinary: ${error.message}`);
+      // Fallback to DALL-E URL if Cloudinary fails
+      cloudinaryResult = { secure_url: dalleImageUrl };
+    }
 
     // Extract design metadata
     const metadata = await this.openaiService.generateDesignMetadata(prompt);
 
     // Update chat metadata and state
-    chat.metadata = { ...chat.metadata, design: metadata };
+    chat.metadata = { 
+      ...chat.metadata, 
+      design: {
+        ...metadata,
+        originalImageUrl: dalleImageUrl,
+        cloudinaryUrl: cloudinaryResult.secure_url,
+        cloudinaryPublicId: cloudinaryResult.public_id,
+      }
+    };
     chat.state = ChatState.DESIGN_PREVIEW;
-    chat.designImageUrl = imageUrl;
+    chat.designImageUrl = cloudinaryResult.secure_url;
 
     await this.chatRepository.save(chat);
 
@@ -165,10 +197,15 @@ export class ChatService {
       name: metadata.name,
       price: metadata.price,
       days: metadata.timeframe,
-      imageUrl: imageUrl
+      imageUrl: cloudinaryResult.secure_url
     });
 
-    await this.addAssistantMessage(chatId, `${previewPrompt}\n\n🎨 **Design Image Generated!**\nView your design: ${imageUrl}`);
+    // Get image variants for different display sizes
+    const variants = cloudinaryResult.public_id 
+      ? this.cloudinaryService.getImageVariants(cloudinaryResult.public_id)
+      : { thumbnail: cloudinaryResult.secure_url, medium: cloudinaryResult.secure_url, large: cloudinaryResult.secure_url };
+
+    await this.addAssistantMessage(chatId, `${previewPrompt}\n\n🎨 **Design Image Generated!**\nView your design: ${cloudinaryResult.secure_url}\n\n📱 **Image Variants:**\n- Thumbnail: ${variants.thumbnail}\n- Medium: ${variants.medium}\n- Large: ${variants.large}`);
 
     return metadata;
   }
@@ -184,86 +221,28 @@ export class ChatService {
       throw new NotFoundException('Chat not found');
     }
 
-    try {
-      // Create NFT from the design
-      const nft = await this.nftService.createNFT({
-        name,
-        description: `Custom fashion design: ${name}`,
-        category,
-        price,
-        quantity: 1,
-        imageUrl: chat.designImageUrl || 'https://placeholder.com/512x512',
-        creatorId: chat.creatorId,
-        chatId: chat.id,
-        attributes: [
-          { trait_type: 'Category', value: category },
-          { trait_type: 'Price', value: price },
-          { trait_type: 'Timeframe', value: timeframe },
-          { trait_type: 'Created Via', value: 'AI Chat' },
-        ],
-      });
+    // TODO: Integrate with Web3 services once they're properly loaded
+    const jobData = {
+      id: `job-${Date.now()}`,
+      name,
+      category,
+      price,
+      timeframe,
+      status: 'active',
+    };
 
-      // Mint the NFT
-      const mintedNFT = await this.nftService.mintNFT({
-        nftId: nft.id,
-      });
+    // Update chat metadata and state
+    chat.metadata = { ...chat.metadata, job: jobData };
+    chat.state = ChatState.LISTED;
+    chat.jobId = jobData.id;
+    
+    await this.chatRepository.save(chat);
 
-      // List the NFT
-      await this.nftService.listNFT(mintedNFT.id);
+    // Add assistant message
+    const listedPrompt = this.promptService.getPromptForState(ChatState.LISTED, true);
+    await this.addAssistantMessage(chatId, listedPrompt);
 
-      const jobData = {
-        id: `job-${Date.now()}`,
-        nftId: mintedNFT.id,
-        tokenId: mintedNFT.tokenId,
-        contractAddress: mintedNFT.contractAddress,
-        name,
-        category,
-        price,
-        timeframe,
-        status: 'active',
-        ipfsUrl: mintedNFT.ipfsUrl,
-      };
-
-      // Update chat metadata and state
-      chat.metadata = { ...chat.metadata, job: jobData, nft: mintedNFT };
-      chat.state = ChatState.LISTED;
-      chat.jobId = jobData.id;
-      
-      await this.chatRepository.save(chat);
-
-      // Add assistant message with NFT details
-      const listedPrompt = this.promptService.getPromptForState(ChatState.LISTED, true);
-      await this.addAssistantMessage(
-        chatId, 
-        `${listedPrompt}\n\n🎨 **NFT Minted Successfully!**\nToken ID: ${mintedNFT.tokenId}\nContract: ${mintedNFT.contractAddress}\nIPFS: ${mintedNFT.ipfsUrl}`
-      );
-
-      return jobData;
-    } catch (error) {
-      this.logger.error(`Failed to list design as NFT: ${error.message}`);
-      
-      // Fallback to regular job listing without NFT
-      const jobData = {
-        id: `job-${Date.now()}`,
-        name,
-        category,
-        price,
-        timeframe,
-        status: 'active',
-        error: 'NFT minting failed, listed as regular job',
-      };
-
-      chat.metadata = { ...chat.metadata, job: jobData };
-      chat.state = ChatState.LISTED;
-      chat.jobId = jobData.id;
-      
-      await this.chatRepository.save(chat);
-
-      const listedPrompt = this.promptService.getPromptForState(ChatState.LISTED, true);
-      await this.addAssistantMessage(chatId, `${listedPrompt}\n\n⚠️ Note: NFT minting failed, but your design is still listed as a job.`);
-
-      return jobData;
-    }
+    return jobData;
   }
 
   async addMakerProposal(dto: MakerProposalDto): Promise<any> {

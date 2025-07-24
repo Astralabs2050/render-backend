@@ -8,7 +8,6 @@ import { WaitlistModule } from './waitlist/waitlist.module';
 import { AiModule } from './ai/ai.module';
 import { AIChatModule } from './ai-chat/ai-chat.module';
 import { Web3Module } from './web3/web3.module';
-import { Web3Module } from './web3/web3.module';
 
 @Module({
   imports: [
@@ -20,7 +19,6 @@ import { Web3Module } from './web3/web3.module';
     WaitlistModule,
     AiModule,
     AIChatModule,
-    Web3Module,
     Web3Module,
   ],
 })

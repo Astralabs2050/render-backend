@@ -32,7 +32,6 @@ exports.AppModule = AppModule = __decorate([
             ai_module_1.AiModule,
             ai_chat_module_1.AIChatModule,
             web3_module_1.Web3Module,
-            web3_module_1.Web3Module,
         ],
     })
 ], AppModule);

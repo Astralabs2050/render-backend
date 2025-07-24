@@ -28,4 +28,12 @@ export class CreateUserDto {
   
   @IsOptional()
   otpCreatedAt?: Date;
+
+  @IsString()
+  @IsOptional()
+  walletAddress?: string;
+
+  @IsString()
+  @IsOptional()
+  walletPrivateKey?: string;
 }

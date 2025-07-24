@@ -2,7 +2,6 @@ import { ConfigService } from '@nestjs/config';
 import { ThirdwebService } from './thirdweb.service';
 import { EscrowService } from './escrow.service';
 import { NFTService } from './nft.service';
-import { StreamChatService } from '../../ai-chat/services/stream-chat.service';
 export interface BlockchainEvent {
     eventName: string;
     contractAddress: string;
@@ -24,10 +23,9 @@ export declare class WebhookService {
     private thirdwebService;
     private escrowService;
     private nftService;
-    private streamChatService;
     private readonly logger;
     private readonly webhookSecret;
-    constructor(configService: ConfigService, thirdwebService: ThirdwebService, escrowService: EscrowService, nftService: NFTService, streamChatService: StreamChatService);
+    constructor(configService: ConfigService, thirdwebService: ThirdwebService, escrowService: EscrowService, nftService: NFTService);
     private initializeEventListeners;
     handleNFTMinted(event: any): Promise<void>;
     handleNFTTransfer(event: any): Promise<void>;
@@ -39,6 +37,6 @@ export declare class WebhookService {
     private processBlockchainEvent;
     private sendChatNotification;
     private extractEscrowIdFromTracking;
-    validateWebhookSignature(payload: string, signature: string): boolean;
+    validateWebhookSignature(payload: string, signature: string): Promise<boolean>;
     getEventLogs(contractAddress: string, fromBlock?: number): Promise<BlockchainEvent[]>;
 }
