@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Astra AI Chat Test</title>
+  <script src="/stream-chat.min.js"></script>
+  <script>
+    // Fallback CDN if local file fails
+    if (typeof StreamChat === 'undefined') {
+      console.log('Local Stream Chat failed, trying CDN...');
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/stream-chat@8.40.8/dist/browser.min.js';
+      script.async = false;
+      document.head.appendChild(script);
+    }
+  </script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .chat-container {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      height: 500px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 15px;
+    }
+
+    .message {
+      margin-bottom: 15px;
+      padding: 10px;
+      border-radius: 8px;
+      max-width: 80%;
+    }
+
+    .user-message {
+      background-color: #e1f5fe;
+      align-self: flex-end;
+      margin-left: auto;
+    }
+
+    .ai-message {
+      background-color: #f5f5f5;
+      align-self: flex-start;
+    }
+
+    .input-container {
+      display: flex;
+      padding: 10px;
+      border-top: 1px solid #ddd;
+    }
+
+    #message-input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    button {
+      margin-left: 10px;
+      padding: 10px 15px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .action-button {
+      background-color: #2196f3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Astra AI Chat Test</h1>
+  
+  <div id="library-status" style="padding: 10px; margin-bottom: 20px; border-radius: 4px;">
+    <span id="status-text">Loading Stream Chat library...</span>
+  </div>
+
+  <div id="login-container">
+    <h2>Login</h2>
+    <input type="text" id="token-input" placeholder="Enter your JWT token">
+    <br><br>
+    <input type="text" id="chat-id-input" placeholder="Enter existing chat ID (optional)" value="0e34ba11-ce2e-42f8-922b-47cd9347af03">
+    <br><br>
+    <button onclick="login()">Login</button>
+    <div id="error-display" style="color: red; margin-top: 10px;"></div>
+  </div>
+
+  <div id="chat-container" class="chat-container" style="display: none;">
+    <div id="messages" class="messages"></div>
+    <div class="input-container">
+      <input type="text" id="message-input" placeholder="Type your message...">
+      <button onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <script>
+    let chatClient;
+    let channel;
+    let userId;
+    let chatId;
+    
+    // Check if Stream Chat library loaded
+    function checkStreamChatLibrary() {
+      const statusDiv = document.getElementById('library-status');
+      const statusText = document.getElementById('status-text');
+      
+      if (typeof StreamChat !== 'undefined') {
+        statusText.textContent = '✅ Stream Chat library loaded successfully!';
+        statusDiv.style.backgroundColor = '#d4edda';
+        statusDiv.style.color = '#155724';
+        return true;
+      } else {
+        statusText.textContent = '❌ Stream Chat library failed to load. Trying fallback...';
+        statusDiv.style.backgroundColor = '#f8d7da';
+        statusDiv.style.color = '#721c24';
+        return false;
+      }
+    }
+    
+    // Check immediately and after a delay
+    setTimeout(checkStreamChatLibrary, 100);
+    window.addEventListener('load', checkStreamChatLibrary);
+
+    async function login() {
+      const token = document.getElementById('token-input').value;
+      const existingChatId = document.getElementById('chat-id-input').value.trim();
+      const errorDisplay = document.getElementById('error-display');
+
+      try {
+        errorDisplay.textContent = 'Getting Stream Chat token...';
+        
+        // Get Stream Chat token
+        const response = await fetch('/ai-chat/token', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (!data.status) {
+          throw new Error(`Stream Chat token failed: ${data.message || 'Unknown error'}`);
+        }
+
+        userId = data.data.userId;
+        const streamToken = data.data.token;
+        errorDisplay.textContent = `Stream token received for user: ${userId}`;
+
+        // Initialize Stream Chat client
+        errorDisplay.textContent = 'Connecting to Stream Chat...';
+        
+        // Check if StreamChat is available
+        if (typeof StreamChat === 'undefined') {
+          throw new Error('Stream Chat library not loaded. Please check your internet connection.');
+        }
+        
+        chatClient = StreamChat.getInstance('tcxruf7j5zv5');
+        await chatClient.connectUser(
+          {
+            id: userId,
+            name: 'Test User',
+          },
+          streamToken
+        );
+        errorDisplay.textContent = 'Connected to Stream Chat successfully!';
+
+        // Use existing chat or create new one
+        if (existingChatId) {
+          chatId = existingChatId;
+          errorDisplay.textContent = `Using existing chat: ${chatId}`;
+        } else {
+          errorDisplay.textContent = 'Creating new chat...';
+          const chatResponse = await fetch('/ai-chat', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              title: 'Stream Chat Test'
+            })
+          });
+
+          const chatData = await chatResponse.json();
+          
+          if (!chatData.status) {
+            throw new Error(`Chat creation failed: ${chatData.message || 'Unknown error'}`);
+          }
+          
+          chatId = chatData.data.id;
+          errorDisplay.textContent = `New chat created: ${chatId}`;
+        }
+
+        // Connect to the channel
+        errorDisplay.textContent = 'Connecting to chat channel...';
+        channel = chatClient.channel('messaging', chatId);
+        const channelState = await channel.watch();
+        
+        errorDisplay.textContent = `Connected to channel! Found ${channelState.messages.length} existing messages.`;
+
+        // Listen for new messages
+        channel.on('message.new', event => {
+          displayMessage(event.message);
+        });
+
+        // Display existing messages
+        channelState.messages.forEach(message => {
+          displayMessage(message);
+        });
+
+        // Show chat container
+        document.getElementById('login-container').style.display = 'none';
+        document.getElementById('chat-container').style.display = 'block';
+        
+      } catch (error) {
+        console.error('Detailed error:', error);
+        errorDisplay.textContent = `Error: ${error.message}`;
+        errorDisplay.style.color = 'red';
+      }
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('message-input');
+      const message = input.value.trim();
+
+      if (!message) return;
+
+      try {
+        // Send message to backend
+        await fetch('/ai-chat/message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${document.getElementById('token-input').value}`
+          },
+          body: JSON.stringify({
+            content: message,
+            chatId: chatId
+          })
+        });
+
+        // Clear input
+        input.value = '';
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to send message');
+      }
+    }
+
+    function displayMessage(message) {
+      const messagesContainer = document.getElementById('messages');
+      const messageElement = document.createElement('div');
+
+      messageElement.classList.add('message');
+      messageElement.classList.add(message.user.id === userId ? 'user-message' : 'ai-message');
+
+      messageElement.innerHTML = `
+        <div><strong>${message.user.id === userId ? 'You' : 'Astra AI'}</strong></div>
+        <div>${message.text}</div>
+      `;
+
+      // Add buttons if available
+      if (message.latest_reactions && message.latest_reactions.buttons) {
+        const buttonsDiv = document.createElement('div');
+        buttonsDiv.classList.add('buttons');
+
+        message.latest_reactions.buttons.options.forEach(button => {
+          const buttonElement = document.createElement('button');
+          buttonElement.classList.add('action-button');
+          buttonElement.textContent = button.text;
+          buttonElement.onclick = () => handleButtonClick(button.value);
+          buttonsDiv.appendChild(buttonElement);
+        });
+
+        messageElement.appendChild(buttonsDiv);
+      }
+
+      messagesContainer.appendChild(messageElement);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function handleButtonClick(action) {
+      // Handle button actions based on value
+      console.log('Button clicked:', action);
+
+      // Example: Handle "Accept" button for maker proposal
+      if (action === 'accept') {
+        fetch('/ai-chat/escrow', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${document.getElementById('token-input').value}`
+          },
+          body: JSON.stringify({
+            chatId: chatId,
+            action: 'init'
+          })
+        });
+      }
+    }
+  </script>
+</body>
+
+</html>

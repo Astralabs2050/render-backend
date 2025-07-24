@@ -68,7 +68,6 @@ export class OAuthService {
             email: oauthUser.email,
             fullName: oauthUser.fullName,
             verified: true, // OAuth users are pre-verified
-            active: true,
             userType: UserType.CREATOR, // Default to creator
           });
           

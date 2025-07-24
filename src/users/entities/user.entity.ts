@@ -5,7 +5,7 @@ import { OAuthProvider } from '../../auth/oauth/oauth.entity';
 
 export enum UserType {
   CREATOR = 'creator',
-  BRAND = 'brand',
+  MAKER = 'maker',
 }
 
 @Entity('users')
@@ -20,20 +20,8 @@ export class User extends BaseEntity {
   @Column({ nullable: true })
   fullName: string;
 
-  @Column({ nullable: true })
-  language: string;
-
-  @Column({ nullable: true })
-  city: string;
-
-  @Column({ nullable: true })
-  country: string;
-
   @Column({ default: false })
   verified: boolean;
-
-  @Column({ default: false })
-  active: boolean;
 
   @Column({ nullable: true })
   @Exclude({ toPlainOnly: true })
@@ -41,9 +29,6 @@ export class User extends BaseEntity {
 
   @Column({ nullable: true })
   otpCreatedAt: Date;
-
-  @Column({ default: false })
-  isAdmin: boolean;
 
   @Column({ type: 'enum', enum: UserType, nullable: true })
   userType: UserType;

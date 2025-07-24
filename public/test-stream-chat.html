@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stream Chat Library Test</title>
+</head>
+<body>
+  <h1>Stream Chat Library Test</h1>
+  <div id="status"></div>
+  
+  <script src="/stream-chat.min.js"></script>
+  <script>
+    const statusDiv = document.getElementById('status');
+    
+    // Test if StreamChat is available
+    if (typeof StreamChat !== 'undefined') {
+      statusDiv.innerHTML = '<p style="color: green;">✅ Stream Chat library loaded successfully!</p>';
+      statusDiv.innerHTML += '<p>StreamChat object: ' + typeof StreamChat + '</p>';
+      statusDiv.innerHTML += '<p>getInstance method: ' + typeof StreamChat.getInstance + '</p>';
+    } else {
+      statusDiv.innerHTML = '<p style="color: red;">❌ Stream Chat library failed to load</p>';
+      statusDiv.innerHTML += '<p>Trying alternative CDN...</p>';
+      
+      // Try loading from CDN as fallback
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/stream-chat@8.40.8/dist/browser.min.js';
+      script.onload = function() {
+        if (typeof StreamChat !== 'undefined') {
+          statusDiv.innerHTML += '<p style="color: green;">✅ CDN fallback worked!</p>';
+        } else {
+          statusDiv.innerHTML += '<p style="color: red;">❌ CDN fallback also failed</p>';
+        }
+      };
+      script.onerror = function() {
+        statusDiv.innerHTML += '<p style="color: red;">❌ CDN fallback failed to load</p>';
+      };
+      document.head.appendChild(script);
+    }
+  </script>
+</body>
+</html>

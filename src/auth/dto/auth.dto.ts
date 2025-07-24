@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional, Matches } from 'class-validator';
 import { UserType } from '../../users/entities/user.entity';
 
 export class RegisterDto {
@@ -8,19 +8,15 @@ export class RegisterDto {
 
   @IsString()
   @IsNotEmpty()
-  @MinLength(6)
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, {
+    message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+  })
   password: string;
 
   @IsString()
-  @IsOptional()
-  fullName?: string;
-
-  @IsString()
-  @IsOptional()
-  language?: string;
-
   @IsNotEmpty()
-  userType: UserType;
+  fullName: string;
 }
 
 export class LoginDto {
@@ -43,6 +39,12 @@ export class OtpVerificationDto {
   otp: string;
 }
 
+export class ResendOtpDto {
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
 export class ForgotPasswordDto {
   @IsEmail()
   @IsNotEmpty()
@@ -60,6 +62,15 @@ export class ResetPasswordDto {
 
   @IsString()
   @IsNotEmpty()
-  @MinLength(6)
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, {
+    message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)'
+  })
   password: string;
+}
+
+export class RefreshTokenDto {
+  @IsString()
+  @IsNotEmpty()
+  refreshToken: string;
 }

@@ -3,6 +3,7 @@ import { APP_FILTER, APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 import { HttpExceptionFilter } from './filters/http-exception.filter';
 import { TransformInterceptor } from './interceptors/transform.interceptor';
 import { RolesGuard } from './guards/roles.guard';
+import { EmailService } from './services/email.service';
 
 @Global()
 @Module({
@@ -19,7 +20,8 @@ import { RolesGuard } from './guards/roles.guard';
       provide: APP_GUARD,
       useClass: RolesGuard,
     },
+    EmailService,
   ],
-  exports: [],
+  exports: [EmailService],
 })
 export class CommonModule {}

@@ -1,35 +1,57 @@
 import * as bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
+import { User } from '../../users/entities/user.entity';
 
 export class Helpers {
+  /**
+   * Generate a random 6-digit OTP
+   */
+  static generateOtp(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  /**
+   * Hash a password
+   */
   static async hashPassword(password: string): Promise<string> {
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt();
     return bcrypt.hash(password, salt);
   }
 
-  static async comparePasswords(plainText: string, hashed: string): Promise<boolean> {
-    return bcrypt.compare(plainText, hashed);
+  /**
+   * Compare a password with a hash
+   */
+  static async comparePassword(password: string, hash: string): Promise<boolean> {
+    return bcrypt.compare(password, hash);
   }
 
-  static generateOtp(): string {
-    return uuidv4().substring(0, 6);
-  }
-
-  static isOtpExpired(otpCreatedAt: Date, expiryMinutes = 30): boolean {
-    if (!otpCreatedAt) return true;
-    
-    const expirationTime = new Date(otpCreatedAt.getTime() + expiryMinutes * 60 * 1000);
-    return new Date() > expirationTime;
-  }
-
-  static sanitizeUser(user: any): any {
-    const { password, otp, ...result } = user;
+  /**
+   * Sanitize user object by removing sensitive fields
+   */
+  static sanitizeUser(user: User): Partial<User> {
+    const { password, otp, otpCreatedAt, ...result } = user;
     return result;
   }
 
+  /**
+   * Check if OTP is expired (15 minutes)
+   */
+  static isOtpExpired(otpCreatedAt: Date): boolean {
+    if (!otpCreatedAt) return true;
+    
+    const now = new Date();
+    const expirationTime = new Date(otpCreatedAt.getTime() + 15 * 60 * 1000); // 15 minutes
+    
+    return now > expirationTime;
+  }
+  
+  /**
+   * Log data in development environment
+   */
   static logData(label: string, data: any): void {
-    console.log(`\n--- ${label} ---`);
-    console.log(typeof data === 'object' ? JSON.stringify(data, null, 2) : data);
-    console.log(`--- End ${label} ---\n`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`\n--- ${label} ---`);
+      console.log(data);
+      console.log('-------------------\n');
+    }
   }
 }

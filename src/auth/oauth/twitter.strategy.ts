@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy } from 'passport-twitter-oauth2';
+import { Strategy } from 'passport-twitter';
 import { ConfigService } from '@nestjs/config';
 import { OAuthService } from './oauth.service';
 
@@ -11,16 +11,16 @@ export class TwitterStrategy extends PassportStrategy(Strategy, 'twitter') {
     private oauthService: OAuthService,
   ) {
     super({
-      clientID: configService.get('TWITTER_CLIENT_ID'),
-      clientSecret: configService.get('TWITTER_CLIENT_SECRET'),
+      consumerKey: configService.get('TWITTER_CLIENT_ID'),
+      consumerSecret: configService.get('TWITTER_CLIENT_SECRET'),
       callbackURL: configService.get('TWITTER_CALLBACK_URL'),
       includeEmail: true,
     });
   }
 
   async validate(
-    accessToken: string,
-    refreshToken: string,
+    token: string,
+    tokenSecret: string,
     profile: any,
     done: Function,
   ): Promise<any> {
@@ -32,8 +32,8 @@ export class TwitterStrategy extends PassportStrategy(Strategy, 'twitter') {
       email: emails && emails[0] ? emails[0].value : null,
       fullName: displayName,
       picture: photos && photos[0] ? photos[0].value : null,
-      accessToken,
-      refreshToken,
+      accessToken: token,
+      refreshToken: tokenSecret,
     };
     
     const result = await this.oauthService.validateOAuthLogin(user);

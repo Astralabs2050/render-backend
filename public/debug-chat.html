@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug AI Chat</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .step {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    input, button {
+      margin: 5px;
+      padding: 8px;
+    }
+    .response {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #f5f5f5;
+      border-radius: 3px;
+      white-space: pre-wrap;
+    }
+    .error {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+    .success {
+      background-color: #e8f5e8;
+      color: #2e7d32;
+    }
+  </style>
+</head>
+<body>
+  <h1>Debug AI Chat Step by Step</h1>
+  
+  <div class="step">
+    <h3>Step 1: Test JWT Token</h3>
+    <input type="text" id="jwt-token" placeholder="Paste your JWT token" style="width: 500px;">
+    <button onclick="testToken()">Test Token</button>
+    <div id="token-result" class="response"></div>
+  </div>
+
+  <div class="step">
+    <h3>Step 2: Test Stream Chat Token</h3>
+    <button onclick="testStreamToken()">Get Stream Chat Token</button>
+    <div id="stream-result" class="response"></div>
+  </div>
+
+  <div class="step">
+    <h3>Step 3: Test Chat Creation</h3>
+    <button onclick="testCreateChat()">Create Chat</button>
+    <div id="chat-result" class="response"></div>
+  </div>
+
+  <div class="step">
+    <h3>Step 4: Test Message Send</h3>
+    <input type="text" id="chat-id" placeholder="Chat ID from step 3">
+    <input type="text" id="message-text" placeholder="Test message" value="Hello AI">
+    <button onclick="testSendMessage()">Send Message</button>
+    <div id="message-result" class="response"></div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:3000';
+    let authToken = '';
+
+    function log(elementId, message, isError = false) {
+      const element = document.getElementById(elementId);
+      element.textContent = message;
+      element.className = `response ${isError ? 'error' : 'success'}`;
+    }
+
+    async function testToken() {
+      authToken = document.getElementById('jwt-token').value.trim();
+      
+      if (!authToken) {
+        log('token-result', 'Please enter a JWT token', true);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+          log('token-result', `Token valid! User: ${JSON.stringify(data, null, 2)}`);
+        } else {
+          log('token-result', `Token invalid: ${data.message}`, true);
+        }
+      } catch (error) {
+        log('token-result', `Error: ${error.message}`, true);
+      }
+    }
+
+    async function testStreamToken() {
+      if (!authToken) {
+        log('stream-result', 'Please test JWT token first', true);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/ai-chat/token`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        const data = await response.json();
+        
+        if (response.ok && data.status) {
+          log('stream-result', `Stream token received!\nUser ID: ${data.data.userId}\nToken: ${data.data.token.substring(0, 20)}...`);
+        } else {
+          log('stream-result', `Stream token failed: ${JSON.stringify(data, null, 2)}`, true);
+        }
+      } catch (error) {
+        log('stream-result', `Error: ${error.message}`, true);
+      }
+    }
+
+    async function testCreateChat() {
+      if (!authToken) {
+        log('chat-result', 'Please test JWT token first', true);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/ai-chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            title: 'Debug Test Chat'
+          })
+        });
+
+        const data = await response.json();
+        
+        if (response.ok && data.status) {
+          log('chat-result', `Chat created successfully!\nChat ID: ${data.data.id}\nTitle: ${data.data.title}\nState: ${data.data.state}`);
+          document.getElementById('chat-id').value = data.data.id;
+        } else {
+          log('chat-result', `Chat creation failed: ${JSON.stringify(data, null, 2)}`, true);
+        }
+      } catch (error) {
+        log('chat-result', `Error: ${error.message}`, true);
+      }
+    }
+
+    async function testSendMessage() {
+      const chatId = document.getElementById('chat-id').value.trim();
+      const messageText = document.getElementById('message-text').value.trim();
+
+      if (!authToken || !chatId || !messageText) {
+        log('message-result', 'Please fill in all fields', true);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/ai-chat/message`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            content: messageText,
+            chatId: chatId
+          })
+        });
+
+        const data = await response.json();
+        
+        if (response.ok && data.status) {
+          log('message-result', `Message sent successfully!\nMessage ID: ${data.data.id}\nContent: ${data.data.content}`);
+        } else {
+          log('message-result', `Message failed: ${JSON.stringify(data, null, 2)}`, true);
+        }
+      } catch (error) {
+        log('message-result', `Error: ${error.message}`, true);
+      }
+    }
+  </script>
+</body>
+</html>
