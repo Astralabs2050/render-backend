@@ -21,19 +21,14 @@ export class AuthService {
   ) { }
 
   async register(registerDto: RegisterDto) {
-    // Generate wallet for the user
-    const wallet = await this.thirdwebService.generateWallet();
-    
-    // Create user with OTP, provided role, and encrypted wallet
+    // Create user with OTP (no wallet yet - wallet created after verification)
     const otp = Helpers.generateOtp();
-    const encryptedPrivateKey = Helpers.encryptPrivateKey(wallet.privateKey);
     const user = await this.usersService.create({
       ...registerDto,
       userType: registerDto.role,
-      walletAddress: wallet.address,
-      walletPrivateKey: encryptedPrivateKey,
       otp,
       otpCreatedAt: new Date(),
+      // No wallet fields - these will be set after verification
     });
 
     // Send OTP email
@@ -47,8 +42,11 @@ export class AuthService {
 
     return {
       status: true,
-      message: 'Registration successful, OTP sent to your email',
-      walletAddress: wallet.address,
+      message: 'Registration successful, OTP sent to your email. Verify your email to get your wallet.',
+      data: {
+        email: user.email,
+        verified: false,
+      },
     };
   }
 
@@ -121,16 +119,25 @@ export class AuthService {
       throw new UnauthorizedException('OTP expired');
     }
 
-    // Update user
+    // Generate wallet for the user after successful verification
+    const wallet = await this.thirdwebService.generateWallet();
+    const encryptedPrivateKey = Helpers.encryptPrivateKey(wallet.privateKey);
+
+    // Update user with verification and wallet
     await this.usersService.update(user.id, {
       verified: true,
       otp: null,
+      walletAddress: wallet.address,
+      walletPrivateKey: encryptedPrivateKey,
     });
 
-    this.logger.log(`OTP verified for user: ${email}`);
+    this.logger.log(`OTP verified and wallet created for user: ${email}`);
     return {
       status: true,
-      message: 'OTP verified successfully',
+      message: 'OTP verified successfully, wallet created',
+      data: {
+        walletAddress: wallet.address,
+      },
     };
   }
 
@@ -266,13 +273,13 @@ export class AuthService {
 
   async getUserWallet(userId: string): Promise<{ address: string; balance: string }> {
     const user = await this.usersService.findOne(userId);
-    
+
     if (!user.walletAddress) {
       throw new NotFoundException('User wallet not found');
     }
 
     const balance = await this.thirdwebService.getWalletBalance(user.walletAddress);
-    
+
     return {
       address: user.walletAddress,
       balance,

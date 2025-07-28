@@ -5,6 +5,10 @@ export class CreateChatDto {
   @IsString()
   @IsOptional()
   title?: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
 }
 
 export class SendMessageDto {
@@ -12,7 +16,8 @@ export class SendMessageDto {
   content: string;
 
   @IsUUID()
-  chatId: string;
+  @IsOptional()
+  chatId?: string;
 
   @IsOptional()
   @IsString()

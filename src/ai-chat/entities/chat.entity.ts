@@ -48,7 +48,7 @@ export class Chat extends BaseEntity {
   @JoinColumn({ name: 'creatorId' })
   creator: User;
 
-  @Column()
+  @Column({ nullable: true })
   creatorId: string;
 
   @ManyToOne(() => User, { nullable: true })
@@ -61,14 +61,17 @@ export class Chat extends BaseEntity {
   @OneToMany(() => ChatMessage, message => message.chat, { cascade: true })
   messages: ChatMessage[];
 
-  @Column({ nullable: true })
-  designImageUrl: string;
+  @Column('simple-array', { nullable: true })
+  designPreviews: string[];
 
   @Column({ nullable: true })
   jobId: string;
 
   @Column({ nullable: true })
   escrowId: string;
+
+  @Column({ nullable: true })
+  nftId: string;
 }
 
 @Entity('ai_chat_messages')

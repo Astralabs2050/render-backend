@@ -178,7 +178,7 @@ export class WebhookService {
 
       await this.sendChatNotification(
         escrow.creatorId,
-        `✅ Milestone completed! Please review and approve to release ${amount} ETH`,
+        ` Milestone completed! Please review and approve to release ${amount} ETH`,
         'milestone_completed',
         { escrowId, milestoneId, amount }
       );
@@ -219,7 +219,7 @@ export class WebhookService {
 
       await this.sendChatNotification(
         escrow.creatorId,
-        `✅ Payment of ${amount} ETH has been released to the maker`,
+        ` Payment of ${amount} ETH has been released to the maker`,
         'payment_released',
         { escrowId, milestoneId, amount, recipient }
       );
@@ -264,7 +264,7 @@ export class WebhookService {
 
             await this.sendChatNotification(
               escrow.makerId,
-              `✅ Delivery confirmed! Final payment will be released automatically.`,
+              ` Delivery confirmed! Final payment will be released automatically.`,
               'delivery_milestone_completed',
               { 
                 trackingNumber: payload.trackingNumber,

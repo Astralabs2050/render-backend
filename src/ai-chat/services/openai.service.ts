@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { PromptService } from './prompt.service';
 
 @Injectable()
@@ -16,12 +16,13 @@ export class OpenAIService {
   ) {
     this.apiKey = this.configService.get<string>('OPENAI_API_KEY');
 
-    // Create axios instance with headers
+    // Create axios instance with headers and timeout
     this.axiosInstance = axios.create({
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.apiKey}`,
       },
+      timeout: 60000, // 60 seconds
     });
   }
 
@@ -43,7 +44,7 @@ export class OpenAIService {
           messages: enhancedMessages,
           temperature: 0.7,
           max_tokens: 600,
-        },
+        }
       );
 
       return response.data.choices[0].message.content;
@@ -140,10 +141,89 @@ export class OpenAIService {
     }
   }
 
+  async extractDesignInfo(content: string): Promise<any> {
+    try {
+      const response = await this.axiosInstance.post(
+        this.apiUrl,
+        {
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: 'Extract fashion design information from user input. Return JSON with available fields.' },
+            { role: 'user', content: `Extract design info: "${content}"` }
+          ],
+          temperature: 0.3,
+          max_tokens: 300,
+        }
+      );
+
+      const result = response.data.choices[0].message.content;
+      try {
+        return JSON.parse(result);
+      } catch {
+        return { garmentType: null, style: null, colors: null, size: null, occasion: null };
+      }
+    } catch (error) {
+      this.logger.error(`Design info extraction error: ${error.message}`);
+      return { garmentType: null, style: null, colors: null, size: null, occasion: null };
+    }
+  }
+
+  async updateDesignInfo(existingInfo: any, newContent: string): Promise<any> {
+    try {
+      const response = await this.axiosInstance.post(
+        this.apiUrl,
+        {
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: 'Update existing design info with new user input. Return complete JSON.' },
+            { role: 'user', content: `Existing: ${JSON.stringify(existingInfo)}\nNew input: "${newContent}"` }
+          ],
+          temperature: 0.3,
+          max_tokens: 300,
+        }
+      );
+
+      const result = response.data.choices[0].message.content;
+      try {
+        return JSON.parse(result);
+      } catch {
+        return existingInfo;
+      }
+    } catch (error) {
+      this.logger.error(`Design info update error: ${error.message}`);
+      return existingInfo;
+    }
+  }
+
+  async generateResponse(content: string): Promise<string> {
+    try {
+      const response = await this.axiosInstance.post(
+        this.apiUrl,
+        {
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: 'You are Astra AI, a fashion design assistant. Keep responses brief (1-2 sentences max). Be conversational and guide users toward fashion design.' },
+            { role: 'user', content }
+          ],
+          temperature: 0.7,
+          max_tokens: 80,
+        }
+      );
+
+      return response.data.choices[0].message.content;
+    } catch (error) {
+      this.logger.error(`Response generation error: ${error.message}`);
+      return "I'm having trouble right now. Please try again.";
+    }
+  }
+
   async generateDesignImage(prompt: string, referenceImageBase64?: string): Promise<string> {
     try {
+      this.logger.log(`Generating image for prompt: ${prompt}`);
+      
       // Use GPT-4o to enhance the prompt for better image generation
       const enhancedPrompt = await this.enhanceDesignPrompt(prompt, referenceImageBase64);
+      this.logger.log(`Enhanced prompt: ${enhancedPrompt}`);
 
       const response = await this.axiosInstance.post(
         'https://api.openai.com/v1/images/generations',
@@ -157,17 +237,18 @@ export class OpenAIService {
         }
       );
 
+      this.logger.log(`DALL-E response:`, response.data);
+
       if (response.data.data && response.data.data.length > 0) {
         const imageUrl = response.data.data[0].url;
         this.logger.log(`Generated design image: ${imageUrl}`);
         return imageUrl;
       }
 
-      throw new Error('No image generated');
+      throw new Error('No image generated from DALL-E');
     } catch (error) {
-      this.logger.error(`DALL-E image generation error: ${error.message}`);
-      // Return a placeholder image URL or throw error
-      return 'https://via.placeholder.com/1024x1024/f0f0f0/666666?text=Design+Generation+Failed';
+      this.logger.error(`DALL-E image generation error:`, error.response?.data || error.message);
+      throw error; // Don't return placeholder, let the caller handle the error
     }
   }
 

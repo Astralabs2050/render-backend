@@ -1,334 +1,193 @@
 {
   "info": {
-    "name": "Astra API",
-    "description": "Astra Fashion Platform API",
+    "name": "Astra Fashion API",
+    "description": "Authentication endpoints for Astra Fashion Platform",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:3000",
-      "type": "string"
-    }
-  ],
   "item": [
     {
-      "name": "AI Chat",
+      "name": "Auth",
       "item": [
         {
-          "name": "Create Chat",
+          "name": "Register",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
               }
             ],
-            "url": {
-              "raw": "{{baseUrl}}/ai-chat",
-              "host": ["{{baseUrl}}"],
-              "path": ["ai-chat"]
-            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"My Fashion Design\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"email\": \"creator@example.com\",\n  \"password\": \"Password123!\",\n  \"fullName\": \"John Creator\",\n  \"role\": \"creator\"\n}"
             },
-            "description": "Create a new AI chat session"
-          }
-        },
-        {
-          "name": "Get Chats",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
             "url": {
-              "raw": "{{baseUrl}}/ai-chat",
+              "raw": "{{baseUrl}}/auth/register",
               "host": ["{{baseUrl}}"],
-              "path": ["ai-chat"]
-            },
-            "description": "Get all user's chat sessions"
-          }
+              "path": ["auth", "register"]
+            }
+          },
+          "response": []
         },
         {
-          "name": "Get Chat",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/ai-chat/{{chatId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["ai-chat", "{{chatId}}"]
-            },
-            "description": "Get a specific chat session with messages"
-          }
-        },
-        {
-          "name": "Send Message",
+          "name": "Verify OTP",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
               }
             ],
-            "url": {
-              "raw": "{{baseUrl}}/ai-chat/message",
-              "host": ["{{baseUrl}}"],
-              "path": ["ai-chat", "message"]
-            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"I want to make a white satin dress with cutouts and a train.\",\n  \"chatId\": \"{{chatId}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"email\": \"creator@example.com\",\n  \"otp\": \"123456\"\n}"
             },
-            "description": "Send a message in a chat session"
-          }
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "verify-otp"]
+            }
+          },
+          "response": []
         },
         {
-          "name": "Generate Design",
+          "name": "Login",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
               }
             ],
-            "url": {
-              "raw": "{{baseUrl}}/ai-chat/design/generate",
-              "host": ["{{baseUrl}}"],
-              "path": ["ai-chat", "design", "generate"]
-            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"prompt\": \"White satin dress with cutouts and a train\",\n  \"chatId\": \"{{chatId}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"email\": \"creator@example.com\",\n  \"password\": \"Password123!\"\n}"
             },
-            "description": "Generate fashion design"
-          }
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
         },
         {
-          "name": "List Design",
+          "name": "Resend OTP",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
               }
             ],
-            "url": {
-              "raw": "{{baseUrl}}/ai-chat/design/list",
-              "host": ["{{baseUrl}}"],
-              "path": ["ai-chat", "design", "list"]
-            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"name\": \"Elegant White Satin Gown\",\n  \"category\": \"Evening Wear\",\n  \"price\": 120,\n  \"timeframe\": 10\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"email\": \"creator@example.com\"\n}"
             },
-            "description": "List design as a job"
-          }
+            "url": {
+              "raw": "{{baseUrl}}/auth/resend-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "resend-otp"]
+            }
+          },
+          "response": []
         },
         {
-          "name": "Add Maker Proposal",
+          "name": "Forgot Password",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
               }
             ],
-            "url": {
-              "raw": "{{baseUrl}}/ai-chat/maker/proposal",
-              "host": ["{{baseUrl}}"],
-              "path": ["ai-chat", "maker", "proposal"]
-            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"makerId\": \"{{makerId}}\",\n  \"price\": 65,\n  \"timeframe\": 7,\n  \"portfolio\": \"https://example.com/portfolio\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"email\": \"creator@example.com\"\n}"
             },
-            "description": "Add maker proposal to chat"
-          }
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "forgot-password"]
+            }
+          },
+          "response": []
         },
         {
-          "name": "Handle Escrow Action",
+          "name": "Reset Password",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
               }
             ],
-            "url": {
-              "raw": "{{baseUrl}}/ai-chat/escrow",
-              "host": ["{{baseUrl}}"],
-              "path": ["ai-chat", "escrow"]
-            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"action\": \"init\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"email\": \"creator@example.com\",\n  \"otp\": \"123456\",\n  \"password\": \"NewPassword123!\"\n}"
             },
-            "description": "Initialize or update escrow"
-          }
-        },
-        {
-          "name": "Get Stream Chat Token",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
             "url": {
-              "raw": "{{baseUrl}}/ai-chat/token",
+              "raw": "{{baseUrl}}/auth/reset-password",
               "host": ["{{baseUrl}}"],
-              "path": ["ai-chat", "token"]
-            },
-            "description": "Get Stream Chat token for the current user"
-          }
+              "path": ["auth", "reset-password"]
+            }
+          },
+          "response": []
         }
-      ],
+      ]
     },
     {
-      "name": "AI",
+      "name": "OAuth",
       "item": [
         {
-          "name": "Create Chat",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/ai/chat",
-              "host": ["{{baseUrl}}"],
-              "path": ["ai", "chat"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Fashion Design Chat\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Create a new AI chat session"
-          }
-        },
-        {
-          "name": "Get Chats",
+          "name": "Google OAuth",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
             "url": {
-              "raw": "{{baseUrl}}/ai/chat",
+              "raw": "{{baseUrl}}/auth/google",
               "host": ["{{baseUrl}}"],
-              "path": ["ai", "chat"]
-            },
-            "description": "Get all user's chat sessions"
-          }
+              "path": ["auth", "google"]
+            }
+          },
+          "response": []
         },
         {
-          "name": "Get Chat",
+          "name": "Discord OAuth",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
             "url": {
-              "raw": "{{baseUrl}}/ai/chat/{{chatId}}",
+              "raw": "{{baseUrl}}/auth/discord",
               "host": ["{{baseUrl}}"],
-              "path": ["ai", "chat", "{{chatId}}"]
-            },
-            "description": "Get a specific chat session with messages"
-          }
+              "path": ["auth", "discord"]
+            }
+          },
+          "response": []
         },
         {
-          "name": "Send Message",
+          "name": "Twitter OAuth",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/auth/twitter",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "twitter"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Design",
+      "item": [
+        {
+          "name": "Create Design",
           "request": {
             "method": "POST",
             "header": [
@@ -341,25 +200,20 @@
                 "value": "Bearer {{token}}"
               }
             ],
-            "url": {
-              "raw": "{{baseUrl}}/ai/chat/message",
-              "host": ["{{baseUrl}}"],
-              "path": ["ai", "chat", "message"]
-            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"I want to make a white satin dress with cutouts and a train.\",\n  \"chatId\": \"{{chatId}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"prompt\": \"white satin dress with cutouts\",\n  \"fabricImageBase64\": \"optional-base64-image\"\n}"
             },
-            "description": "Send a message in a chat session"
-          }
+            "url": {
+              "raw": "{{baseUrl}}/design/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["design", "create"]
+            }
+          },
+          "response": []
         },
         {
-          "name": "Generate Images",
+          "name": "Store Design",
           "request": {
             "method": "POST",
             "header": [
@@ -372,53 +226,17 @@
                 "value": "Bearer {{token}}"
               }
             ],
-            "url": {
-              "raw": "{{baseUrl}}/ai/generate-images",
-              "host": ["{{baseUrl}}"],
-              "path": ["ai", "generate-images"]
-            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"prompt\": \"White satin dress with cutouts and a train\",\n  \"chatId\": \"{{chatId}}\",\n  \"messageId\": \"{{messageId}}\",\n  \"provider\": \"stable-diffusion\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"chatId\": \"uuid-of-chat-with-design\",\n  \"name\": \"My Custom Design\",\n  \"description\": \"Beautiful white satin dress with elegant cutouts\"\n}"
             },
-            "description": "Generate fashion design images"
-          }
-        },
-        {
-          "name": "Extract Metadata",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
             "url": {
-              "raw": "{{baseUrl}}/ai/extract-metadata",
+              "raw": "{{baseUrl}}/design/store",
               "host": ["{{baseUrl}}"],
-              "path": ["ai", "extract-metadata"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"imageId\": \"{{imageId}}\",\n  \"chatId\": \"{{chatId}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Extract product metadata from a generated image"
-          }
+              "path": ["design", "store"]
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -435,435 +253,29 @@
                 "value": "application/json"
               }
             ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"phoneNumber\": \"+1234567890\",\n  \"whatYouMake\": \"Custom dresses and formal wear\",\n  \"website\": \"https://johndoe.com\",\n  \"location\": \"New York, NY\"\n}"
+            },
             "url": {
               "raw": "{{baseUrl}}/waitlist/join",
               "host": ["{{baseUrl}}"],
               "path": ["waitlist", "join"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"fullName\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"phoneNumber\": \"+1234567890\",\n  \"whatYouMake\": \"Fashion Accessories\",\n  \"website\": \"https://instagram.com/johndoe\",\n  \"location\": \"New York, USA\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Add a user to the waitlist"
-          }
+            }
+          },
+          "response": []
         }
       ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
     },
     {
-      "name": "Auth",
-      "item": [
-        {
-          "name": "Email Signup",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/signup/email",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "signup", "email"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"fullName\": \"John Doe\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Sign up with email and password"
-          }
-        },
-        {
-          "name": "Email Signin",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/signin/email",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "signin", "email"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Sign in with email and password"
-          }
-        },
-        {
-          "name": "Google Signup",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/auth/signup/google",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "signup", "google"]
-            },
-            "description": "Initiate Google OAuth signup flow"
-          }
-        },
-        {
-          "name": "Google Signin",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/auth/signin/google",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "signin", "google"]
-            },
-            "description": "Initiate Google OAuth signin flow"
-          }
-        },
-        {
-          "name": "Discord Signup",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/auth/signup/discord",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "signup", "discord"]
-            },
-            "description": "Initiate Discord OAuth signup flow"
-          }
-        },
-        {
-          "name": "Discord Signin",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/auth/signin/discord",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "signin", "discord"]
-            },
-            "description": "Initiate Discord OAuth signin flow"
-          }
-        },
-        {
-          "name": "Twitter Signup",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/auth/signup/twitter",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "signup", "twitter"]
-            },
-            "description": "Initiate Twitter OAuth signup flow"
-          }
-        },
-        {
-          "name": "Twitter Signin",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/auth/signin/twitter",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "signin", "twitter"]
-            },
-            "description": "Initiate Twitter OAuth signin flow"
-          }
-        },
-
-        {
-          "name": "Verify OTP",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/verify-otp",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "verify-otp"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otp\": \"123456\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Verify OTP code"
-          }
-        },
-        {
-          "name": "Resend OTP",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/resend-otp",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "resend-otp"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Resend OTP code (can only be requested after 15 minutes)"
-          }
-        },
-        {
-          "name": "Forgot Password",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/forgot-password",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "forgot-password"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Request password reset"
-          }
-        },
-        {
-          "name": "Reset Password",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/reset-password",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "reset-password"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otp\": \"123456\",\n  \"password\": \"newpassword123\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Reset password with OTP"
-          }
-        },
-        {
-          "name": "Get Current User",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "me"]
-            },
-            "description": "Get current authenticated user"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Users",
-      "item": [
-        {
-          "name": "Creator Dashboard",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/creator/dashboard",
-              "host": ["{{baseUrl}}"],
-              "path": ["creator", "dashboard"]
-            },
-            "description": "Get creator dashboard (requires CREATOR role)"
-          }
-        },
-        {
-          "name": "Maker Dashboard",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/maker/dashboard",
-              "host": ["{{baseUrl}}"],
-              "path": ["maker", "dashboard"]
-            },
-            "description": "Get maker dashboard (requires MAKER role)"
-          }
-        },
-        {
-          "name": "Create User",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/users",
-              "host": ["{{baseUrl}}"],
-              "path": ["users"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"fullName\": \"John Doe\",\n  \"userType\": \"creator\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Create a new user"
-          }
-        },
-        {
-          "name": "Get All Users",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/users",
-              "host": ["{{baseUrl}}"],
-              "path": ["users"]
-            },
-            "description": "Get all users"
-          }
-        },
-        {
-          "name": "Get User by ID",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/users/{{userId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["users", "{{userId}}"]
-            },
-            "description": "Get a user by ID"
-          }
-        },
-        {
-          "name": "Update User",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/users/{{userId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["users", "{{userId}}"]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Updated Name\",\n  \"language\": \"en\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Update a user"
-          }
-        },
-        {
-          "name": "Delete User",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/users/{{userId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["users", "{{userId}}"]
-            },
-            "description": "Delete a user"
-          }
-        }
-      ]
+      "key": "token",
+      "value": "your-jwt-token-here"
     }
   ]
 }

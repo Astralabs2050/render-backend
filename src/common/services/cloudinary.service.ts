@@ -57,7 +57,6 @@ export class CloudinaryService {
         folder: options.folder || 'astra-fashion',
         resource_type: 'image',
         quality: 'auto',
-        format: 'auto',
         ...options,
       };
 
@@ -126,7 +125,6 @@ export class CloudinaryService {
         height: 1024,
         crop: 'fit',
         quality: 'auto',
-        format: 'auto',
       },
     });
   }
@@ -152,7 +150,6 @@ export class CloudinaryService {
         crop: 'fill',
         gravity: 'face',
         quality: 'auto',
-        format: 'auto',
       },
     });
   }

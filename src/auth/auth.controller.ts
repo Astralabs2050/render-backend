@@ -7,6 +7,28 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // Main signup/signin routes (for test compatibility)
+  @Post('signup')
+  signup(@Body() registerDto: RegisterDto) {
+    return this.authService.register(registerDto);
+  }
+
+  @Post('register')
+  register(@Body() registerDto: RegisterDto) {
+    return this.authService.register(registerDto);
+  }
+
+  @Post('signin')
+  signin(@Body() loginDto: LoginDto) {
+    return this.authService.login(loginDto);
+  }
+
+  @Post('login')
+  login(@Body() loginDto: LoginDto) {
+    return this.authService.login(loginDto);
+  }
+
+  // Alternative email-specific routes
   @Post('signup/email')
   signupWithEmail(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
@@ -45,6 +67,12 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   getProfile(@Req() req) {
+    return req.user;
+  }
+
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  getProfileAlias(@Req() req) {
     return req.user;
   }
 

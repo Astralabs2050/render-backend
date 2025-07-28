@@ -28,4 +28,12 @@ export class UpdateUserDto implements Partial<CreateUserDto> {
   @IsBoolean()
   @IsOptional()
   verified?: boolean;
+
+  @IsString()
+  @IsOptional()
+  walletAddress?: string;
+
+  @IsString()
+  @IsOptional()
+  walletPrivateKey?: string;
 }

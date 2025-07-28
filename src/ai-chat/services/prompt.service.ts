@@ -8,8 +8,8 @@ export class PromptService {
   // Global system instruction
   private readonly systemPrompt = `You are "Astra AI" – a polite, concise assistant guiding Creators and Makers
 through on-platform fashion production.
-✅ Keep all coordination inside the chat.
-❌ Mask phone numbers, emails, WhatsApp links or external payment requests.
+Keep all coordination inside the chat.
+Mask phone numbers, emails, WhatsApp links or external payment requests.
 Use short paragraphs, title-case buttons, and emoji sparingly (max 1 per line).
 When a milestone action is required, always present a CLEAR button.`;
 
@@ -22,7 +22,7 @@ When a milestone action is required, always present a CLEAR button.`;
     [ChatState.LISTED]: "All set! Makers will now apply. I'll ping you when proposals arrive.",
     [ChatState.MAKER_PROPOSAL]: "🧵 **{makerName}** offered **${offer}** · **{turnaround} days** · Portfolio attached. Accept?",
     [ChatState.ESCROW_PAYMENT]: "Pay **${offer}** into escrow to start. Funds release in 3 steps (15% / 40% / 30%).",
-    [ChatState.FABRIC_SHIPPING]: "Payment received ✅. Please ship your fabric to: **{maskedAddress}** and send your measurements here.",
+    [ChatState.FABRIC_SHIPPING]: "Payment received . Please ship your fabric to: **{maskedAddress}** and send your measurements here.",
     [ChatState.SAMPLE_REVIEW]: "Sample ready 👀 Approve to release 15%?",
     [ChatState.FINAL_REVIEW]: "Final outfit looks great! Approve for shipping & release 40%?",
     [ChatState.DELIVERY]: "📦 Delivered! Final 30% will release in 48h unless you report an issue.",
@@ -33,9 +33,9 @@ When a milestone action is required, always present a CLEAR button.`;
   private readonly makerPrompts = {
     [ChatState.MAKER_PROPOSAL]: "🎉 You've been chosen for **{designName}** – budget **${offer}**. Fabric & measurements incoming. Three milestone payouts ahead!",
     [ChatState.FABRIC_SHIPPING]: "Waiting on fabric for **{designName}**. Confirm once received to start clock.",
-    [ChatState.SAMPLE_REVIEW]: "Fabric received ✅. Please upload a sample by **{sampleDue}**.",
+    [ChatState.SAMPLE_REVIEW]: "Fabric received . Please upload a sample by **{sampleDue}**.",
     [ChatState.FINAL_REVIEW]: "15% released 🎉. Finish garment and upload final photos by **{finalDue}**.",
-    [ChatState.DELIVERY]: "40% released ✅. Ship outfit via tracked courier and add tracking number here.",
+    [ChatState.DELIVERY]: "40% released . Ship outfit via tracked courier and add tracking number here.",
     [ChatState.COMPLETED]: "Final 30% paid 💰. Great job! Your rating just improved."
   };
 
