@@ -3,7 +3,6 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RoleGuard } from '../../auth/guards/role.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserType } from '../entities/user.entity';
-
 @Controller('creator')
 @UseGuards(JwtAuthGuard, RoleGuard)
 @Roles(UserType.CREATOR)

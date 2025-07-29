@@ -1,19 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ChatState } from '../entities/chat.entity';
-
 @Injectable()
 export class PromptService {
   private readonly logger = new Logger(PromptService.name);
-  
-  // Global system instruction
   private readonly systemPrompt = `You are "Astra AI" – a polite, concise assistant guiding Creators and Makers
 through on-platform fashion production.
 Keep all coordination inside the chat.
 Mask phone numbers, emails, WhatsApp links or external payment requests.
 Use short paragraphs, title-case buttons, and emoji sparingly (max 1 per line).
 When a milestone action is required, always present a CLEAR button.`;
-
-  // Creator-side prompts
   private readonly creatorPrompts = {
     [ChatState.WELCOME]: "Hey there 👋 Ready to design a custom outfit or launch a mini drop? • Upload a fabric pic **or** • Describe your look in one sentence.",
     [ChatState.INTENT]: "Is this A) just for you, or B) something you'll sell to others? Reply *A* or *B*.",
@@ -28,8 +23,6 @@ When a milestone action is required, always present a CLEAR button.`;
     [ChatState.DELIVERY]: "📦 Delivered! Final 30% will release in 48h unless you report an issue.",
     [ChatState.COMPLETED]: "Want to resell or re-drop this look? Type *Resell* anytime."
   };
-
-  // Maker-side prompts
   private readonly makerPrompts = {
     [ChatState.MAKER_PROPOSAL]: "🎉 You've been chosen for **{designName}** – budget **${offer}**. Fabric & measurements incoming. Three milestone payouts ahead!",
     [ChatState.FABRIC_SHIPPING]: "Waiting on fabric for **{designName}**. Confirm once received to start clock.",
@@ -38,8 +31,6 @@ When a milestone action is required, always present a CLEAR button.`;
     [ChatState.DELIVERY]: "40% released . Ship outfit via tracked courier and add tracking number here.",
     [ChatState.COMPLETED]: "Final 30% paid 💰. Great job! Your rating just improved."
   };
-
-  // Quick buttons for each state
   private readonly quickButtons = {
     [ChatState.DESIGN_PREVIEW]: ["Mint & List", "Regenerate"],
     [ChatState.MAKER_PROPOSAL]: ["Accept", "Decline"],
@@ -48,49 +39,33 @@ When a milestone action is required, always present a CLEAR button.`;
     [ChatState.FINAL_REVIEW]: ["Approve & Ship", "Ask Changes"],
     [ChatState.DELIVERY]: ["Raise Issue"]
   };
-
   getSystemPrompt(): string {
     return this.systemPrompt;
   }
-
   getPromptForState(state: ChatState, isCreator: boolean, variables: Record<string, any> = {}): string {
     let prompt = '';
-    
     if (isCreator) {
       prompt = this.creatorPrompts[state] || "How can I help you with your fashion design today?";
     } else {
       prompt = this.makerPrompts[state] || "How can I help you with this project today?";
     }
-
-    // Replace variables in the prompt
     return this.replaceVariables(prompt, variables);
   }
-
   getQuickButtons(state: ChatState): string[] {
     return this.quickButtons[state] || [];
   }
-
   private replaceVariables(text: string, variables: Record<string, any>): string {
     return text.replace(/\{([^}]+)\}/g, (match, key) => {
       return variables[key] !== undefined ? variables[key] : match;
     });
   }
-
   sanitizeUserMessage(message: string): string {
-    // Mask phone numbers
     message = message.replace(/(\+\d{1,3}[\s-]?)?\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4}/g, "<contact removed – please stay in Astra>");
-    
-    // Mask emails
     message = message.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, "<contact removed – please stay in Astra>");
-    
-    // Mask URLs
     message = message.replace(/(https?:\/\/[^\s]+)/g, "<contact removed – please stay in Astra>");
-    
-    // If any replacements were made, add the warning
     if (message.includes("<contact removed")) {
       message += "\n\nFor your safety and Buyer Protection, please keep all communication here.";
     }
-    
     return message;
   }
 }

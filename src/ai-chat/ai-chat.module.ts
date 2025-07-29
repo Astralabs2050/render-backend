@@ -19,7 +19,6 @@ import { UsersModule } from '../users/users.module';
 import { AuthModule } from '../auth/auth.module';
 import { Web3Module } from '../web3/web3.module';
 import { MarketplaceModule } from '../marketplace/marketplace.module';
-
 @Module({
   imports: [
     TypeOrmModule.forFeature([Chat, ChatMessage, Milestone]),

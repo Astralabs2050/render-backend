@@ -6,7 +6,6 @@ import { RolesGuard } from './guards/roles.guard';
 import { EmailService } from './services/email.service';
 import { CloudinaryService } from './services/cloudinary.service';
 import { UploadController } from './controllers/upload.controller';
-
 @Global()
 @Module({
   controllers: [UploadController],

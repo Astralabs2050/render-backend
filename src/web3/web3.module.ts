@@ -11,7 +11,6 @@ import { NFT } from './entities/nft.entity';
 import { EscrowContract } from './entities/escrow.entity';
 import { QRCode } from './entities/qr.entity';
 import { EscrowMilestone } from './entities/escrow.entity';
-
 @Module({
   imports: [
     TypeOrmModule.forFeature([NFT, EscrowContract, EscrowMilestone, QRCode]),

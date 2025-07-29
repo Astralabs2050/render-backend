@@ -4,36 +4,29 @@ import { ChatService } from '../services/chat.service';
 import { InteractiveChatService } from '../services/interactive-chat.service';
 import { StreamChatService } from '../services/stream-chat.service';
 import { SendMessageDto } from '../dto/chat.dto';
-
 @Controller('ai-chat')
 @UseGuards(JwtAuthGuard)
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
-  
   constructor(
     private readonly chatService: ChatService,
     private readonly interactiveChatService: InteractiveChatService,
     private readonly streamChatService: StreamChatService,
   ) {}
-
   @Post('start')
   async startChat(@Req() req) {
     const userId = req.user.id;
-    
     const chat = await this.interactiveChatService.startDesignChat(userId);
-    
     return {
       status: true,
       message: 'Design chat started',
       data: chat,
     };
   }
-
   @Get('token')
   async getStreamToken(@Req() req) {
     const userId = req.user.id;
     const token = await this.streamChatService.createUserToken(userId);
-    
     return {
       status: true,
       message: 'Stream Chat token generated',
@@ -44,24 +37,18 @@ export class ChatController {
       },
     };
   }
-
   @Post('message')
   async sendMessage(@Req() req, @Body() dto: SendMessageDto) {
     const userId = req.user.id;
-    
-    // Auto-start chat if chatId not provided
     let chatId = dto.chatId;
     if (!chatId) {
       const chat = await this.interactiveChatService.startDesignChat(userId);
       chatId = chat.id;
     }
-    
-    // Process message and get AI response
     const response = await this.interactiveChatService.processMessage(userId, {
       ...dto,
       chatId
     });
-    
     return {
       status: true,
       message: 'Message processed successfully',
@@ -71,9 +58,6 @@ export class ChatController {
       },
     };
   }
-
-
-
   @Get()
   async getChats(@Req() req) {
     const userId = req.user.id;
@@ -84,7 +68,6 @@ export class ChatController {
       data: chats,
     };
   }
-
   @Get(':id')
   async getChat(@Req() req, @Param('id') chatId: string) {
     const userId = req.user.id;

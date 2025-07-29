@@ -1,16 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as sgMail from '@sendgrid/mail';
-
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-
   constructor(private configService: ConfigService) {
-    // Set SendGrid API key
     sgMail.setApiKey(this.configService.get('SENDGRID_API_KEY'));
   }
-
   async sendOtpEmail(email: string, otp: string): Promise<boolean> {
     try {
       const msg = {
@@ -29,7 +25,6 @@ export class EmailService {
           </div>
         `,
       };
-
       await sgMail.send(msg);
       this.logger.log(`OTP email sent to ${email}`);
       return true;

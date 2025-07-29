@@ -209,11 +209,7 @@
                 // Also send to AI backend for processing
                 const token = document.getElementById('tokenInput').value.trim();
                 
-                // Set a timeout to hide typing indicator if request takes too long
-                const timeoutId = setTimeout(() => {
-                    addMessage('system', 'AI is taking longer than usual...');
-                    hideTypingIndicator();
-                }, 60000);
+                // No timeout - let request complete naturally
                 
                 const controller = new AbortController();
                 activeRequests.add(controller);
@@ -235,7 +231,7 @@
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
-                clearTimeout(timeoutId);
+                // Request completed successfully
                 activeRequests.delete(controller);
                 
                 // Re-enable input after successful request
@@ -244,6 +240,8 @@
             } catch (error) {
                 if (error.name === 'AbortError') {
                     addMessage('system', 'Request cancelled');
+                } else if (error.message === 'Failed to fetch') {
+                    addMessage('system', 'Backend server is not responding. Please check if the server is running on the correct port.');
                 } else {
                     addMessage('system', `Error: ${error.message}`);
                 }

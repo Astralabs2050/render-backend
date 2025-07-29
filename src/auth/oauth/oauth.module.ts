@@ -5,12 +5,9 @@ import { ConfigService } from '@nestjs/config';
 import { OAuthController } from './oauth.controller';
 import { OAuthService } from './oauth.service';
 import { GoogleStrategy } from './google.strategy';
-import { DiscordStrategy } from './discord.strategy';
-import { TwitterStrategy } from './twitter.strategy';
 import { OAuthProvider } from './oauth.entity';
 import { User } from '../../users/entities/user.entity';
 import { Web3Module } from '../../web3/web3.module';
-
 @Module({
   imports: [
     TypeOrmModule.forFeature([OAuthProvider, User]),
@@ -26,9 +23,7 @@ import { Web3Module } from '../../web3/web3.module';
   controllers: [OAuthController],
   providers: [
     OAuthService,
-    GoogleStrategy,
-    DiscordStrategy,
-    TwitterStrategy,
+    GoogleStrategy
   ],
   exports: [OAuthService],
 })

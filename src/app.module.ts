@@ -9,7 +9,6 @@ import { AIChatModule } from './ai-chat/ai-chat.module';
 import { Web3Module } from './web3/web3.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { AppController } from './app.controller';
-
 @Module({
   imports: [
     ConfigModule,

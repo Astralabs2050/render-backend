@@ -1,6 +1,4 @@
 import { validateEnv } from './env.validation';
-
-
 export const configValidationSchema = {
   validate: (config: Record<string, any>) => {
     try {

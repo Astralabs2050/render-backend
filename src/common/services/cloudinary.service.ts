@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary, UploadApiResponse, UploadApiErrorResponse } from 'cloudinary';
-
 export interface CloudinaryUploadResult {
   public_id: string;
   secure_url: string;
@@ -13,7 +12,6 @@ export interface CloudinaryUploadResult {
   bytes: number;
   created_at: string;
 }
-
 export interface ImageTransformOptions {
   width?: number;
   height?: number;
@@ -23,25 +21,17 @@ export interface ImageTransformOptions {
   background?: string;
   gravity?: 'auto' | 'face' | 'center' | 'north' | 'south' | 'east' | 'west';
 }
-
 @Injectable()
 export class CloudinaryService {
   private readonly logger = new Logger(CloudinaryService.name);
-
   constructor(private configService: ConfigService) {
-    // Configure Cloudinary
     cloudinary.config({
       cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
       api_key: this.configService.get<string>('CLOUDINARY_API_KEY'),
       api_secret: this.configService.get<string>('CLOUDINARY_API_SECRET'),
     });
-
     this.logger.log('Cloudinary service initialized');
   }
-
-  /**
-   * Upload image to Cloudinary
-   */
   async uploadImage(
     file: Buffer | string,
     options: {
@@ -59,15 +49,11 @@ export class CloudinaryService {
         quality: 'auto',
         ...options,
       };
-
-      // Apply transformations if provided
       if (options.transformation) {
         uploadOptions.transformation = this.buildTransformation(options.transformation);
       }
-
       const result: UploadApiResponse = await new Promise((resolve, reject) => {
         if (Buffer.isBuffer(file)) {
-          // Upload from buffer
           cloudinary.uploader.upload_stream(
             uploadOptions,
             (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
@@ -76,16 +62,13 @@ export class CloudinaryService {
             }
           ).end(file);
         } else {
-          // Upload from URL or base64
           cloudinary.uploader.upload(file, uploadOptions, (error, result) => {
             if (error) reject(error);
             else resolve(result!);
           });
         }
       });
-
       this.logger.log(`Image uploaded to Cloudinary: ${result.public_id}`);
-      
       return {
         public_id: result.public_id,
         secure_url: result.secure_url,
@@ -102,10 +85,6 @@ export class CloudinaryService {
       throw error;
     }
   }
-
-  /**
-   * Upload fashion design image with optimizations
-   */
   async uploadDesignImage(
     file: Buffer,
     designId: string,
@@ -128,10 +107,6 @@ export class CloudinaryService {
       },
     });
   }
-
-  /**
-   * Upload user profile image
-   */
   async uploadProfileImage(
     file: Buffer,
     userId: string
@@ -153,10 +128,6 @@ export class CloudinaryService {
       },
     });
   }
-
-  /**
-   * Upload NFT image with specific optimizations
-   */
   async uploadNFTImage(
     file: Buffer,
     nftId: string,
@@ -175,22 +146,17 @@ export class CloudinaryService {
         width: 1000,
         height: 1000,
         crop: 'fit',
-        quality: 90, // High quality for NFTs
-        format: 'png', // PNG for NFTs
+        quality: 90, 
+        format: 'png', 
       },
     });
   }
-
-  /**
-   * Generate transformed image URL
-   */
   generateImageUrl(
     publicId: string,
     transformation: ImageTransformOptions = {}
   ): string {
     try {
       const transformationString = this.buildTransformation(transformation);
-      
       return cloudinary.url(publicId, {
         transformation: transformationString,
         secure: true,
@@ -200,10 +166,6 @@ export class CloudinaryService {
       throw error;
     }
   }
-
-  /**
-   * Get multiple image variants (thumbnail, medium, large)
-   */
   getImageVariants(publicId: string): {
     thumbnail: string;
     medium: string;
@@ -232,10 +194,6 @@ export class CloudinaryService {
       original: this.generateImageUrl(publicId),
     };
   }
-
-  /**
-   * Delete image from Cloudinary
-   */
   async deleteImage(publicId: string): Promise<void> {
     try {
       await cloudinary.uploader.destroy(publicId);
@@ -245,10 +203,6 @@ export class CloudinaryService {
       throw error;
     }
   }
-
-  /**
-   * Get image details
-   */
   async getImageDetails(publicId: string): Promise<any> {
     try {
       const result = await cloudinary.api.resource(publicId);
@@ -258,30 +212,20 @@ export class CloudinaryService {
       throw error;
     }
   }
-
-  /**
-   * Search images by tags
-   */
   async searchImages(tags: string[], maxResults: number = 50): Promise<any[]> {
     try {
       const result = await cloudinary.search
         .expression(`tags:${tags.join(' AND tags:')}`)
         .max_results(maxResults)
         .execute();
-      
       return result.resources;
     } catch (error) {
       this.logger.error(`Failed to search images: ${error.message}`);
       throw error;
     }
   }
-
-  /**
-   * Build transformation string from options
-   */
   private buildTransformation(options: ImageTransformOptions): any {
     const transformation: any = {};
-
     if (options.width) transformation.width = options.width;
     if (options.height) transformation.height = options.height;
     if (options.crop) transformation.crop = options.crop;
@@ -289,30 +233,20 @@ export class CloudinaryService {
     if (options.format) transformation.format = options.format;
     if (options.background) transformation.background = options.background;
     if (options.gravity) transformation.gravity = options.gravity;
-
     return transformation;
   }
-
-  /**
-   * Fashion-specific image analysis
-   */
   async analyzeDesignImage(publicId: string): Promise<{
     colors: string[];
     tags: string[];
     moderation: any;
   }> {
     try {
-      // Get image analysis
       const result = await cloudinary.api.resource(publicId, {
         colors: true,
         image_metadata: true,
         phash: true,
       });
-
-      // Extract dominant colors
       const colors = result.colors?.map((color: any) => color[0]) || [];
-
-      // Auto-tag the image
       const autoTagResult = await cloudinary.uploader.upload(
         cloudinary.url(publicId),
         {
@@ -321,7 +255,6 @@ export class CloudinaryService {
           auto_tagging: 0.7,
         }
       );
-
       return {
         colors,
         tags: autoTagResult.tags || [],

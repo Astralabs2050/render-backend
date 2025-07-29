@@ -5,7 +5,6 @@ import { QRCode, QRCodeType } from '../entities/qr.entity';
 import { ConfigService } from '@nestjs/config';
 import * as QRCodeGenerator from 'qrcode';
 import { createHash } from 'crypto';
-
 export interface CreateQRDto {
   nftId: string;
   type: QRCodeType;
@@ -13,26 +12,21 @@ export interface CreateQRDto {
   expiresAt?: Date;
   metadata?: Record<string, any>;
 }
-
 @Injectable()
 export class QRService {
   private readonly logger = new Logger(QRService.name);
   private readonly baseUrl: string;
-
   constructor(
     @InjectRepository(QRCode)
     private qrRepository: Repository<QRCode>,
     private configService: ConfigService,
   ) {
-    this.baseUrl = this.configService.get<string>('APP_BASE_URL', 'https://astra.fashion');
+    this.baseUrl = this.configService.get<string>('APP_BASE_URL', 'https:
   }
-
   async generateNFTQR(nftId: string, createdBy?: string): Promise<QRCode> {
     try {
       const url = `${this.baseUrl}/nft/${nftId}`;
       const hash = this.generateHash(url);
-
-      // Generate QR code image
       const qrImageBuffer = await QRCodeGenerator.toBuffer(url, {
         type: 'png',
         width: 512,
@@ -42,10 +36,7 @@ export class QRService {
           light: '#FFFFFF',
         },
       });
-
-      // In a real implementation, upload to S3 or IPFS
       const imageUrl = await this.uploadQRImage(qrImageBuffer, `qr-${hash}.png`);
-
       const qrCode = this.qrRepository.create({
         hash,
         url,
@@ -58,22 +49,18 @@ export class QRService {
           version: '1.0',
         },
       });
-
       const savedQR = await this.qrRepository.save(qrCode);
       this.logger.log(`QR code generated for NFT ${nftId}: ${savedQR.id}`);
-      
       return savedQR;
     } catch (error) {
       this.logger.error(`Failed to generate QR code: ${error.message}`);
       throw error;
     }
   }
-
   async generateVerificationQR(nftId: string, createdBy: string): Promise<QRCode> {
     try {
       const url = `${this.baseUrl}/verify/${nftId}`;
       const hash = this.generateHash(url);
-
       const qrImageBuffer = await QRCodeGenerator.toBuffer(url, {
         type: 'png',
         width: 256,
@@ -83,9 +70,7 @@ export class QRService {
           light: '#ffffff',
         },
       });
-
       const imageUrl = await this.uploadQRImage(qrImageBuffer, `verify-${hash}.png`);
-
       const qrCode = this.qrRepository.create({
         hash,
         url,
@@ -93,28 +78,24 @@ export class QRService {
         type: QRCodeType.VERIFICATION,
         nftId,
         createdBy,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), 
         metadata: {
           purpose: 'authenticity_verification',
           generatedAt: new Date().toISOString(),
         },
       });
-
       const savedQR = await this.qrRepository.save(qrCode);
       this.logger.log(`Verification QR code generated for NFT ${nftId}: ${savedQR.id}`);
-      
       return savedQR;
     } catch (error) {
       this.logger.error(`Failed to generate verification QR code: ${error.message}`);
       throw error;
     }
   }
-
   async generateTrackingQR(nftId: string, trackingNumber: string, createdBy: string): Promise<QRCode> {
     try {
       const url = `${this.baseUrl}/track/${trackingNumber}`;
       const hash = this.generateHash(url + trackingNumber);
-
       const qrImageBuffer = await QRCodeGenerator.toBuffer(url, {
         type: 'png',
         width: 256,
@@ -124,9 +105,7 @@ export class QRService {
           light: '#ffffff',
         },
       });
-
       const imageUrl = await this.uploadQRImage(qrImageBuffer, `track-${hash}.png`);
-
       const qrCode = this.qrRepository.create({
         hash,
         url,
@@ -140,46 +119,36 @@ export class QRService {
           generatedAt: new Date().toISOString(),
         },
       });
-
       const savedQR = await this.qrRepository.save(qrCode);
       this.logger.log(`Tracking QR code generated for NFT ${nftId}: ${savedQR.id}`);
-      
       return savedQR;
     } catch (error) {
       this.logger.error(`Failed to generate tracking QR code: ${error.message}`);
       throw error;
     }
   }
-
   async scanQR(hash: string): Promise<{ qrCode: QRCode; isValid: boolean }> {
     try {
       const qrCode = await this.qrRepository.findOne({
         where: { hash },
         relations: ['nft', 'creator'],
       });
-
       if (!qrCode) {
         throw new NotFoundException('QR code not found');
       }
-
       const isValid = this.validateQR(qrCode);
-
       if (isValid) {
-        // Update scan statistics
         qrCode.scanCount += 1;
         qrCode.lastScannedAt = new Date();
         await this.qrRepository.save(qrCode);
       }
-
       this.logger.log(`QR code scanned: ${hash} - Valid: ${isValid}`);
-      
       return { qrCode, isValid };
     } catch (error) {
       this.logger.error(`QR scan failed: ${error.message}`);
       throw error;
     }
   }
-
   async findByNFT(nftId: string): Promise<QRCode[]> {
     return this.qrRepository.find({
       where: { nftId },
@@ -187,7 +156,6 @@ export class QRService {
       relations: ['nft', 'creator'],
     });
   }
-
   async findByType(type: QRCodeType): Promise<QRCode[]> {
     return this.qrRepository.find({
       where: { type, isActive: true },
@@ -195,21 +163,16 @@ export class QRService {
       relations: ['nft', 'creator'],
     });
   }
-
   async deactivateQR(id: string): Promise<QRCode> {
     const qrCode = await this.qrRepository.findOne({ where: { id } });
-    
     if (!qrCode) {
       throw new NotFoundException('QR code not found');
     }
-
     qrCode.isActive = false;
     const deactivatedQR = await this.qrRepository.save(qrCode);
-
     this.logger.log(`QR code deactivated: ${id}`);
     return deactivatedQR;
   }
-
   async getQRStats(nftId: string): Promise<{
     totalScans: number;
     uniqueQRs: number;
@@ -217,14 +180,12 @@ export class QRService {
     activeQRs: number;
   }> {
     const qrCodes = await this.findByNFT(nftId);
-    
     const totalScans = qrCodes.reduce((sum, qr) => sum + qr.scanCount, 0);
     const uniqueQRs = qrCodes.length;
     const activeQRs = qrCodes.filter(qr => qr.isActive).length;
     const lastScanned = qrCodes
       .filter(qr => qr.lastScannedAt)
       .sort((a, b) => b.lastScannedAt.getTime() - a.lastScannedAt.getTime())[0]?.lastScannedAt || null;
-
     return {
       totalScans,
       uniqueQRs,
@@ -232,33 +193,21 @@ export class QRService {
       activeQRs,
     };
   }
-
   private generateHash(data: string): string {
     return createHash('sha256').update(data + Date.now().toString()).digest('hex').substring(0, 16);
   }
-
   private validateQR(qrCode: QRCode): boolean {
     if (!qrCode.isActive) {
       return false;
     }
-
     if (qrCode.expiresAt && qrCode.expiresAt < new Date()) {
       return false;
     }
-
     return true;
   }
-
   private async uploadQRImage(buffer: Buffer, fileName: string): Promise<string> {
     try {
-      // In a real implementation, upload to S3, IPFS, or other storage
-      // For now, return a mock URL
       const mockUrl = `${this.baseUrl}/qr-images/${fileName}`;
-      
-      // TODO: Implement actual file upload
-      // const uploadResult = await this.s3Service.upload(buffer, fileName);
-      // return uploadResult.url;
-      
       this.logger.log(`QR image would be uploaded: ${fileName}`);
       return mockUrl;
     } catch (error) {
@@ -266,14 +215,11 @@ export class QRService {
       throw error;
     }
   }
-
   async bulkGenerateQRs(nftIds: string[], type: QRCodeType, createdBy: string): Promise<QRCode[]> {
     try {
       const results = [];
-
       for (const nftId of nftIds) {
         let qrCode: QRCode;
-        
         switch (type) {
           case QRCodeType.PRODUCT:
             qrCode = await this.generateNFTQR(nftId, createdBy);
@@ -284,10 +230,8 @@ export class QRService {
           default:
             throw new Error(`Bulk generation not supported for type: ${type}`);
         }
-
         results.push(qrCode);
       }
-
       this.logger.log(`Bulk QR generation completed: ${results.length} codes`);
       return results;
     } catch (error) {

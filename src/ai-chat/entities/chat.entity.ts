@@ -1,12 +1,10 @@
 import { Entity, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { User } from '../../users/entities/user.entity';
-
 export enum UserType {
   CREATOR = 'creator',
   MAKER = 'maker',
 }
-
 export enum ChatState {
   WELCOME = 'welcome',
   INTENT = 'intent',
@@ -21,80 +19,59 @@ export enum ChatState {
   DELIVERY = 'delivery',
   COMPLETED = 'completed',
 }
-
 @Entity('ai_chats')
 export class Chat extends BaseEntity {
   @Column()
   title: string;
-
   @Column({
     type: 'enum',
     enum: ChatState,
     default: ChatState.WELCOME,
   })
   state: ChatState;
-
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any>;
-
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user: User;
-
   @Column()
   userId: string;
-
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'creatorId' })
   creator: User;
-
   @Column({ nullable: true })
   creatorId: string;
-
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'makerId' })
   maker: User;
-
   @Column({ nullable: true })
   makerId: string;
-
   @OneToMany(() => ChatMessage, message => message.chat, { cascade: true })
   messages: ChatMessage[];
-
   @Column('simple-array', { nullable: true })
   designPreviews: string[];
-
   @Column({ nullable: true })
   jobId: string;
-
   @Column({ nullable: true })
   escrowId: string;
-
   @Column({ nullable: true })
   nftId: string;
 }
-
 @Entity('ai_chat_messages')
 export class ChatMessage extends BaseEntity {
   @Column({ type: 'text' })
   content: string;
-
   @Column()
   role: 'user' | 'assistant' | 'system';
-
   @Column({ nullable: true, type: 'jsonb' })
   metadata: Record<string, any>;
-
   @ManyToOne(() => Chat, chat => chat.messages, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'chatId' })
   chat: Chat;
-
   @Column()
   chatId: string;
-
   @Column({ nullable: true })
   imageUrl: string;
-
   @Column({ nullable: true })
   actionType: string;
 }
