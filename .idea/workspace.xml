@@ -5,78 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1a0d4ed4-5a83-40f5-8992-376e59f12807" name="Changes" comment="revamp code">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/public/stream-chat-test.html" beforeDir="false" afterPath="$PROJECT_DIR$/public/stream-chat-test.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/ai-chat.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/ai-chat.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/controllers/chat.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/controllers/chat.controller.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/dto/chat.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/dto/chat.dto.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/entities/chat.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/entities/chat.entity.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/entities/milestone.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/entities/milestone.entity.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/services/chat.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/services/chat.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/services/openai.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/services/openai.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/services/prompt.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/services/prompt.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/services/stream-chat.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/services/stream-chat.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/types/reaction.types.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/auth.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/auth.controller.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/auth.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/auth.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/auth.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/auth.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/decorators/roles.decorator.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/decorators/roles.decorator.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/dto/auth.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/dto/auth.dto.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/dto/oauth.dto.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/guards/jwt-auth.guard.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/guards/jwt-auth.guard.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/guards/role.guard.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/guards/role.guard.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/oauth/discord.strategy.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/oauth/google.strategy.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/oauth/google.strategy.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/oauth/oauth.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/oauth/oauth.controller.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/oauth/oauth.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/oauth/oauth.entity.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/oauth/oauth.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/oauth/oauth.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/oauth/oauth.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/oauth/oauth.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/oauth/twitter.strategy.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/auth/strategies/jwt.strategy.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/auth/strategies/jwt.strategy.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/common/common.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/common/common.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/common/controllers/migration.controller.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/common/controllers/upload.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/common/controllers/upload.controller.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/common/decorators/roles.decorator.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/common/entities/base.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/common/entities/base.entity.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/common/filters/http-exception.filter.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/common/filters/http-exception.filter.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/common/guards/roles.guard.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/common/interceptors/transform.interceptor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/common/interceptors/transform.interceptor.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/common/migration.module.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/common/services/cloudinary.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/common/services/cloudinary.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/common/services/email.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/common/services/email.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/common/utils/encryption-migration.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/common/utils/helpers.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/common/utils/helpers.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/config/config.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/config/config.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/config/config.schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/config/config.schema.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/config/database.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/config/database.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/types/axios.d.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/users/controllers/creator.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/controllers/creator.controller.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/users/controllers/maker.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/controllers/maker.controller.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/users/dto/create-user.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/dto/create-user.dto.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/users/dto/update-user.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/dto/update-user.dto.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/users/entities/user.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/entities/user.entity.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/users/users.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/users.controller.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/users/users.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/users.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/users/users.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/users.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/waitlist/dto/waitlist.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/waitlist/dto/waitlist.dto.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/waitlist/entities/waitlist.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/waitlist/entities/waitlist.entity.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/waitlist/waitlist.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/waitlist/waitlist.controller.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/waitlist/waitlist.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/waitlist/waitlist.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/waitlist/waitlist.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/waitlist/waitlist.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/web3/controllers/web3.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/web3/controllers/web3.controller.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/web3/entities/escrow.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/web3/entities/escrow.entity.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/web3/entities/nft.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/web3/entities/nft.entity.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/web3/entities/qr.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/web3/entities/qr.entity.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/web3/services/escrow.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/web3/services/escrow.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/web3/services/ipfs.service.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/web3/services/nft.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/web3/services/nft.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/web3/services/qr.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/web3/services/qr.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/web3/services/thirdweb.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/web3/services/thirdweb.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/web3/services/webhook.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/web3/services/webhook.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/web3/web3.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/web3/web3.module.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -177,7 +106,7 @@
       <workItem from="1753562924823" duration="20746000" />
       <workItem from="1753686377753" duration="598000" />
       <workItem from="1753688692009" duration="10797000" />
-      <workItem from="1753782064922" duration="20391000" />
+      <workItem from="1753782064922" duration="21232000" />
     </task>
     <task id="LOCAL-00001" summary="initial commit">
       <option name="closed" value="true" />
@@ -203,7 +132,15 @@
       <option name="project" value="LOCAL" />
       <updated>1753697592208</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="revamp code">
+      <option name="closed" value="true" />
+      <created>1753830963935</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1753830963935</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
