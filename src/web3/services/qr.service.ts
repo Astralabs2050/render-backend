@@ -21,7 +21,7 @@ export class QRService {
     private qrRepository: Repository<QRCode>,
     private configService: ConfigService,
   ) {
-    this.baseUrl = this.configService.get<string>('APP_BASE_URL', 'https:
+    this.baseUrl = this.configService.get<string>('APP_BASE_URL', 'https://localhost:3000');
   }
   async generateNFTQR(nftId: string, createdBy?: string): Promise<QRCode> {
     try {

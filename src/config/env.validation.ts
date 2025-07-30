@@ -32,7 +32,7 @@ export const envSchema = z.object({
   STABILITY_API_KEY: z.string().optional(),
   ASTRIA_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default('gpt-4o'),
-  FRONTEND_URL: z.string().default('http:
+  FRONTEND_URL: z.string().default('http://localhost:3001'),
 });
 export type EnvConfig = z.infer<typeof envSchema>;
 export function validateEnv(env: Record<string, string | undefined> = process.env): EnvConfig {

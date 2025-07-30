@@ -25,7 +25,7 @@ async function bootstrap() {
   app.useGlobalInterceptors(new TransformInterceptor());
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  logger.log(`Application is running on: http:
-  logger.log(`Test pages available at: http:
+  // logger.log(`Application is running on: http:
+  // logger.log(`Test pages available at: http:
 }
 bootstrap();

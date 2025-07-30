@@ -6,7 +6,7 @@ import { PromptService } from './prompt.service';
 export class OpenAIService {
   private readonly logger = new Logger(OpenAIService.name);
   private readonly apiKey: string;
-  private readonly apiUrl = 'https:
+  private readonly apiUrl = 'https://api.openai.com/v1/chat/completions';
   private readonly axiosInstance: AxiosInstance;
   constructor(
     private configService: ConfigService,
@@ -202,7 +202,7 @@ export class OpenAIService {
       const enhancedPrompt = await this.enhanceDesignPrompt(prompt, referenceImageBase64);
       this.logger.log(`Enhanced prompt: ${enhancedPrompt}`);
       const response = await this.axiosInstance.post(
-        'https:
+        'https://api.openai.com/v1/images/generations',
         {
           model: 'dall-e-3',
           prompt: enhancedPrompt,

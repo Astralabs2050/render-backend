@@ -247,7 +247,7 @@ export class ChatService {
     });
     const formattedMessages = messages.map(msg => ({
       role: msg.role,
-      content: msg.content
+      content: msg.content 
     }));
     const aiResponse = await this.openaiService.generateChatResponse(formattedMessages);
     await this.addAssistantMessage(chat.id, aiResponse);

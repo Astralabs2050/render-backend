@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { StreamChat, Channel } from 'stream-chat';
 import { ChatState } from '../entities/chat.entity';
-import { ButtonReaction } from '../types/reaction.types';
+
 @Injectable()
 export class StreamChatService implements OnModuleInit {
   private readonly logger = new Logger(StreamChatService.name);

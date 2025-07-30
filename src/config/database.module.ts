@@ -27,3 +27,12 @@ import { ConfigService } from '@nestjs/config';
         };
         return {
           ...config,
+          entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+          synchronize: true,
+          logging: false,
+        };
+      },
+    }),
+  ],
+})
+export class DatabaseModule {}

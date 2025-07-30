@@ -25,7 +25,7 @@ export class DesignWorkflowService {
       } catch (error) {
         this.logger.error(`Failed to generate design image: ${error.message}`);
         designImages.push(
-          { url: 'https:
+          { url: 'https://via.placeholder.com/400x400?text=Design+Error' }
         );
       }
       const metadata = {

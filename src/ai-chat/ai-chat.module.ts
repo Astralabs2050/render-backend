@@ -4,9 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ChatController } from './controllers/chat.controller';
 import { DesignController } from './controllers/design.controller';
-import { TestController } from './controllers/test.controller';
-import { TestAuthController } from './controllers/test-auth.controller';
-import { StreamController } from './controllers/stream.controller';
+
 import { ChatService } from './services/chat.service';
 import { DesignWorkflowService } from './services/design-workflow.service';
 import { InteractiveChatService } from './services/interactive-chat.service';
@@ -34,7 +32,7 @@ import { MarketplaceModule } from '../marketplace/marketplace.module';
     forwardRef(() => MarketplaceModule),
     AuthModule,
   ],
-  controllers: [ChatController, DesignController, TestController, TestAuthController, StreamController],
+  controllers: [ChatController, DesignController],
   providers: [
     ChatService,
     DesignWorkflowService,
