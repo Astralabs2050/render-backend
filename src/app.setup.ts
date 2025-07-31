@@ -24,7 +24,7 @@ export function configureGlobalMiddleware(app: NestExpressApplication) {
     whitelist: true,
     transform: true,
     forbidNonWhitelisted: true,
-    transformOptions: { enableImplicitConversion: true },
+    transformOptions: { enableImplicitConversion: false },
   }));
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor());

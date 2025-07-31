@@ -83,7 +83,7 @@ export class AuthService {
       this.logger.warn(`Expired OTP attempt for user: ${email}`);
       throw new UnauthorizedException('OTP expired');
     }
-    await this.usersService.update(user.id, {
+    const updatedUser = await this.usersService.update(user.id, {
       verified: true,
       otp: null,
     });
@@ -96,20 +96,21 @@ export class AuthService {
         walletPrivateKey: encryptedPrivateKey,
       });
       walletAddress = wallet.address;
+      updatedUser.walletAddress = wallet.address;
       this.logger.log(`OTP verified and wallet created for creator: ${email}`);
     } else {
       this.logger.log(`OTP verified for maker: ${email} - wallet will be created after profile completion`);
     }
-    const { accessToken, refreshToken } = this.generateTokens(user);
+    const { accessToken, refreshToken } = this.generateTokens(updatedUser);
     return {
       status: true,
       message: user.userType === 'creator' ? 'OTP verified successfully, wallet created' : 'OTP verified successfully',
       data: {
         walletAddress,
-        user: Helpers.sanitizeUser(user),
+        user: Helpers.sanitizeUser(updatedUser),
         accessToken,
         refreshToken,
-        requiresProfileCompletion: !user.profileCompleted
+        requiresProfileCompletion: !updatedUser.profileCompleted
       },
     };
   }

@@ -205,13 +205,16 @@ export class Helpers {
   static removeNullFields(obj: any): any {
     if (obj === null || obj === undefined) return obj;
     if (Array.isArray(obj)) return obj.map(item => this.removeNullFields(item));
+    if (obj instanceof Date) return obj;
     if (typeof obj !== 'object') return obj;
     
     const result: any = {};
     Object.keys(obj).forEach(key => {
       const value = obj[key];
       if (value !== null && value !== undefined) {
-        result[key] = typeof value === 'object' ? this.removeNullFields(value) : value;
+        result[key] = (typeof value === 'object' && !(value instanceof Date)) 
+          ? this.removeNullFields(value) 
+          : value;
       }
     });
     
