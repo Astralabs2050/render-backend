@@ -6,7 +6,7 @@ import {
   configureServer, 
   configureStaticAssets, 
   configureGlobalMiddleware, 
-  setupGracefulShutdown 
+  shutdown
 } from './app.setup';
 
 async function bootstrap() {
@@ -21,7 +21,7 @@ async function bootstrap() {
   await app.listen(port);
   logger.log(`Application is running on port: ${port}`);
   
-  setupGracefulShutdown(app, logger);
+  shutdown(app, logger);
 }
 
 bootstrap();

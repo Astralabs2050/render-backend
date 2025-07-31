@@ -30,7 +30,7 @@ export function configureGlobalMiddleware(app: NestExpressApplication) {
   app.useGlobalInterceptors(new TransformInterceptor());
 }
 
-export function setupGracefulShutdown(app: NestExpressApplication, logger: Logger) {
+export function shutdown(app: NestExpressApplication, logger: Logger) {
   process.on('SIGTERM', async () => {
     logger.log('SIGTERM received, shutting down');
     await app.close();

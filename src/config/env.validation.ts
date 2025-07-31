@@ -33,6 +33,7 @@ export const envSchema = z.object({
   ASTRIA_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default('gpt-4o'),
   FRONTEND_URL: z.string().default('http://localhost:3001'),
+  APP_BASE_URL: z.string().default('http://localhost:3000'),
 });
 export type EnvConfig = z.infer<typeof envSchema>;
 export function validateEnv(env: Record<string, string | undefined> = process.env): EnvConfig {
