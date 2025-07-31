@@ -29,14 +29,14 @@ async function bootstrap() {
   await app.listen(port);
   logger.log(`Application is running on port: ${port}`);
   
-  process.on('SIGTERM', () => {
-    logger.log('SIGTERM received, shutting down gracefully');
-    app.close();
+  process.on('SIGTERM', async () => {
+    logger.log('SIGTERM received, shutting down');
+    await app.close();
   });
   
-  process.on('SIGINT', () => {
-    logger.log('SIGINT received, shutting down gracefully');
-    app.close();
+  process.on('SIGINT', async () => {
+    logger.log('SIGINT received, shutting down');
+    await app.close();
   });
 }
 bootstrap();
