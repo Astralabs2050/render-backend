@@ -5,8 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1a0d4ed4-5a83-40f5-8992-376e59f12807" name="Changes" comment="minor change">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/common/interceptors/transform.interceptor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/common/interceptors/transform.interceptor.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/common/utils/helpers.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/common/utils/helpers.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -107,7 +108,7 @@
       <workItem from="1753562924823" duration="20746000" />
       <workItem from="1753686377753" duration="598000" />
       <workItem from="1753688692009" duration="10797000" />
-      <workItem from="1753782064922" duration="39462000" />
+      <workItem from="1753782064922" duration="44918000" />
     </task>
     <task id="LOCAL-00001" summary="initial commit">
       <option name="closed" value="true" />
@@ -205,7 +206,15 @@
       <option name="project" value="LOCAL" />
       <updated>1753992330790</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="minor change">
+      <option name="closed" value="true" />
+      <created>1753992720142</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1753992720142</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

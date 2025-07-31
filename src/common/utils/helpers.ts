@@ -189,7 +189,32 @@ export class Helpers {
     return decrypted;
   }
   static sanitizeUser(user: User): Partial<User> {
-    const { password, otp, otpCreatedAt, walletPrivateKey, ...result } = user;
+    const { password, otp, otpCreatedAt, walletPrivateKey, ...userData } = user;
+    const result: any = {};
+    
+    Object.keys(userData).forEach(key => {
+      const value = userData[key as keyof typeof userData];
+      if (value !== null && value !== undefined) {
+        result[key] = value;
+      }
+    });
+    
+    return result;
+  }
+
+  static removeNullFields(obj: any): any {
+    if (obj === null || obj === undefined) return obj;
+    if (Array.isArray(obj)) return obj.map(item => this.removeNullFields(item));
+    if (typeof obj !== 'object') return obj;
+    
+    const result: any = {};
+    Object.keys(obj).forEach(key => {
+      const value = obj[key];
+      if (value !== null && value !== undefined) {
+        result[key] = typeof value === 'object' ? this.removeNullFields(value) : value;
+      }
+    });
+    
     return result;
   }
   static logData(label: string, data: any): void {
