@@ -4,10 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="1a0d4ed4-5a83-40f5-8992-376e59f12807" name="Changes" comment="update response structure">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/common/utils/helpers.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/common/utils/helpers.ts" afterDir="false" />
-    </list>
+    <list default="true" id="1a0d4ed4-5a83-40f5-8992-376e59f12807" name="Changes" comment="update response structure" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -107,7 +104,7 @@
       <workItem from="1753562924823" duration="20746000" />
       <workItem from="1753686377753" duration="598000" />
       <workItem from="1753688692009" duration="10797000" />
-      <workItem from="1753782064922" duration="45723000" />
+      <workItem from="1753782064922" duration="46066000" />
     </task>
     <task id="LOCAL-00001" summary="initial commit">
       <option name="closed" value="true" />
@@ -221,7 +218,15 @@
       <option name="project" value="LOCAL" />
       <updated>1753999271822</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL-00015" summary="update response structure">
+      <option name="closed" value="true" />
+      <created>1753999890275</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1753999890275</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

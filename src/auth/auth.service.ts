@@ -109,8 +109,7 @@ export class AuthService {
         walletAddress,
         user: Helpers.sanitizeUser(updatedUser),
         accessToken,
-        refreshToken,
-        requiresProfileCompletion: !updatedUser.profileCompleted
+        refreshToken
       },
     };
   }
