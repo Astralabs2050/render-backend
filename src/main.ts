@@ -8,7 +8,9 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  app.getHttpServer().timeout = 60000;
+  app.getHttpServer().timeout = 30000;
+  app.getHttpServer().keepAliveTimeout = 5000;
+  app.getHttpServer().headersTimeout = 6000;
   app.enableCors();
   const staticPath = process.env.NODE_ENV === 'production' 
     ? join(__dirname, '..', 'public')  
@@ -25,7 +27,16 @@ async function bootstrap() {
   app.useGlobalInterceptors(new TransformInterceptor());
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  // logger.log(`Application is running on: http:
-  // logger.log(`Test pages available at: http:
+  logger.log(`Application is running on port: ${port}`);
+  
+  process.on('SIGTERM', () => {
+    logger.log('SIGTERM received, shutting down gracefully');
+    app.close();
+  });
+  
+  process.on('SIGINT', () => {
+    logger.log('SIGINT received, shutting down gracefully');
+    app.close();
+  });
 }
 bootstrap();

@@ -7,7 +7,7 @@ import { ConfigService } from '@nestjs/config';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         const databaseUrl = configService.get('DATABASE_URL');
-        console.log('Database URL:', databaseUrl); 
+ 
         const config = databaseUrl ? {
           type: 'postgres' as const,
           url: databaseUrl,
@@ -28,8 +28,15 @@ import { ConfigService } from '@nestjs/config';
         return {
           ...config,
           entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-          synchronize: true,
+          synchronize: process.env.NODE_ENV !== 'production',
           logging: false,
+          maxQueryExecutionTime: 1000,
+          cache: false,
+          extra: {
+            max: 5,
+            connectionTimeoutMillis: 5000,
+            idleTimeoutMillis: 10000
+          }
         };
       },
     }),
