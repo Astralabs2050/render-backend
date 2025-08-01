@@ -44,7 +44,8 @@ export class AuthController {
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   getProfile(@Req() req) {
-    return req.user;
+    const { Helpers } = require('../common/utils/helpers');
+    return Helpers.sanitizeUser(req.user);
   }
   @Get('wallet')
   @UseGuards(JwtAuthGuard)
