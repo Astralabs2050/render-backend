@@ -1,6 +1,6 @@
 import { IsString, IsNotEmpty, IsArray, IsOptional, IsDateString, ValidateNested, ArrayMinSize } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-class WorkExperienceDto {
+export class WorkExperienceDto {
   @IsString()
   @IsNotEmpty()
   employerName: string;
@@ -23,7 +23,7 @@ class WorkExperienceDto {
   @IsNotEmpty()
   jobDescription: string;
 }
-class ProjectDto {
+export class ProjectDto {
   @IsString()
   @IsNotEmpty()
   title: string;
@@ -81,13 +81,31 @@ export class CompleteProfileDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => WorkExperienceDto)
-  @Transform(({ value }) => typeof value === 'string' ? JSON.parse(value) : value)
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  })
   workExperience?: WorkExperienceDto[];
   
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ProjectDto)
-  @Transform(({ value }) => typeof value === 'string' ? JSON.parse(value) : value)
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  })
   projects?: ProjectDto[];
 }

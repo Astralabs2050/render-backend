@@ -21,7 +21,7 @@ export function configureStaticAssets(app: NestExpressApplication, logger: Logge
 
 export function configureGlobalMiddleware(app: NestExpressApplication) {
   app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
+    whitelist: false,
     transform: true,
     forbidNonWhitelisted: true,
     transformOptions: { enableImplicitConversion: false },
