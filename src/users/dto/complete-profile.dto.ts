@@ -76,6 +76,9 @@ export class CompleteProfileDto {
   businessCertificateImage?: string;
   
   @IsOptional()
+  profilePicture?: string;
+  
+  @IsOptional()
   projectImages?: Express.Multer.File[];
   @IsOptional()
   @IsArray()

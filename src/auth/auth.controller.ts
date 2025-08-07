@@ -57,6 +57,7 @@ export class AuthController {
   @UseInterceptors(FileFieldsInterceptor([
     { name: 'governmentIdImages', maxCount: 2 },
     { name: 'businessCertificateImage', maxCount: 1 },
+    { name: 'profilePicture', maxCount: 1 },
     { name: 'projectImages', maxCount: 20 }
   ]))
   async completeProfile(
@@ -65,6 +66,7 @@ export class AuthController {
     @UploadedFiles() files: { 
       governmentIdImages?: Express.Multer.File[], 
       businessCertificateImage?: Express.Multer.File[],
+      profilePicture?: Express.Multer.File[],
       projectImages?: Express.Multer.File[]
     }
   ) {
@@ -83,6 +85,13 @@ export class AuthController {
         { folder: `identity/${userId}/business-cert` }
       );
       profileData.businessCertificateImage = result.secure_url;
+    }
+    if (files?.profilePicture?.[0]) {
+      const result = await this.cloudinaryService.uploadImage(
+        files.profilePicture[0].buffer, 
+        { folder: `profiles/${userId}` }
+      );
+      profileData.profilePicture = result.secure_url;
     }
     if (files?.projectImages && profileData.projects) {
       let imageIndex = 0;
