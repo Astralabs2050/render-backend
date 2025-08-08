@@ -1,13 +1,19 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { StreamChat, Channel } from 'stream-chat';
-import { ChatState } from '../entities/chat.entity';
+import { ChatState, ChatMessage } from '../entities/chat.entity';
 
 @Injectable()
 export class StreamChatService implements OnModuleInit {
   private readonly logger = new Logger(StreamChatService.name);
   private client: StreamChat;
-  constructor(private configService: ConfigService) { }
+  constructor(
+    private configService: ConfigService,
+    @InjectRepository(ChatMessage)
+    private messageRepository: Repository<ChatMessage>,
+  ) { }
   onModuleInit() {
     const apiKey = this.configService.get<string>('STREAM_API_KEY');
     const apiSecret = this.configService.get<string>('STREAM_API_SECRET');
@@ -89,10 +95,30 @@ export class StreamChatService implements OnModuleInit {
         attachments,
       });
       const response = await Promise.race([sendPromise, timeoutPromise]);
+      
+      // Sync to database
+      await this.syncMessageToDatabase(channelId, message, 'assistant');
+      
       return response;
     } catch (error) {
       this.logger.error(`Error sending AI message: ${error.message}`);
       return { message: { id: 'mock-message-id' } };
+    }
+  }
+
+  async syncUserMessageToDatabase(channelId: string, message: string, userId: string): Promise<void> {
+    await this.syncMessageToDatabase(channelId, message, 'user');
+  }
+
+  private async syncMessageToDatabase(channelId: string, content: string, role: 'user' | 'assistant'): Promise<void> {
+    try {
+      await this.messageRepository.save({
+        content,
+        role,
+        chatId: channelId,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to sync message to database: ${error.message}`);
     }
   }
   async updateChannelState(channelId: string, state: ChatState, metadata: any = {}): Promise<any> {

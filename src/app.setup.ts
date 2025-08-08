@@ -9,6 +9,10 @@ export function configureServer(app: NestExpressApplication) {
   app.getHttpServer().keepAliveTimeout = 5000;
   app.getHttpServer().headersTimeout = 6000;
   app.enableCors();
+  
+  // Configure Express for large file uploads
+  app.use(require('express').json({ limit: '50mb' }));
+  app.use(require('express').urlencoded({ limit: '50mb', extended: true }));
 }
 
 export function configureStaticAssets(app: NestExpressApplication, logger: Logger) {
