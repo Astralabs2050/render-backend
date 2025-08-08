@@ -19,6 +19,9 @@ export class SendMessageDto {
   imageBase64?: string;
   @IsOptional()
   @IsString()
+  sketchData?: string;
+  @IsOptional()
+  @IsString()
   actionType?: string;
 }
 export class GenerateDesignDto {

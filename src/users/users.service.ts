@@ -110,6 +110,19 @@ export class UsersService {
     this.logger.log(`Identity verification submitted for user: ${user.email}`);
     return updatedUser;
   }
+  async addBrandDetails(id: string, brandData: any): Promise<User> {
+    const user = await this.findOne(id);
+    
+    if (brandData.brandName) user.brandName = brandData.brandName;
+    if (brandData.brandOrigin) user.brandOrigin = brandData.brandOrigin;
+    if (brandData.brandStory) user.brandStory = brandData.brandStory;
+    if (brandData.brandLogo) user.brandLogo = brandData.brandLogo;
+
+    const updatedUser = await this.usersRepository.save(user);
+    this.logger.log(`Brand details updated for user: ${user.email}`);
+    return updatedUser;
+  }
+
   async remove(id: string): Promise<void> {
     const result = await this.usersRepository.delete(id);
     if (result.affected === 0) {

@@ -6,6 +6,14 @@
   <component name="ChangeListManager">
     <list default="true" id="1a0d4ed4-5a83-40f5-8992-376e59f12807" name="Changes" comment="update response structure">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ai-chat/dto/chat.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/dto/chat.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ai-chat/services/design-workflow.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/services/design-workflow.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ai-chat/services/interactive-chat.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/services/interactive-chat.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ai-chat/services/stream-chat.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/services/stream-chat.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app.setup.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app.setup.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/users/entities/user.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/entities/user.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/users/users.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/users.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/users/users.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/users.service.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -15,7 +23,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="samuel_dev" />
+        <entry key="$PROJECT_DIR$" value="main" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -52,7 +60,7 @@
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;dart.analysis.tool.window.visible&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;add__collection&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -106,7 +114,11 @@
       <workItem from="1753562924823" duration="20746000" />
       <workItem from="1753686377753" duration="598000" />
       <workItem from="1753688692009" duration="10797000" />
-      <workItem from="1753782064922" duration="57154000" />
+      <workItem from="1753782064922" duration="63546000" />
+      <workItem from="1754301142001" duration="6381000" />
+      <workItem from="1754400741007" duration="10920000" />
+      <workItem from="1754612196056" duration="4973000" />
+      <workItem from="1754645997863" duration="5169000" />
     </task>
     <task id="LOCAL-00001" summary="initial commit">
       <option name="closed" value="true" />
@@ -252,7 +264,23 @@
       <option name="project" value="LOCAL" />
       <updated>1754053217725</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="update response structure">
+      <option name="closed" value="true" />
+      <created>1754067840865</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1754067840865</updated>
+    </task>
+    <task id="LOCAL-00020" summary="update response structure">
+      <option name="closed" value="true" />
+      <created>1754606175620</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1754606175620</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

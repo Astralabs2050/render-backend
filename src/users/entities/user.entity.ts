@@ -74,6 +74,20 @@ export class User extends BaseEntity {
     description: string;
     tags: string[];
   }[];
+
+  // Brand fields for makers
+  @Column({ nullable: true })
+  brandName: string;
+
+  @Column({ nullable: true })
+  brandOrigin: string;
+
+  @Column({ nullable: true })
+  brandStory: string;
+
+  @Column({ nullable: true })
+  brandLogo: string;
+
   @OneToMany(() => OAuthProvider, oauthProvider => oauthProvider.user)
   oauthProviders: OAuthProvider[];
 }

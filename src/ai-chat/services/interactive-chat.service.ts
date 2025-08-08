@@ -41,10 +41,19 @@ export class InteractiveChatService {
       chat = await this.startDesignChat(userId);
       dto.chatId = chat.id;
     }
-    await this.chatService.sendMessage(userId, {
+    const messageData: any = {
       chatId: dto.chatId,
       content: dto.content,
-    });
+    };
+    
+    if (dto.sketchData) {
+      messageData.metadata = { sketchData: dto.sketchData };
+    }
+    
+    await this.chatService.sendMessage(userId, messageData);
+    
+    // Sync user message to database via Stream Chat
+    await this.streamChatService.syncUserMessageToDatabase(dto.chatId, dto.content, userId);
     switch (chat.state) {
       case ChatState.WELCOME:
         return this.handleInitialDesignInput(userId, dto.chatId, dto.content);
@@ -134,11 +143,12 @@ Reply with ONLY the state name.`;
         const generatingMessage = "Perfect! Let me generate a visual design for you... This will take a moment.";
         await this.streamChatService.sendAIMessage(chatId, generatingMessage);
         const designPrompt = this.buildDesignPrompt(chat.messages);
+        const sketchBase64 = this.extractSketchFromMessages(chat.messages);
         const variations = [];
         for (let i = 1; i <= 3; i++) {
           const result = await this.designWorkflowService.processDesignRequest(userId, {
             prompt: `${designPrompt} - Variation ${i}`,
-            fabricImageBase64: null,
+            fabricImageBase64: sketchBase64,
           });
           variations.push(result);
         }
@@ -173,9 +183,10 @@ Reply with ONLY the state name.`;
       const generatingMessage = "Generating another variation for you...";
       await this.streamChatService.sendAIMessage(chatId, generatingMessage);
       const designPrompt = this.buildDesignPrompt(chat.messages);
+      const sketchBase64 = this.extractSketchFromMessages(chat.messages);
       const result = await this.designWorkflowService.processDesignRequest(userId, {
         prompt: `${designPrompt} - New Variation`,
-        fabricImageBase64: null,
+        fabricImageBase64: sketchBase64,
       });
       const completionMessage = "Here's a new variation! Do you like this one better?";
       await this.streamChatService.sendAIMessage(chatId, completionMessage);
@@ -240,5 +251,16 @@ Reply with only 'yes' or 'no'.`;
   private buildDesignPrompt(messages: ChatMessage[]): string {
     const userMessages = messages.filter(msg => msg.role === 'user').map(msg => msg.content).join(' ');
     return `Fashion design based on: ${userMessages}`;
+  }
+
+  private extractSketchFromMessages(messages: ChatMessage[]): string | null {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      if (message.metadata && message.metadata.sketchData) {
+        const base64 = message.metadata.sketchData.split(',')[1];
+        return base64;
+      }
+    }
+    return null;
   }
 }

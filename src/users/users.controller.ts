@@ -2,7 +2,11 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Put 
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { BrandDetailsDto } from './dto/brand-details.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RoleGuard } from '../auth/guards/role.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserType } from './entities/user.entity';
 import { Helpers } from '../common/utils/helpers';
 @Controller('users')
 export class UsersController {
@@ -49,6 +53,18 @@ export class UsersController {
     return {
       status: true,
       message: 'Profile updated successfully',
+      data: Helpers.sanitizeUser(updatedUser),
+    };
+  }
+
+  @Post('brand-details')
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(UserType.MAKER)
+  async createBrandDetails(@Req() req, @Body() brandDetailsDto: BrandDetailsDto) {
+    const updatedUser = await this.usersService.addBrandDetails(req.user.id, brandDetailsDto);
+    return {
+      status: true,
+      message: 'Brand details created successfully',
       data: Helpers.sanitizeUser(updatedUser),
     };
   }

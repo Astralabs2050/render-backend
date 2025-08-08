@@ -20,13 +20,11 @@ export class DesignWorkflowService {
       const designImages = [];
       try {
         const imageUrl = await this.openaiService.generateDesignImage(dto.prompt, dto.fabricImageBase64);
-        designImages.push({ url: imageUrl });
+        designImages.push(imageUrl);
         this.logger.log(`Generated design: ${imageUrl}`);
       } catch (error) {
         this.logger.error(`Failed to generate design image: ${error.message}`);
-        designImages.push(
-          { url: 'https://via.placeholder.com/400x400?text=Design+Error' }
-        );
+        designImages.push('https://via.placeholder.com/400x400?text=Design+Error');
       }
       const metadata = {
         suggestedName: 'Custom Design',
@@ -40,7 +38,7 @@ export class DesignWorkflowService {
       const chat = await this.chatService.createChat(userId, {
         title: `Design: ${metadata.suggestedName || dto.prompt.substring(0, 50)}...`,
       });
-      chat.designPreviews = designImages.map(img => img.url);
+      chat.designPreviews = designImages;
       chat.state = ChatState.DESIGN_PREVIEW;
       const nft = await this.nftService.createNFT({
         name: metadata.suggestedName,
@@ -48,7 +46,7 @@ export class DesignWorkflowService {
         category: metadata.category,
         price: metadata.suggestedPrice,
         quantity: 1,
-        imageUrl: designImages[0].url,
+        imageUrl: designImages[0],
         creatorId: userId,
       });
       const mintedNFT = nft;
@@ -57,7 +55,7 @@ export class DesignWorkflowService {
         description: dto.prompt,
         budget: metadata.suggestedPrice,
         deadline: new Date(Date.now() + metadata.suggestedTimeframe * 24 * 60 * 60 * 1000).toISOString(),
-        referenceImages: designImages.map(img => img.url),
+        referenceImages: designImages,
         chatId: chat.id,
       }, userId);
       await this.chatService.sendMessage(userId, {
