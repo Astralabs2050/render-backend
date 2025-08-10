@@ -14,11 +14,11 @@ export class Collection {
   @Column()
   quantity: number;
 
-  @Column('decimal', { precision: 10, scale: 2 })
-  pricePerOutfit: number;
+  @Column('decimal', { precision: 15, scale: 2 })
+  pricePerOutfit: string;
 
-  @Column('decimal', { precision: 10, scale: 2 })
-  totalPrice: number;
+  @Column('decimal', { precision: 15, scale: 2 })
+  totalPrice: string;
 
   @Column()
   deliveryTimeLead: string;

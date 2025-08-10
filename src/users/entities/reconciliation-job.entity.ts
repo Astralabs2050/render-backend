@@ -11,8 +11,8 @@ export class ReconciliationJob {
   @Column()
   transactionHash: string;
 
-  @Column('decimal', { precision: 10, scale: 2 })
-  amount: number;
+  @Column('decimal', { precision: 15, scale: 2 })
+  amount: string;
 
   @Column({ default: 'pending' })
   status: string;

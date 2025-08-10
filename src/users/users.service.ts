@@ -13,6 +13,7 @@ import { CollectionPaymentDto } from './dto/collection-payment.dto';
 import { Helpers } from '../common/utils/helpers';
 import { ThirdwebService } from '../web3/services/thirdweb.service';
 import { CloudinaryService } from '../common/services/cloudinary.service';
+import { Decimal } from 'decimal.js';
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -151,7 +152,7 @@ export class UsersService {
       const job = this.reconciliationJobRepository.create({
         collectionId,
         transactionHash,
-        amount,
+        amount: amount.toFixed(2),
         status: 'pending'
       });
       
@@ -198,7 +199,7 @@ export class UsersService {
       imageUrls.push(uploadResult.secure_url);
     }
 
-    const totalPrice = collectionData.quantity * collectionData.pricePerOutfit;
+    const totalPrice = new Decimal(collectionData.quantity).mul(collectionData.pricePerOutfit).toFixed(2);
     
     const collection = this.collectionRepository.create({
       creatorId: userId,
@@ -314,7 +315,7 @@ export class UsersService {
       paymentResult = await Promise.race([
         this.thirdwebService.processPayment({
           fromAddress: user.walletAddress,
-          amount: collection.totalPrice,
+          amount: new Decimal(collection.totalPrice).toNumber(),
           collectionId: collectionId
         }),
         new Promise((_, reject) => 
@@ -338,7 +339,7 @@ export class UsersService {
 
           actualPaymentResult = await this.thirdwebService.checkPaymentStatus({
             fromAddress: user.walletAddress,
-            amount: collection.totalPrice,
+            amount: new Decimal(collection.totalPrice).toNumber(),
             collectionId: collectionId
           });
           
@@ -454,7 +455,7 @@ export class UsersService {
       });
       
       
-      await this.queueReconciliationJob(collectionId, paymentResult.transactionHash, collection.totalPrice);
+      await this.queueReconciliationJob(collectionId, paymentResult.transactionHash, new Decimal(collection.totalPrice).toNumber());
       
       throw new ServiceUnavailableException('Payment succeeded but database update failed. Transaction will be reconciled automatically.');
     } finally {
