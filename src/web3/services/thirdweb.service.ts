@@ -250,6 +250,141 @@ export class ThirdwebService {
       throw error;
     }
   }
+  async processPayment(paymentData: { fromAddress: string; amount: number; collectionId: string }): Promise<{ transactionHash: string; blockchainMetadata?: any }> {
+    try {
+      if (!this.sdk) {
+        throw new Error('Thirdweb SDK not initialized');
+      }
+      
+      // Validate payment data
+      if (!paymentData.fromAddress || paymentData.amount <= 0) {
+        throw new Error('Invalid payment data');
+      }
+      
+      // REAL PAYMENT IMPLEMENTATION:
+      // Option 1: Direct wallet transfer (ETH/MATIC)
+      /*
+      const provider = this.sdk.getProvider();
+      const wallet = this.sdk.getSigner();
+      const tx = await wallet.sendTransaction({
+        to: process.env.PLATFORM_WALLET_ADDRESS, // Your platform wallet
+        value: ethers.utils.parseEther(paymentData.amount.toString()),
+        gasLimit: 21000
+      });
+      const receipt = await tx.wait();
+      */
+      
+      // Option 2: ERC20 token transfer (USDC, etc.)
+      /*
+      const tokenContract = await this.sdk.getContract(process.env.USDC_CONTRACT_ADDRESS);
+      const tx = await tokenContract.erc20.transfer(
+        process.env.PLATFORM_WALLET_ADDRESS,
+        paymentData.amount
+      );
+      */
+      
+      // Option 3: Smart contract payment
+      /*
+      const paymentContract = await this.sdk.getContract(process.env.PAYMENT_CONTRACT_ADDRESS);
+      const tx = await paymentContract.call('processPayment', [
+        paymentData.collectionId,
+        ethers.utils.parseEther(paymentData.amount.toString())
+      ]);
+      */
+      
+      // MOCK IMPLEMENTATION
+      const mockTransactionHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+      const rand = Math.random();
+      if (rand < 0.02) throw new Error('insufficient funds');
+      if (rand < 0.03) throw new Error('invalid address format');
+      if (rand < 0.05) throw new Error('Network timeout during payment processing');
+      
+      const blockchainMetadata = {
+        transactionHash: mockTransactionHash, // Use: tx.receipt.transactionHash
+        blockNumber: Math.floor(Math.random() * 1000000), // Use: tx.receipt.blockNumber
+        gasUsed: '21000', // Use: tx.receipt.gasUsed.toString()
+        gasPrice: '20000000000', // Use: tx.gasPrice?.toString()
+        confirmations: 1, // Use: await tx.wait(1)
+        timestamp: new Date().toISOString()
+      };
+      
+      this.logger.log('Payment processed successfully', {
+        collectionId: paymentData.collectionId,
+        amount: paymentData.amount,
+        fromAddress: paymentData.fromAddress,
+        transactionHash: mockTransactionHash,
+        blockNumber: blockchainMetadata.blockNumber
+      });
+      
+      return {
+        transactionHash: mockTransactionHash,
+        blockchainMetadata
+      };
+    } catch (error) {
+      this.logger.error('Payment processing failed', {
+        collectionId: paymentData.collectionId,
+        amount: paymentData.amount,
+        fromAddress: paymentData.fromAddress,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  async checkPaymentStatus(paymentData: { fromAddress: string; amount: number; collectionId: string }): Promise<{ transactionHash: string; blockchainMetadata?: any } | null> {
+    try {
+      if (!this.sdk) {
+        throw new Error('Thirdweb SDK not initialized');
+      }
+      
+      this.logger.log('Checking payment status on blockchain', {
+        collectionId: paymentData.collectionId,
+        fromAddress: paymentData.fromAddress,
+        amount: paymentData.amount
+      });
+      
+      // Simulate checking blockchain for transaction
+      // In production, you'd query the blockchain for recent transactions
+      const hasTransaction = Math.random() > 0.7; // 30% chance transaction exists
+      
+      if (hasTransaction) {
+        const foundTransactionHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+        const blockchainMetadata = {
+          transactionHash: foundTransactionHash,
+          blockNumber: Math.floor(Math.random() * 1000000),
+          gasUsed: '21000',
+          gasPrice: '20000000000',
+          confirmations: 3,
+          timestamp: new Date().toISOString()
+        };
+        
+        this.logger.log('Payment found on blockchain', {
+          collectionId: paymentData.collectionId,
+          transactionHash: foundTransactionHash,
+          confirmations: blockchainMetadata.confirmations
+        });
+        
+        return {
+          transactionHash: foundTransactionHash,
+          blockchainMetadata
+        };
+      }
+      
+      this.logger.log('No payment found on blockchain', {
+        collectionId: paymentData.collectionId,
+        fromAddress: paymentData.fromAddress
+      });
+      
+      return null;
+    } catch (error) {
+      this.logger.error('Failed to check payment status', {
+        collectionId: paymentData.collectionId,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
   async getChainInfo(): Promise<any> {
     try {
       if (!this.sdk) {

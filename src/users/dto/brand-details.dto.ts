@@ -12,8 +12,4 @@ export class BrandDetailsDto {
   @IsOptional()
   @IsString()
   brandStory?: string;
-
-  @IsOptional()
-  @IsString()
-  brandLogo?: string;
 }
