@@ -175,6 +175,10 @@ export class UsersService {
   async createCollection(userId: string, collectionData: CreateCollectionDto, designImages?: Express.Multer.File[]): Promise<any> {
     const user = await this.findOne(userId);
     
+     if (!user.brandName || !user.brandOrigin) {
+      throw new BadRequestException('Brand details must be created before creating collections');
+    }
+    
     if (!designImages || designImages.length === 0) {
       throw new ConflictException('At least 1 design image is required');
     }

@@ -43,6 +43,7 @@ export class Collection {
     gasPrice?: string;
     confirmations?: number;
     timestamp?: string;
+    reconciledAt?: string;
   };
 
   @Column({ nullable: true })
