@@ -4,7 +4,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { BrandDetailsDto } from './dto/brand-details.dto';
-import { CreateCollectionDto } from './dto/create-collection.dto';
+import { CreateDesignDto } from './dto/create-collection.dto';
 import { CollectionPaymentDto } from './dto/collection-payment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RoleGuard } from '../auth/guards/role.guard';
@@ -85,7 +85,7 @@ export class UsersController {
     };
   }
 
-  @Post('collections')
+  @Post('designs')
   @UseGuards(JwtAuthGuard, RoleGuard)
   @Roles(UserType.CREATOR)
   @UseInterceptors(FilesInterceptor('designImages', 4, {
@@ -97,16 +97,16 @@ export class UsersController {
       }
     }
   }))
-  async createCollection(
+  async createDesign(
     @Req() req,
-    @Body() createCollectionDto: CreateCollectionDto,
+    @Body() createDesignDto: CreateDesignDto,
     @UploadedFiles() designImages?: Express.Multer.File[]
   ) {
-    const collection = await this.usersService.createCollection(req.user.id, createCollectionDto, designImages);
+    const design = await this.usersService.createCollection(req.user.id, createDesignDto, designImages);
     return {
       status: true,
-      message: 'Collection created successfully',
-      data: collection,
+      message: 'Design created successfully',
+      data: design,
     };
   }
 

@@ -1,27 +1,27 @@
 import { IsString, IsNotEmpty, IsNumber, IsPositive, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 
-export class CreateCollectionDto {
+export class CreateDesignDto {
   @IsString()
   @IsNotEmpty()
-  collectionName: string;
+  name: string;
+
+  @Transform(({ value }) => parseFloat(value))
+  @IsNumber()
+  @IsPositive()
+  price: number;
 
   @Transform(({ value }) => parseInt(value))
   @IsNumber()
   @IsPositive()
   @Min(1)
-  quantity: number;
-
-  @Transform(({ value }) => value.toString())
-  @IsString()
-  @IsNotEmpty()
-  pricePerOutfit: string;
+  amountOfPieces: number;
 
   @IsString()
   @IsNotEmpty()
-  deliveryTimeLead: string; 
+  location: string;
 
   @IsString()
   @IsNotEmpty()
-  deliveryRegion: string;
+  deadline: string;
 }

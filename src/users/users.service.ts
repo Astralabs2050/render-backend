@@ -2,13 +2,13 @@ import { Injectable, NotFoundException, ConflictException, BadRequestException, 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { User, UserType } from './entities/user.entity';
-import { Collection } from './entities/collection.entity';
+import { Design } from './entities/collection.entity';
 import { PaymentIntent } from './entities/payment-intent.entity';
 import { ReconciliationJob } from './entities/reconciliation-job.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { BrandDetailsDto } from './dto/brand-details.dto';
-import { CreateCollectionDto } from './dto/create-collection.dto';
+import { CreateDesignDto } from './dto/create-collection.dto';
 import { CollectionPaymentDto } from './dto/collection-payment.dto';
 import { Helpers } from '../common/utils/helpers';
 import { ThirdwebService } from '../web3/services/thirdweb.service';
@@ -20,8 +20,8 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
-    @InjectRepository(Collection)
-    private collectionRepository: Repository<Collection>,
+    @InjectRepository(Design)
+    private collectionRepository: Repository<Design>,
     @InjectRepository(PaymentIntent)
     private paymentIntentRepository: Repository<PaymentIntent>,
     @InjectRepository(ReconciliationJob)
@@ -173,7 +173,7 @@ export class UsersService {
     }
   }
 
-  async createCollection(userId: string, collectionData: CreateCollectionDto, designImages?: Express.Multer.File[]): Promise<any> {
+  async createCollection(userId: string, collectionData: CreateDesignDto, designImages?: Express.Multer.File[]): Promise<any> {
     const user = await this.findOne(userId);
     
      if (!user.brandName || !user.brandOrigin) {
@@ -199,21 +199,18 @@ export class UsersService {
       imageUrls.push(uploadResult.secure_url);
     }
 
-    const totalPrice = new Decimal(collectionData.quantity).mul(collectionData.pricePerOutfit).toFixed(2);
-    
-    const collection = this.collectionRepository.create({
+    const design = this.collectionRepository.create({
       creatorId: userId,
-      collectionName: collectionData.collectionName,
-      quantity: collectionData.quantity,
-      pricePerOutfit: collectionData.pricePerOutfit,
-      totalPrice,
-      deliveryTimeLead: collectionData.deliveryTimeLead,
-      deliveryRegion: collectionData.deliveryRegion,
+      name: collectionData.name,
+      price: collectionData.price,
+      amountOfPieces: collectionData.amountOfPieces,
+      location: collectionData.location,
+      deadline: collectionData.deadline,
       designImages: imageUrls,
       status: 'pending_payment'
     });
 
-    const savedCollection = await this.collectionRepository.save(collection);
+    const savedCollection = await this.collectionRepository.save(design);
     this.logger.log(`Collection created for user: ${user.email}`);
     return savedCollection;
   }
@@ -236,7 +233,7 @@ export class UsersService {
         collectionId,
         paymentStatus: 'already_completed',
         transactionHash: collection.paymentTransactionHash,
-        amount: collection.totalPrice,
+        amount: collection.price,
         paidAt: collection.paidAt?.toISOString()
       };
     }
@@ -252,9 +249,9 @@ export class UsersService {
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
-    let collection: Collection;
+    let collection: Design;
     try {
-      collection = await queryRunner.manager.findOne(Collection, {
+      collection = await queryRunner.manager.findOne(Design, {
         where: { id: collectionId, creatorId: userId },
         lock: { mode: 'pessimistic_write' }
       });
@@ -269,7 +266,7 @@ export class UsersService {
           collectionId,
           paymentStatus: 'already_completed',
           transactionHash: collection.paymentTransactionHash,
-          amount: collection.totalPrice,
+          amount: collection.price,
           paidAt: collection.paidAt?.toISOString()
         };
       }
@@ -305,8 +302,8 @@ export class UsersService {
     try {
       this.logger.log('Processing blockchain payment', {
         collectionId,
-        collectionName: collection.collectionName,
-        amount: collection.totalPrice,
+        collectionName: collection.name,
+        amount: collection.price,
         userId,
         walletAddress: user.walletAddress
       });
@@ -315,7 +312,7 @@ export class UsersService {
       paymentResult = await Promise.race([
         this.thirdwebService.processPayment({
           fromAddress: user.walletAddress,
-          amount: new Decimal(collection.totalPrice).toNumber(),
+          amount: new Decimal(collection.price).toNumber(),
           collectionId: collectionId
         }),
         new Promise((_, reject) => 
@@ -339,7 +336,7 @@ export class UsersService {
 
           actualPaymentResult = await this.thirdwebService.checkPaymentStatus({
             fromAddress: user.walletAddress,
-            amount: new Decimal(collection.totalPrice).toNumber(),
+            amount: new Decimal(collection.price).toNumber(),
             collectionId: collectionId
           });
           
@@ -370,8 +367,8 @@ export class UsersService {
         this.logger.error('Payment failed', {
           paymentIntentId: failedIntent?.id,
           collectionId,
-          collectionName: collection.collectionName,
-          amount: collection.totalPrice,
+          collectionName: collection.name,
+          amount: collection.price,
           userId,
           error: error.message
         });
@@ -393,7 +390,7 @@ export class UsersService {
     try {
       const paidAt = new Date();
       
-      await updateRunner.manager.update(Collection, 
+      await updateRunner.manager.update(Design, 
         { id: collectionId },
         {
           status: 'paid',
@@ -428,20 +425,20 @@ export class UsersService {
 
       this.logger.log('Payment completed successfully', {
         collectionId,
-        collectionName: collection.collectionName,
+        collectionName: collection.name,
         transactionHash: paymentResult.transactionHash,
-        amount: updatedCollection.totalPrice,
+        amount: updatedCollection.price,
         userId,
         userEmail: user.email,
-        paidAt: updatedCollection.paidAt.toISOString()
+        paidAt: updatedCollection.paidAt?.toISOString()
       });
       
       return {
         collectionId,
         paymentStatus: 'completed',
         transactionHash: paymentResult.transactionHash,
-        amount: updatedCollection.totalPrice,
-        paidAt: updatedCollection.paidAt.toISOString()
+        amount: updatedCollection.price,
+        paidAt: updatedCollection.paidAt?.toISOString()
       };
     } catch (error) {
       await updateRunner.rollbackTransaction();
@@ -449,13 +446,13 @@ export class UsersService {
         transactionHash: paymentResult.transactionHash,
         collectionId,
         userId,
-        amount: collection.totalPrice,
+        amount: collection.price,
         requiresReconciliation: true,
         error: error.message
       });
       
       
-      await this.queueReconciliationJob(collectionId, paymentResult.transactionHash, new Decimal(collection.totalPrice).toNumber());
+      await this.queueReconciliationJob(collectionId, paymentResult.transactionHash, new Decimal(collection.price).toNumber());
       
       throw new ServiceUnavailableException('Payment succeeded but database update failed. Transaction will be reconciled automatically.');
     } finally {

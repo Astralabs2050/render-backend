@@ -14,6 +14,9 @@ When a milestone action is required, always present a CLEAR button.`;
     [ChatState.INTENT]: "Is this A) just for you, or B) something you'll sell to others? Reply *A* or *B*.",
     [ChatState.INFO_GATHER]: "Great! • Event / vibe? • Deadline? • Budget idea?",
     [ChatState.DESIGN_PREVIEW]: "Here's your design 🌟\nName: **{name}**\nSuggested Cost To Make: **${price}**\nETA: **{days} days**.",
+    [ChatState.DESIGN_APPROVED]: "Perfect! To list this on the marketplace, I need a few details:",
+    [ChatState.JOB_INFO_GATHER]: "Please provide:\n• Design name\n• Price per piece ($)\n• Number of pieces\n• Delivery location\n• Deadline",
+    [ChatState.PAYMENT_REQUIRED]: "Ready to list! Complete payment to publish your job.",
     [ChatState.LISTED]: "All set! Makers will now apply. I'll ping you when proposals arrive.",
     [ChatState.MAKER_PROPOSAL]: "🧵 **{makerName}** offered **${offer}** · **{turnaround} days** · Portfolio attached. Accept?",
     [ChatState.ESCROW_PAYMENT]: "Pay **${offer}** into escrow to start. Funds release in 3 steps (15% / 40% / 30%).",
@@ -32,7 +35,8 @@ When a milestone action is required, always present a CLEAR button.`;
     [ChatState.COMPLETED]: "Final 30% paid 💰. Great job! Your rating just improved."
   };
   private readonly quickButtons = {
-    [ChatState.DESIGN_PREVIEW]: ["Mint & List", "Regenerate"],
+    [ChatState.DESIGN_PREVIEW]: ["Approve Design", "Make Changes"],
+    [ChatState.PAYMENT_REQUIRED]: ["Complete Payment"],
     [ChatState.MAKER_PROPOSAL]: ["Accept", "Decline"],
     [ChatState.ESCROW_PAYMENT]: ["Pay Now"],
     [ChatState.SAMPLE_REVIEW]: ["Approve Sample", "Ask Changes"],

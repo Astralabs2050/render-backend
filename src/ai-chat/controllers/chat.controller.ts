@@ -78,4 +78,15 @@ export class ChatController {
       data: chat,
     };
   }
+
+  @Post('process-payment')
+  async processPayment(@Req() req, @Body() dto: { chatId: string }) {
+    const userId = req.user.id;
+    const result = await this.chatService.processPaymentForChat(userId, dto.chatId);
+    return {
+      status: true,
+      message: 'Payment processed successfully',
+      data: result,
+    };
+  }
 }

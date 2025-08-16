@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Collection } from '../entities/collection.entity';
+import { Design } from '../entities/collection.entity';
 import { PaymentIntent } from '../entities/payment-intent.entity';
 import { ReconciliationJob } from '../entities/reconciliation-job.entity';
 import { ThirdwebService } from '../../web3/services/thirdweb.service';
@@ -11,8 +11,8 @@ export class ReconciliationService {
   private readonly logger = new Logger(ReconciliationService.name);
 
   constructor(
-    @InjectRepository(Collection)
-    private collectionRepository: Repository<Collection>,
+    @InjectRepository(Design)
+    private designRepository: Repository<Design>,
     @InjectRepository(PaymentIntent)
     private paymentIntentRepository: Repository<PaymentIntent>,
     @InjectRepository(ReconciliationJob)
@@ -38,11 +38,11 @@ export class ReconciliationService {
           transactionHash: job.transactionHash
         });
         
-        const collection = await this.collectionRepository.findOne({
+        const design = await this.designRepository.findOne({
           where: { id: job.collectionId }
         });
         
-        if (!collection) {
+        if (!design) {
           await this.reconciliationJobRepository.update(job.id, {
             status: 'failed',
             processedAt: new Date()
@@ -50,7 +50,7 @@ export class ReconciliationService {
           continue;
         }
         
-        await this.collectionRepository.update(job.collectionId, {
+        await this.designRepository.update(job.collectionId, {
           status: 'paid',
           paymentTransactionHash: job.transactionHash,
           paidAt: new Date(),
