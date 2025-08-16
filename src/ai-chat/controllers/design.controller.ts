@@ -2,7 +2,7 @@ import { Controller, Post, Body, UseGuards, Req, BadRequestException } from '@ne
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { DesignWorkflowService } from '../services/design-workflow.service';
 import { ChatService } from '../services/chat.service';
-import { CreateDesignDto, StoreDesignDto } from '../dto/design.dto';
+import { CreateDesignDto, CreateDesignVariationDto, StoreDesignDto } from '../dto/design.dto';
 @Controller('design')
 @UseGuards(JwtAuthGuard)
 export class DesignController {
@@ -25,6 +25,45 @@ export class DesignController {
       data: result,
     };
   }
+  @Post('variation')
+  async createDesignVariation(@Req() req, @Body() dto: CreateDesignVariationDto) {
+    const userId = req.user.id;
+    const result = await this.designWorkflowService.processDesignVariation(userId, dto.chatId, dto.prompt);
+    return {
+      status: true,
+      message: 'Design variation created successfully',
+      data: result,
+    };
+  }
+
+  @Post('approve')
+  async approveDesign(@Req() req, @Body() dto: { chatId: string }) {
+    const userId = req.user.id;
+    const chat = await this.chatService.getChat(userId, dto.chatId);
+    
+    await this.chatService.sendMessage(userId, {
+      chatId: dto.chatId,
+      content: 'approve'
+    });
+    
+    return {
+      status: true,
+      message: 'Design approved, please provide job details',
+      data: { chatId: dto.chatId }
+    };
+  }
+
+  @Post('complete-listing')
+  async completeJobListing(@Req() req, @Body() dto: { chatId: string }) {
+    const userId = req.user.id;
+    const result = await this.chatService.completeJobListing(userId, dto.chatId);
+    return {
+      status: true,
+      message: 'Job listed successfully',
+      data: result,
+    };
+  }
+
   @Post('store')
   async storeDesign(@Req() req, @Body() dto: StoreDesignDto) {
     const userId = req.user.id;

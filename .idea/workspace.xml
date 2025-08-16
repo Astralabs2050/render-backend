@@ -4,8 +4,22 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="1a0d4ed4-5a83-40f5-8992-376e59f12807" name="Changes" comment="minor fix">
+    <list default="true" id="1a0d4ed4-5a83-40f5-8992-376e59f12807" name="Changes" comment="Merge branch 'main' of https://github.com/Astralabs2050/render-backend into add_collection&#10;&#10;# Conflicts:&#10;#&#9;.idea/workspace.xml&#10;#&#9;src/users/dto/brand-details.dto.ts">
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ai-chat/controllers/chat.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/controllers/chat.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ai-chat/controllers/design.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/controllers/design.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ai-chat/dto/design.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/dto/design.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ai-chat/entities/chat.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/entities/chat.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ai-chat/services/chat.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/services/chat.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ai-chat/services/design-workflow.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/services/design-workflow.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ai-chat/services/prompt.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/services/prompt.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/users/dto/create-collection.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/dto/create-collection.dto.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/users/entities/collection.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/entities/collection.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/users/services/reconciliation.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/services/reconciliation.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/users/users.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/users.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/users/users.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/users.module.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/users/users.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/users.service.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,7 +69,6 @@
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;dart.analysis.tool.window.visible&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;add__collection&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -114,6 +127,18 @@
       <workItem from="1754400741007" duration="10920000" />
       <workItem from="1754612196056" duration="4973000" />
       <workItem from="1754645997863" duration="5169000" />
+      <workItem from="1754916320826" duration="597000" />
+      <workItem from="1754941424515" duration="596000" />
+      <workItem from="1754950416302" duration="597000" />
+      <workItem from="1754952700251" duration="594000" />
+      <workItem from="1754966452345" duration="597000" />
+      <workItem from="1755212204374" duration="5343000" />
+      <workItem from="1755229829114" duration="535000" />
+      <workItem from="1755248110770" duration="4590000" />
+      <workItem from="1755268288809" duration="9009000" />
+      <workItem from="1755347594291" duration="622000" />
+      <workItem from="1755374465712" duration="60000" />
+      <workItem from="1755374533250" duration="26000" />
     </task>
     <task id="LOCAL-00001" summary="initial commit">
       <option name="closed" value="true" />

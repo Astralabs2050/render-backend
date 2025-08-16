@@ -6,6 +6,12 @@ export class CreateDesignDto {
   @IsString()
   fabricImageBase64?: string;
 }
+export class CreateDesignVariationDto {
+  @IsUUID()
+  chatId: string;
+  @IsString()
+  prompt: string;
+}
 export class StoreDesignDto {
   @IsUUID()
   chatId: string;

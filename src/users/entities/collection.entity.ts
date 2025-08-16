@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-@Entity('collections')
-export class Collection {
+@Entity('designs')
+export class Design {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -9,22 +9,19 @@ export class Collection {
   creatorId: string;
 
   @Column()
-  collectionName: string;
-
-  @Column()
-  quantity: number;
+  name: string;
 
   @Column('decimal', { precision: 15, scale: 2 })
-  pricePerOutfit: string;
-
-  @Column('decimal', { precision: 15, scale: 2 })
-  totalPrice: string;
+  price: number;
 
   @Column()
-  deliveryTimeLead: string;
+  amountOfPieces: number;
 
   @Column()
-  deliveryRegion: string;
+  location: string;
+
+  @Column()
+  deadline: string;
 
   @Column('text', { array: true })
   designImages: string[];
