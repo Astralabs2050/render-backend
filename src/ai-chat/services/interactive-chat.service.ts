@@ -210,11 +210,12 @@ Reply with ONLY the state name.`;
   }
   private async shouldGenerateDesign(conversationHistory: string): Promise<boolean> {
     try {
-      const prompt = `Based on this conversation, does the user have enough design details to generate a visual design?
+      const response = await this.openaiService.generateChatResponse([
+        { role: 'system', content: 'You are evaluating if a user has provided enough fashion design details to generate a visual design. Reply only "yes" or "no".' },
+        { role: 'user', content: `Based on this conversation, does the user have enough design details to generate a visual design?
 Conversation:
-${conversationHistory}
-Reply with only 'yes' or 'no'.`;
-      const response = await this.openaiService.generateResponse(prompt);
+${conversationHistory}` }
+      ]);
       return response.trim().toLowerCase().includes('yes');
     } catch (error) {
       return false;

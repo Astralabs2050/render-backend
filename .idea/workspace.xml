@@ -5,21 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1a0d4ed4-5a83-40f5-8992-376e59f12807" name="Changes" comment="Merge branch 'main' of https://github.com/Astralabs2050/render-backend into add_collection&#10;&#10;# Conflicts:&#10;#&#9;.idea/workspace.xml&#10;#&#9;src/users/dto/brand-details.dto.ts">
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/ai-chat/controllers/chat.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/controllers/chat.controller.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/controllers/design.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/controllers/design.controller.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/dto/design.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/dto/design.dto.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/entities/chat.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/entities/chat.entity.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/services/chat.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/services/chat.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/services/design-workflow.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/services/design-workflow.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ai-chat/services/prompt.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/services/prompt.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/users/dto/create-collection.dto.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/dto/create-collection.dto.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/users/entities/collection.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/entities/collection.entity.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/users/services/reconciliation.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/services/reconciliation.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/users/users.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/users.controller.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/users/users.module.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/users.module.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/users/users.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/users/users.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ai-chat/services/interactive-chat.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/ai-chat/services/interactive-chat.service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/marketplace/controllers/job.controller.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/marketplace/controllers/job.controller.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/marketplace/entities/job-application.entity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/marketplace/entities/job-application.entity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/marketplace/services/job.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/marketplace/services/job.service.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -69,6 +60,7 @@
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;dart.analysis.tool.window.visible&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;add__collection&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -76,22 +68,11 @@
     &quot;nodejs_package_manager_path&quot;: &quot;yarn&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;aws.codewhisperer&quot;,
     &quot;show.migrate.to.gradle.popup&quot;: &quot;false&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/Applications/IntelliJ IDEA.app/Contents/plugins/javascript-plugin/jsLanguageServicesImpl/external&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/Users/samueladelowo/vscode/render-backend/node_modules/typescript/lib&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
   <component name="RunManager">
-    <configuration default="true" type="JetRunConfigurationType">
-      <module name="render-backend" />
-      <method v="2">
-        <option name="Make" enabled="true" />
-      </method>
-    </configuration>
-    <configuration default="true" type="KotlinStandaloneScriptRunConfigurationType">
-      <module name="render-backend" />
-      <option name="filePath" />
-      <method v="2" />
-    </configuration>
     <configuration name="Unnamed" type="NodeJSConfigurationType" nameIsGenerated="true" typescript-loader="bundled" working-dir="$PROJECT_DIR$">
       <method v="2" />
     </configuration>
@@ -139,6 +120,10 @@
       <workItem from="1755347594291" duration="622000" />
       <workItem from="1755374465712" duration="60000" />
       <workItem from="1755374533250" duration="26000" />
+      <workItem from="1755374572809" duration="257000" />
+      <workItem from="1755517041556" duration="4187000" />
+      <workItem from="1755618770602" duration="1241000" />
+      <workItem from="1755735615884" duration="3212000" />
     </task>
     <task id="LOCAL-00001" summary="initial commit">
       <option name="closed" value="true" />
@@ -332,7 +317,15 @@
       <option name="project" value="LOCAL" />
       <updated>1754856679967</updated>
     </task>
-    <option name="localTasksCounter" value="25" />
+    <task id="LOCAL-00025" summary="Merge branch 'main' of https://github.com/Astralabs2050/render-backend into add_collection&#10;&#10;# Conflicts:&#10;#&#9;.idea/workspace.xml&#10;#&#9;src/users/dto/brand-details.dto.ts">
+      <option name="closed" value="true" />
+      <created>1755374600073</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1755374600073</updated>
+    </task>
+    <option name="localTasksCounter" value="26" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -358,7 +351,8 @@
     <MESSAGE value="add payment for collection" />
     <MESSAGE value="add brand check" />
     <MESSAGE value="minor fix" />
-    <option name="LAST_COMMIT_MESSAGE" value="minor fix" />
+    <MESSAGE value="Merge branch 'main' of https://github.com/Astralabs2050/render-backend into add_collection&#10;&#10;# Conflicts:&#10;#&#9;.idea/workspace.xml&#10;#&#9;src/users/dto/brand-details.dto.ts" />
+    <option name="LAST_COMMIT_MESSAGE" value="Merge branch 'main' of https://github.com/Astralabs2050/render-backend into add_collection&#10;&#10;# Conflicts:&#10;#&#9;.idea/workspace.xml&#10;#&#9;src/users/dto/brand-details.dto.ts" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
