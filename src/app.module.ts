@@ -9,6 +9,11 @@ import { AIChatModule } from './ai-chat/ai-chat.module';
 import { Web3Module } from './web3/web3.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { AppController } from './app.controller';
+import { JobSeeder } from './database/seeders/job.seeder';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Job } from './marketplace/entities/job.entity';
+import { JobApplication } from './marketplace/entities/job-application.entity';
+import { User } from './users/entities/user.entity';
 @Module({
   imports: [
     ConfigModule,
@@ -20,7 +25,9 @@ import { AppController } from './app.controller';
     AIChatModule,
     Web3Module,
     MarketplaceModule,
+    TypeOrmModule.forFeature([Job, JobApplication, User]),
   ],
   controllers: [AppController],
+  providers: [JobSeeder],
 })
 export class AppModule {}

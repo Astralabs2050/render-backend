@@ -460,6 +460,66 @@ export class UsersService {
     }
   }
 
+  async getMakerEarnings(makerId: string): Promise<any> {
+    const maker = await this.findOne(makerId);
+    if (maker.userType !== UserType.MAKER) {
+      throw new BadRequestException('Only makers can view earnings');
+    }
+
+    // Get completed jobs for earnings calculation
+    const completedJobs = await this.dataSource.query(`
+      SELECT j.id, j.title, j.budget, j."completedAt", j."acceptedAt", u."fullName" as "creatorName", u."brandName"
+      FROM jobs j
+      LEFT JOIN users u ON u.id = j."creatorId"
+      WHERE j."makerId" = $1 AND j.status = 'completed'
+      ORDER BY j."completedAt" DESC
+    `, [makerId]);
+
+    // Get in-progress jobs for pending earnings
+    const inProgressJobs = await this.dataSource.query(`
+      SELECT j.id, j.title, j.budget, j."acceptedAt", u."fullName" as "creatorName", u."brandName"
+      FROM jobs j
+      LEFT JOIN users u ON u.id = j."creatorId"
+      WHERE j."makerId" = $1 AND j.status = 'in_progress'
+      ORDER BY j."acceptedAt" DESC
+    `, [makerId]);
+
+    const totalEarnings = completedJobs.reduce((sum, job) => sum.plus(new Decimal(job.budget)), new Decimal(0)).toNumber();
+    const pendingEarnings = inProgressJobs.reduce((sum, job) => sum.plus(new Decimal(job.budget)), new Decimal(0)).toNumber();
+    const availableEarnings = new Decimal(totalEarnings).mul(0.9).toNumber(); // Assuming 10% platform fee
+    const totalJobsCompleted = completedJobs.length;
+
+    // Recent activities (last 20)
+    const recentActivities = [
+      ...completedJobs.map(job => ({
+        timestamp: job.completedAt,
+        description: `Completed job: ${job.title}`,
+        brandName: job.brandName || job.creatorName,
+        status: 'completed',
+        amount: new Decimal(job.budget).toNumber(),
+        paymentStatus: 'paid'
+      })),
+      ...inProgressJobs.map(job => ({
+        timestamp: job.acceptedAt,
+        description: `Started job: ${job.title}`,
+        brandName: job.brandName || job.creatorName,
+        status: 'pending',
+        amount: new Decimal(job.budget).toNumber(),
+        paymentStatus: 'pending'
+      }))
+    ]
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .slice(0, 20);
+
+    return {
+      totalEarnings,
+      pendingEarnings,
+      availableEarnings,
+      totalJobsCompleted,
+      recentActivities
+    };
+  }
+
   async remove(id: string): Promise<void> {
     const result = await this.usersRepository.delete(id);
     if (result.affected === 0) {

@@ -125,4 +125,16 @@ export class UsersController {
       data: payment,
     };
   }
+
+  @Get('maker/earnings')
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(UserType.MAKER)
+  async getMakerEarnings(@Req() req) {
+    const earnings = await this.usersService.getMakerEarnings(req.user.id);
+    return {
+      status: true,
+      message: 'Earnings retrieved successfully',
+      data: earnings,
+    };
+  }
 }

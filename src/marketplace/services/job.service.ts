@@ -313,4 +313,80 @@ export class JobService {
     await this.notificationService.notifyCreatorOfApplication(savedApplication);
     return savedApplication;
   }
+
+  async getMakerJobs(makerId: string, filter?: string): Promise<any[]> {
+    const applications = await this.applicationRepository.find({
+      where: { makerId },
+      relations: ['job', 'job.creator'],
+      order: { createdAt: 'DESC' }
+    });
+
+    const assignedJobs = await this.jobRepository.find({
+      where: { makerId },
+      relations: ['creator'],
+      order: { createdAt: 'DESC' }
+    });
+
+    if (filter === 'completed') {
+      const withdrawnApps = applications.filter(app => app.status === ApplicationStatus.WITHDRAWN);
+      const completedJobs = assignedJobs.filter(job => job.status === JobStatus.COMPLETED);
+      return [
+        ...withdrawnApps.map(app => ({
+          id: app.job.id,
+          brandName: app.job.creator?.brandName || app.job.creator?.fullName || 'Unknown',
+          jobDescription: app.job.description,
+          dateTimeApplied: app.createdAt,
+          status: 'withdrawn'
+        })),
+        ...completedJobs.map(job => ({
+          id: job.id,
+          brandName: job.creator?.brandName || job.creator?.fullName || 'Unknown',
+          jobDescription: job.description,
+          dateTimeApplied: job.acceptedAt,
+          status: 'completed'
+        }))
+      ];
+    }
+
+    if (filter === 'ongoing') {
+      const ongoingJobs = assignedJobs.filter(job => job.status === JobStatus.IN_PROGRESS);
+      return ongoingJobs.map(job => ({
+        id: job.id,
+        brandName: job.creator?.brandName || job.creator?.fullName || 'Unknown',
+        jobDescription: job.description,
+        dateTimeApplied: job.acceptedAt,
+        dueDate: job.deadline
+      }));
+    }
+
+    if (filter === 'applications') {
+      return applications.map(app => {
+        let status = 'awaiting decision';
+        if (app.status === ApplicationStatus.ACCEPTED) status = 'selected by creator';
+        if (app.status === ApplicationStatus.REJECTED) status = 'not selected by creator';
+        if (app.status === ApplicationStatus.WITHDRAWN) status = 'withdrawn';
+
+        return {
+          id: app.job.id,
+          brandName: app.job.creator?.brandName || app.job.creator?.fullName || 'Unknown',
+          jobDescription: app.job.description,
+          dateTimeApplied: app.createdAt,
+          status
+        };
+      });
+    }
+
+    const allJobs = [...applications.map(app => ({ ...app.job, appliedAt: app.createdAt })), ...assignedJobs];
+    const uniqueJobs = allJobs.filter((job, index, self) => index === self.findIndex(j => j.id === job.id));
+    
+    return uniqueJobs.map(job => ({
+      id: job.id,
+      brandName: job.creator?.brandName || job.creator?.fullName || 'Unknown',
+      jobDescription: job.description,
+      dateTimeApplied: (job as any).appliedAt || job.acceptedAt,
+      status: job.status
+    }));
+  }
+
+
 }
