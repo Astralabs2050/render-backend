@@ -83,7 +83,7 @@ jspm_packages/
 *.swp
 *.swo
 *~
-aws.xml
+# No explicit amazon q folder entry found to comment out.
 workspace.xml
 
 # OS generated files
@@ -136,3 +136,6 @@ keys/
 # Backup files
 *.bak
 *.backup
+
+# amazon-q/
+.amazonq/
