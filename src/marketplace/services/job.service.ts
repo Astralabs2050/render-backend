@@ -200,4 +200,117 @@ export class JobService {
       order: { createdAt: 'DESC' },
     });
   }
+
+  async getListedJobs(): Promise<any[]> {
+    const jobs = await this.jobRepository.find({
+      where: { status: JobStatus.OPEN },
+      relations: ['creator'],
+      order: { updatedAt: 'DESC' },
+    });
+
+    if (!jobs.length) {
+      return [];
+    }
+
+    return jobs.map(job => ({
+      id: job.id,
+      approvedDesignImage: job.referenceImages?.[0] || null,
+      lastUpdatedDay: Math.max(0, Math.floor((Date.now() - job.updatedAt.getTime()) / (1000 * 60 * 60 * 24))),
+      nameOfDesign: job.title || 'Untitled Design',
+      price: job.budget || 0,
+      amountOfDesignsToMade: 1
+    }));
+  }
+
+  async getJobDetails(id: string): Promise<any> {
+    const job = await this.jobRepository.findOne({
+      where: { id },
+      relations: ['creator'],
+    });
+
+    if (!job) {
+      throw new NotFoundException('Job not found');
+    }
+
+    if (job.status !== JobStatus.OPEN) {
+      throw new BadRequestException('Job is no longer available');
+    }
+
+    return {
+      jobDescription: job.description || 'No description provided',
+      aboutClient: {
+        name: job.creator?.fullName || 'Anonymous',
+        location: job.creator?.location || 'Not specified',
+        memberSince: job.creator?.createdAt || job.createdAt
+      },
+      datePosted: job.createdAt,
+      proposedDueDate: job.deadline || null,
+      piecesAvailableInLook: job.referenceImages || []
+    };
+  }
+
+  async getMakerProjects(makerId: string): Promise<any[]> {
+    const maker = await this.userRepository.findOne({
+      where: { id: makerId, userType: UserType.MAKER }
+    });
+
+    if (!maker) {
+      throw new NotFoundException('Maker not found');
+    }
+
+    return (maker.projects || []).map((project, index) => ({
+      id: `${makerId}-project-${index}`,
+      title: project.title,
+      images: project.images || [],
+      description: project.description,
+      tags: project.tags || []
+    }));
+  }
+
+  async applyWithProjects(jobId: string, dto: { selectedProjects: string[]; portfolioLink?: string; coverLetter?: string }, makerId: string): Promise<JobApplication> {
+    const job = await this.findJobById(jobId);
+    const maker = await this.userRepository.findOne({ 
+      where: { id: makerId, userType: UserType.MAKER } 
+    });
+
+    if (!maker) {
+      throw new BadRequestException('Only makers can apply to jobs');
+    }
+
+    if (job.status !== JobStatus.OPEN) {
+      throw new BadRequestException('Job is not open for applications');
+    }
+
+    if (job.creatorId === makerId) {
+      throw new BadRequestException('Cannot apply to your own job');
+    }
+
+    const existingApplication = await this.applicationRepository.findOne({
+      where: { jobId, makerId }
+    });
+
+    if (existingApplication) {
+      throw new BadRequestException('You have already applied to this job');
+    }
+
+    const selectedProjectDetails = (maker.projects || [])
+      .map((project, index) => ({ ...project, id: `${makerId}-project-${index}` }))
+      .filter(project => dto.selectedProjects.includes(project.id));
+
+    const application = this.applicationRepository.create({
+      jobId,
+      makerId,
+      job,
+      maker,
+      coverLetter: dto.coverLetter || '',
+      proposedBudget: job.budget,
+      proposedTimeline: job.deadline ? Math.ceil((job.deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 7,
+      portfolioUrl: dto.portfolioLink,
+      selectedProjects: selectedProjectDetails
+    });
+
+    const savedApplication = await this.applicationRepository.save(application);
+    await this.notificationService.notifyCreatorOfApplication(savedApplication);
+    return savedApplication;
+  }
 }

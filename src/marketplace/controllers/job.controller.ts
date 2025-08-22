@@ -31,9 +31,33 @@ export class JobController {
   async findAllJobs(@Query() filters: JobFilterDto) {
     return this.jobService.findAllJobs(filters);
   }
+
+  @Get('jobs/listed')
+  async getListedJobs() {
+    return this.jobService.getListedJobs();
+  }
   @Get('jobs/:id')
   async findJobById(@Param('id', ParseUUIDPipe) id: string) {
     return this.jobService.findJobById(id);
+  }
+
+  @Get('jobs/:id/details')
+  async getJobDetails(@Param('id', ParseUUIDPipe) id: string) {
+    return this.jobService.getJobDetails(id);
+  }
+
+  @Get('maker/projects')
+  async getMakerProjects(@Request() req) {
+    return this.jobService.getMakerProjects(req.user.id);
+  }
+
+  @Post('jobs/:id/apply-with-projects')
+  async applyWithProjects(
+    @Param('id', ParseUUIDPipe) jobId: string,
+    @Body() dto: { selectedProjects: string[]; portfolioLink?: string; coverLetter?: string },
+    @Request() req
+  ) {
+    return this.jobService.applyWithProjects(jobId, dto, req.user.id);
   }
   @Put('jobs/:id')
   async updateJob(

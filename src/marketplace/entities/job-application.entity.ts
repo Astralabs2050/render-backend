@@ -20,14 +20,28 @@ export class JobApplication extends BaseEntity {
   maker: User;
   @Column()
   makerId: string;
-  @Column('text')
+  @Column('text', { nullable: true })
   proposal: string;
+  @Column('text', { nullable: true })
+  coverLetter: string;
   @Column('decimal', { precision: 10, scale: 2 })
   proposedBudget: number;
-  @Column()
+  @Column({ nullable: true })
   estimatedDays: number;
+  @Column({ nullable: true })
+  proposedTimeline: number;
   @Column('simple-array', { nullable: true })
   portfolioLinks: string[];
+  @Column({ nullable: true })
+  portfolioUrl: string;
+  @Column({ type: 'jsonb', nullable: true })
+  selectedProjects: {
+    id: string;
+    title: string;
+    images: string[];
+    description: string;
+    tags: string[];
+  }[];
   @Column({ type: 'enum', enum: ApplicationStatus, default: ApplicationStatus.PENDING })
   status: ApplicationStatus;
   @Column('text', { nullable: true })
