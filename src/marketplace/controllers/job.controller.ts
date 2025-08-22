@@ -107,6 +107,20 @@ export class JobController {
     }
     return this.jobService.getMyApplications(req.user.id);
   }
+
+  @Get('maker/jobs')
+  async getMakerJobs(@Query('filter') filter: string, @Request() req) {
+    if (req.user.userType !== UserType.MAKER) {
+      throw new Error('Only makers can access this endpoint');
+    }
+    
+    const validFilters = ['applications', 'ongoing', 'completed'];
+    if (filter && !validFilters.includes(filter)) {
+      throw new Error(`Invalid filter. Valid options: ${validFilters.join(', ')}`);
+    }
+    
+    return this.jobService.getMakerJobs(req.user.id, filter);
+  }
   @Post('jobs/from-design')
   async createJobFromDesign(@Body() requirements: DesignRequirements, @Request() req) {
     return this.workflowService.createJobFromDesign(requirements, req.user.id);
