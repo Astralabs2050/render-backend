@@ -1,0 +1,175 @@
+{
+  "info": {
+    "name": "Render Backend - AI Chat & Profile",
+    "description": "Collection for AI Chat and Complete Profile endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "AI Chat",
+      "item": [
+        {
+          "name": "Start Chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ai-chat/start",
+              "host": ["{{base_url}}"],
+              "path": ["ai-chat", "start"]
+            }
+          }
+        },
+        {
+          "name": "Get Stream Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai-chat/token",
+              "host": ["{{base_url}}"],
+              "path": ["ai-chat", "token"]
+            }
+          }
+        },
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Hello, I need help with a design\",\n  \"chatId\": \"optional-chat-id\",\n  \"imageBase64\": \"optional-base64-image\",\n  \"actionType\": \"optional-action-type\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-chat/message",
+              "host": ["{{base_url}}"],
+              "path": ["ai-chat", "message"]
+            }
+          }
+        },
+        {
+          "name": "Get All Chats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai-chat",
+              "host": ["{{base_url}}"],
+              "path": ["ai-chat"]
+            }
+          }
+        },
+        {
+          "name": "Get Chat by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai-chat/:id",
+              "host": ["{{base_url}}"],
+              "path": ["ai-chat", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "chat-id-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Generate Design Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"A red evening dress with elegant silhouette\",\n  \"chatId\": \"optional-chat-id\",\n  \"referenceImageBase64\": \"optional-base64-image\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ai-chat/generate-design",
+              "host": ["{{base_url}}"],
+              "path": ["ai-chat", "generate-design"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Profile",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["users", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"fullName\": \"John Doe\",\n  \"language\": \"en\",\n  \"walletAddress\": \"0x123...\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["users", "profile"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

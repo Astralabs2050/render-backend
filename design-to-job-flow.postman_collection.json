@@ -1,0 +1,376 @@
+{
+	"info": {
+		"name": "Design to Job Listing Flow",
+		"description": "Complete flow from maker signup to job listing creation",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{jwt_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "design_id",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Maker Signup",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"email\": \"maker@example.com\",\n  \"password\": \"password123\",\n  \"fullName\": \"John Maker\",\n  \"userType\": \"maker\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/auth/register",
+					"host": ["{{base_url}}"],
+					"path": ["auth", "register"]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 201) {",
+							"    const response = pm.response.json();",
+							"    pm.collectionVariables.set('user_id', response.data.id);",
+							"}"
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Maker Login",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"email\": \"maker@example.com\",\n  \"password\": \"password123\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/auth/login",
+					"host": ["{{base_url}}"],
+					"path": ["auth", "login"]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 200) {",
+							"    const response = pm.response.json();",
+							"    pm.collectionVariables.set('jwt_token', response.data.access_token);",
+							"    pm.collectionVariables.set('user_id', response.data.user.id);",
+							"}"
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Complete Profile",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "location",
+							"value": "Lagos, Nigeria",
+							"type": "text"
+						},
+						{
+							"key": "category",
+							"value": "Fashion Design",
+							"type": "text"
+						},
+						{
+							"key": "skills",
+							"value": "[\"Fashion Design\", \"Pattern Making\", \"Tailoring\"]",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/auth/complete-profile",
+					"host": ["{{base_url}}"],
+					"path": ["auth", "complete-profile"]
+				}
+			}
+		},
+		{
+			"name": "4. Add Brand Details",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "brandName",
+							"value": "Astra Fashion",
+							"type": "text"
+						},
+						{
+							"key": "brandOrigin",
+							"value": "Nigeria",
+							"type": "text"
+						},
+						{
+							"key": "brandStory",
+							"value": "Sustainable fashion for the modern world",
+							"type": "text"
+						},
+						{
+							"key": "brandLogo",
+							"type": "file",
+							"src": []
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/users/brand-details",
+					"host": ["{{base_url}}"],
+					"path": ["users", "brand-details"]
+				}
+			}
+		},
+		{
+			"name": "5. Create Design",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "name",
+							"value": "Summer Collection 2024",
+							"type": "text"
+						},
+						{
+							"key": "price",
+							"value": "500",
+							"type": "text"
+						},
+						{
+							"key": "amountOfPieces",
+							"value": "10",
+							"type": "text"
+						},
+						{
+							"key": "location",
+							"value": "Lagos, Nigeria",
+							"type": "text"
+						},
+						{
+							"key": "deadline",
+							"value": "2024-06-30",
+							"type": "text"
+						},
+						{
+							"key": "designImages",
+							"type": "file",
+							"src": []
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/users/designs",
+					"host": ["{{base_url}}"],
+					"path": ["users", "designs"]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 201) {",
+							"    const response = pm.response.json();",
+							"    pm.collectionVariables.set('design_id', response.data.id);",
+							"}"
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "6. Process Design Payment",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"paymentMethod\": \"wallet\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/users/collections/{{design_id}}/payment",
+					"host": ["{{base_url}}"],
+					"path": ["users", "collections", "{{design_id}}", "payment"]
+				}
+			}
+		},
+		{
+			"name": "7. Creator Signup",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"email\": \"creator@example.com\",\n  \"password\": \"password123\",\n  \"fullName\": \"Jane Creator\",\n  \"userType\": \"creator\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/auth/register",
+					"host": ["{{base_url}}"],
+					"path": ["auth", "register"]
+				}
+			}
+		},
+		{
+			"name": "8. Creator Login",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"email\": \"creator@example.com\",\n  \"password\": \"password123\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/auth/login",
+					"host": ["{{base_url}}"],
+					"path": ["auth", "login"]
+				}
+			},
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 200) {",
+							"    const response = pm.response.json();",
+							"    pm.collectionVariables.set('jwt_token', response.data.access_token);",
+							"}"
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "9. Create Job Listing",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"title\": \"Fashion Designer Needed\",\n  \"description\": \"Looking for a skilled fashion designer for summer collection\",\n  \"budget\": 1000,\n  \"deadline\": \"2024-07-15\",\n  \"skills\": [\"Fashion Design\", \"Pattern Making\"],\n  \"location\": \"Lagos, Nigeria\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/marketplace/jobs",
+					"host": ["{{base_url}}"],
+					"path": ["marketplace", "jobs"]
+				}
+			}
+		},
+		{
+			"name": "10. Get All Jobs",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/marketplace/jobs",
+					"host": ["{{base_url}}"],
+					"path": ["marketplace", "jobs"]
+				}
+			}
+		}
+	]
+}

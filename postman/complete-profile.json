@@ -1,0 +1,193 @@
+{
+  "info": {
+    "name": "Complete Profile API",
+    "description": "API endpoint for completing user profile with file uploads",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Complete Profile",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "location",
+              "value": "New York, NY",
+              "type": "text"
+            },
+            {
+              "key": "category",
+              "value": "Fashion Designer",
+              "type": "text"
+            },
+            {
+              "key": "skills",
+              "value": "[\"Fashion Design\", \"Pattern Making\", \"Sewing\"]",
+              "type": "text"
+            },
+            {
+              "key": "nameOnId",
+              "value": "John Doe",
+              "type": "text"
+            },
+            {
+              "key": "idCountryOfIssue",
+              "value": "United States",
+              "type": "text"
+            },
+            {
+              "key": "idExpiryDate",
+              "value": "2025-12-31",
+              "type": "text"
+            },
+            {
+              "key": "businessName",
+              "value": "Doe Fashion Studio",
+              "type": "text"
+            },
+            {
+              "key": "businessCountryOfRegistration",
+              "value": "United States",
+              "type": "text"
+            },
+            {
+              "key": "businessType",
+              "value": "LLC",
+              "type": "text"
+            },
+            {
+              "key": "taxRegistrationNumber",
+              "value": "12-3456789",
+              "type": "text"
+            },
+            {
+              "key": "workExperience",
+              "value": "[{\"employerName\":\"Fashion House Inc\",\"jobTitle\":\"Senior Designer\",\"startMonth\":\"01\",\"startYear\":\"2020\",\"endMonth\":\"12\",\"endYear\":\"2023\",\"jobDescription\":\"Led design team for seasonal collections\"}]",
+              "type": "text"
+            },
+            {
+              "key": "projects",
+              "value": "[{\"title\":\"Summer Collection 2023\",\"description\":\"Designed and produced 20-piece summer collection\",\"tags\":[\"Summer\",\"Casual\",\"Sustainable\"]}]",
+              "type": "text"
+            },
+            {
+              "key": "governmentIdImages",
+              "type": "file",
+              "src": []
+            },
+            {
+              "key": "governmentIdImages",
+              "type": "file",
+              "src": []
+            },
+            {
+              "key": "businessCertificateImage",
+              "type": "file",
+              "src": []
+            },
+            {
+              "key": "profilePicture",
+              "type": "file",
+              "src": []
+            },
+            {
+              "key": "projectImages",
+              "type": "file",
+              "src": []
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/auth/complete-profile",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "auth",
+            "complete-profile"
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "location",
+                  "value": "New York, NY",
+                  "type": "text"
+                },
+                {
+                  "key": "category",
+                  "value": "Fashion Designer",
+                  "type": "text"
+                },
+                {
+                  "key": "skills",
+                  "value": "[\"Fashion Design\", \"Pattern Making\", \"Sewing\"]",
+                  "type": "text"
+                },
+                {
+                  "key": "profilePicture",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/complete-profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "complete-profile"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"status\": true,\n  \"message\": \"Profile updated successfully\",\n  \"data\": {\n    \"user\": {\n      \"id\": \"user-uuid-123\",\n      \"email\": \"john@example.com\",\n      \"fullName\": \"John Doe\",\n      \"location\": \"New York, NY\",\n      \"category\": \"Fashion Designer\",\n      \"skills\": [\"Fashion Design\", \"Pattern Making\", \"Sewing\"],\n      \"profileCompleted\": true,\n      \"identityVerified\": false,\n      \"businessName\": \"Doe Fashion Studio\",\n      \"walletAddress\": \"0x1234567890abcdef\"\n    }\n  }\n}"
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "jwt_token",
+      "value": "your-jwt-token-here"
+    }
+  ]
+}
