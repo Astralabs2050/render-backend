@@ -9,9 +9,10 @@ import { WorkflowService } from './services/workflow.service';
 import { JobController } from './controllers/job.controller';
 import { forwardRef } from '@nestjs/common';
 import { AIChatModule } from '../ai-chat/ai-chat.module';
+import { NFT } from '../web3/entities/nft.entity';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Job, JobApplication, User]),
+    TypeOrmModule.forFeature([Job, JobApplication, User, NFT]),
     forwardRef(() => AIChatModule),
   ],
   controllers: [JobController],

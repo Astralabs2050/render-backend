@@ -284,12 +284,6 @@ Reply with ONLY the state name.`;
   private async handleInfoGathering(userId: string, chatId: string, content: string, metadata: any) {
     const chat = await this.chatService.getChat(userId, chatId);
     const conversationHistory = chat.messages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-    // Prevent duplicate generation while in progress
-    if (chat.metadata?.generating === true) {
-      const waitMsg = 'Working on your variations… one moment please.';
-      await this.streamChatService.sendAIMessage(chatId, waitMsg);
-      return { chatId, state: 'info_gather', aiResponse: waitMsg, awaitingConfirmation: false };
-    }
     // Cooldown: if we already generated 3 in the last 2 minutes, don't regenerate
     const lastDone = chat.metadata?.lastGenerationCompletedAt ? new Date(chat.metadata.lastGenerationCompletedAt).getTime() : 0;
     const recent = lastDone && (Date.now() - lastDone < 2 * 60 * 1000);
@@ -308,8 +302,13 @@ Reply with ONLY the state name.`;
       await this.streamChatService.sendAIMessage(chatId, msg);
       return { chatId, state: 'info_gather', aiResponse: msg };
     }
+    // If not confirming and a generation is already in progress, ask user to wait
+    if (!isConfirming && chat.metadata?.generating === true) {
+      const waitMsg = 'Working on your variations… one moment please.';
+      await this.streamChatService.sendAIMessage(chatId, waitMsg);
+      return { chatId, state: 'info_gather', aiResponse: waitMsg, awaitingConfirmation: false };
+    }
     if (isConfirming) {
-      await this.chatService.updateChat(chatId, { metadata: { ...chat.metadata, generating: true } });
       const generatingMessage = "Perfect! Let me generate a visual design for you... This will take a moment.";
       await this.streamChatService.sendAIMessage(chatId, generatingMessage);
       const designPrompt = this.buildDesignPrompt(chat.messages);
@@ -405,12 +404,21 @@ Reply with ONLY the state name.`;
   }
   private async isUserConfirming(content: string, conversationHistory?: string): Promise<boolean> {
     try {
-      const response = await this.openaiService.generateResponse(
-        `Given the conversation context and the user's latest message, decide if we should proceed generating design variations NOW without asking more questions.
-Context:\n${conversationHistory || ''}\nUser: "${content}"
-Reply ONLY: CONFIRM or MORE_INFO.`
-      );
-      return response.trim().toUpperCase().includes('CONFIRM');
+      const prompt = `You are a strict confirmation validator.
+Task: Decide if the user explicitly confirmed to generate design variations NOW.
+Output: Respond with EXACTLY one token: CONFIRM or HOLD.
+
+Guidelines:
+- Treat as CONFIRM: "yes", "yup", "yeah", "y", "sure", "ok", "okay", "k", "pls generate", "proceed", "go ahead", "do it", "start", "let's go", "go", "alright", "fine", "sounds good".
+- Treat as HOLD: any request for changes/refinement, questions, or uncertainty ("maybe", "not yet", "wait", "later", "no").
+- If the assistant just asked: "Generate 3 visual variations now? (yes/no)", favor CONFIRM for clear affirmatives.
+
+Conversation so far:
+${conversationHistory || ''}
+User latest: "${content}"
+Answer: `;
+      const response = await this.openaiService.generateResponse(prompt);
+      return response.trim().toUpperCase() === 'CONFIRM';
     } catch (error) {
       return false;
     }
