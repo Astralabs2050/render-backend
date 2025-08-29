@@ -33,11 +33,21 @@ export class JobService {
     await this.notificationService.notifyMakersOfNewJob(savedJob);
     return savedJob;
   }
-  async findAllJobs(filters: JobFilterDto): Promise<{ jobs: Job[]; total: number; page: number; totalPages: number }> {
+  async findAllJobs(filters: JobFilterDto): Promise<{ jobs: any[]; total: number; page: number; totalPages: number }> {
     const { page = 1, limit = 10, status, priority, minBudget, maxBudget, tags, search } = filters;
     const queryBuilder = this.jobRepository.createQueryBuilder('job')
       .leftJoinAndSelect('job.creator', 'creator')
-      .leftJoinAndSelect('job.maker', 'maker');
+      .leftJoinAndSelect('job.maker', 'maker')
+      .leftJoin('web3_nft', 'nft', 'nft.id = job.designId')
+      .addSelect([
+        'nft.id as designId',
+        'nft.name as designName',
+        'nft.imageUrl as designImage',
+        'nft.price as designPrice',
+        'nft.quantity as designStock',
+        'nft.designLink as designLink',
+        'nft.updatedAt as designLastUpdated'
+      ]);
     if (status) {
       queryBuilder.andWhere('job.status = :status', { status });
     }
@@ -62,9 +72,26 @@ export class JobService {
     const offset = (page - 1) * limit;
     queryBuilder.skip(offset).take(limit);
     queryBuilder.orderBy('job.createdAt', 'DESC');
-    const [jobs, total] = await queryBuilder.getManyAndCount();
+    const jobsResult = await queryBuilder.getRawAndEntities();
+    const total = await queryBuilder.getCount();
     const totalPages = Math.ceil(total / limit);
-    return { jobs, total, page, totalPages };
+    
+    // Combine job entities with design information
+    const enrichedJobs = jobsResult.entities.map((job, index) => {
+      const rawJob = jobsResult.raw[index];
+      return {
+        ...job,
+        // Design information for marketplace cards
+        image: rawJob.designImage,
+        pay: rawJob.designPrice,
+        stock: rawJob.designStock,
+        link: rawJob.designLink,
+        lastUpdated: rawJob.designLastUpdated,
+        designName: rawJob.designName
+      };
+    });
+    
+    return { jobs: enrichedJobs, total, page, totalPages };
   }
   async findJobById(id: string): Promise<Job> {
     const job = await this.jobRepository.findOne({

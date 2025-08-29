@@ -27,10 +27,10 @@ import { MarketplaceModule } from '../marketplace/marketplace.module';
         signOptions: { expiresIn: configService.get('JWT_EXPIRATION', '7d') },
       }),
     }),
-    UsersModule,
+    forwardRef(() => UsersModule),
     Web3Module,
     forwardRef(() => MarketplaceModule),
-    AuthModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [ChatController, DesignController],
   providers: [

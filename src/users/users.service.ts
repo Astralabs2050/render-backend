@@ -14,6 +14,7 @@ import { Helpers } from '../common/utils/helpers';
 import { ThirdwebService } from '../web3/services/thirdweb.service';
 import { CloudinaryService } from '../common/services/cloudinary.service';
 import { Decimal } from 'decimal.js';
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -26,6 +27,7 @@ export class UsersService {
     private paymentIntentRepository: Repository<PaymentIntent>,
     @InjectRepository(ReconciliationJob)
     private reconciliationJobRepository: Repository<ReconciliationJob>,
+
     private thirdwebService: ThirdwebService,
     private cloudinaryService: CloudinaryService,
     private dataSource: DataSource,
@@ -528,4 +530,6 @@ export class UsersService {
     }
     this.logger.log(`Deleted user with ID: ${id}`);
   }
+
+
 }

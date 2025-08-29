@@ -2,7 +2,7 @@ import { Controller, Post, Body, UseGuards, Req, BadRequestException } from '@ne
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { DesignWorkflowService } from '../services/design-workflow.service';
 import { ChatService } from '../services/chat.service';
-import { CreateDesignDto, CreateDesignVariationDto, StoreDesignDto } from '../dto/design.dto';
+import { CreateDesignDto, CreateDesignVariationDto, StoreDesignDto, ApproveDesignDto, SimpleApproveDesignDto } from '../dto/design.dto';
 @Controller('design')
 @UseGuards(JwtAuthGuard)
 export class DesignController {
@@ -13,15 +13,11 @@ export class DesignController {
   @Post('create')
   async createDesign(@Req() req, @Body() dto: CreateDesignDto) {
     const userId = req.user.id;
-    if (!this.isDesignPrompt(dto.prompt)) {
-      throw new BadRequestException(
-        'Please provide a fashion design prompt (e.g., "white satin dress with cutouts", "blue denim jacket with patches")'
-      );
-    }
+    // Delegate classification to AI-driven workflow (no hardcoded keywords)
     const result = await this.designWorkflowService.processDesignRequest(userId, dto);
     return {
       status: true,
-      message: 'Design created and listed successfully! We\'ll notify you when a Maker applies.',
+      message: 'Design variations generated. Provide name, price, quantity and deadline to approve.',
       data: result,
     };
   }
@@ -37,19 +33,41 @@ export class DesignController {
   }
 
   @Post('approve')
-  async approveDesign(@Req() req, @Body() dto: { chatId: string }) {
+  async approveDesign(@Req() req, @Body() dto: ApproveDesignDto) {
     const userId = req.user.id;
-    const chat = await this.chatService.getChat(userId, dto.chatId);
-    
-    await this.chatService.sendMessage(userId, {
-      chatId: dto.chatId,
-      content: 'approve'
-    });
+    const result = await this.designWorkflowService.approveDesign(userId, dto);
     
     return {
       status: true,
-      message: 'Design approved, please provide job details',
-      data: { chatId: dto.chatId }
+      message: result.message,
+      data: {
+        nft: result.nft,
+        chatId: dto.chatId,
+        nextSteps: [
+          'Publish to Market (triggers minting)',
+          'Hire a Maker (triggers minting if in DRAFT status)'
+        ]
+      }
+    };
+  }
+
+  @Post('approve-simple')
+  async simpleApproveDesign(@Req() req, @Body() dto: SimpleApproveDesignDto) {
+    const userId = req.user.id;
+    const result = await this.designWorkflowService.simpleApproveDesign(userId, dto);
+    
+    return {
+      status: true,
+      message: result.message,
+      data: {
+        nft: result.nft,
+        chatId: dto.chatId,
+        aiGenerated: true,
+        nextSteps: [
+          'Publish to Market (triggers minting)',
+          'Hire a Maker (triggers minting if in DRAFT status)'
+        ]
+      }
     };
   }
 
@@ -74,15 +92,40 @@ export class DesignController {
       data: result,
     };
   }
-  private isDesignPrompt(prompt: string): boolean {
-    const fashionKeywords = [
-      'dress', 'shirt', 'pants', 'jacket', 'skirt', 'top', 'blouse', 'coat',
-      'sweater', 'hoodie', 'jeans', 'shorts', 'suit', 'blazer', 'cardigan',
-      'fabric', 'cotton', 'silk', 'denim', 'leather', 'satin', 'lace',
-      'color', 'pattern', 'style', 'design', 'fashion', 'clothing', 'outfit',
-      'sleeves', 'collar', 'buttons', 'zipper', 'pockets', 'hem', 'cut'
-    ];
-    const lowerPrompt = prompt.toLowerCase();
-    return fashionKeywords.some(keyword => lowerPrompt.includes(keyword));
+
+  @Post('publish-to-market')
+  async publishToMarket(@Req() req, @Body() dto: { nftId: string }) {
+    const userId = req.user.id;
+    
+    // This endpoint will trigger the web3 modal for minting
+    // The frontend should handle the web3 interaction and then call the mint endpoint
+    return {
+      status: true,
+      message: 'Ready to mint design! Please complete the web3 transaction.',
+      data: {
+        nftId: dto.nftId,
+        action: 'mint_and_publish',
+        web3Required: true
+      }
+    };
   }
+
+  @Post('mint-and-publish')
+  async mintAndPublish(@Req() req, @Body() dto: { nftId: string; transactionHash: string }) {
+    const userId = req.user.id;
+    
+    // Mint the NFT and change status to PUBLISHED
+    const nft = await this.designWorkflowService.mintAndPublishDesign(userId, dto.nftId, dto.transactionHash);
+    
+    return {
+      status: true,
+      message: 'Design minted and published successfully!',
+      data: {
+        nft,
+        status: 'published',
+        marketReady: true
+      }
+    };
+  }
+  // Removed keyword-based classification – now handled by AI in workflow service
 }

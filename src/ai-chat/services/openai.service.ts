@@ -20,6 +20,32 @@ export class OpenAIService {
       },
     });
   }
+  async classifyIsFashionPrompt(prompt: string): Promise<boolean> {
+    try {
+      const response = await this.axiosInstance.post(
+        this.apiUrl,
+        {
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content:
+                'Classify if the USER text is a fashion design request (garment, apparel, outfit, fabric, style, construction, tailoring, fashion accessories). Reply with a single token: yes or no. No explanations.'
+            },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0,
+          max_tokens: 2,
+        }
+      );
+      const text = (response.data?.choices?.[0]?.message?.content || '').toLowerCase();
+      return text.includes('yes');
+    } catch (error) {
+      this.logger.warn(`OpenAI classify fallback (error: ${error?.message || 'unknown'})`);
+      // Fallback: accept non-empty prompts
+      return !!prompt && prompt.trim().length > 3;
+    }
+  }
   async generateChatResponse(messages: any[]): Promise<string> {
     try {
       const enhancedMessages = [
@@ -198,9 +224,7 @@ export class OpenAIService {
   }
   async generateDesignImage(prompt: string, referenceImageBase64?: string): Promise<string> {
     try {
-      this.logger.log(`Generating image for prompt: ${prompt}`);
       const enhancedPrompt = await this.enhanceDesignPrompt(prompt, referenceImageBase64);
-      this.logger.log(`Enhanced prompt: ${enhancedPrompt}`);
       const response = await this.axiosInstance.post(
         'https://api.openai.com/v1/images/generations',
         {
@@ -212,15 +236,14 @@ export class OpenAIService {
           style: 'natural'
         }
       );
-      this.logger.log(`DALL-E response:`, response.data);
       if (response.data.data && response.data.data.length > 0) {
         const imageUrl = response.data.data[0].url;
-        this.logger.log(`Generated design image: ${imageUrl}`);
+        this.logger.log(`Generated image: ${imageUrl}`);
         return imageUrl;
       }
       throw new Error('No image generated from DALL-E');
     } catch (error) {
-      this.logger.error(`DALL-E image generation error:`, error.response?.data || error.message);
+      this.logger.error(`DALL-E image generation error: ${error.response?.data?.error?.message || error.message}`);
       throw error; 
     }
   }
@@ -263,7 +286,6 @@ export class OpenAIService {
         }
       );
       const enhancedPrompt = response.data.choices[0].message.content;
-      this.logger.log(`Enhanced prompt: ${enhancedPrompt}`);
       return enhancedPrompt;
     } catch (error) {
       this.logger.error(`Prompt enhancement error: ${error.message}`);

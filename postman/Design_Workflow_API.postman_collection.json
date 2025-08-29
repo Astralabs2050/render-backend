@@ -1,0 +1,348 @@
+{
+  "info": {
+    "name": "Design Workflow API",
+    "description": "Complete API collection for the new design workflow: AI Chat → Design Approval → Minting → Market",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "chat_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "nft_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Login as Creator",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.data && response.data.access_token) {",
+                  "        pm.collectionVariables.set('auth_token', response.data.access_token);",
+                  "        console.log('Auth token set:', response.data.access_token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"kases14120@discrip.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. AI Chat Design Creation",
+      "item": [
+        {
+          "name": "Create Design via AI Chat",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.data && response.data.chat && response.data.chat.id) {",
+                  "        pm.collectionVariables.set('chat_id', response.data.chat.id);",
+                  "        console.log('Chat ID set:', response.data.chat.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Create a summer dress with floral pattern, short sleeves, and a flared skirt\",\n  \"fabricImageBase64\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/design/create",
+              "host": ["{{base_url}}"],
+              "path": ["design", "create"]
+            }
+          }
+        },
+        {
+          "name": "Create Design Variation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"chatId\": \"{{chat_id}}\",\n  \"prompt\": \"Make it more elegant with lace trim and a higher neckline\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/design/variation",
+              "host": ["{{base_url}}"],
+              "path": ["design", "variation"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Design Approval",
+      "item": [
+        {
+          "name": "Approve Design with Details (Manual)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.data && response.data.nft && response.data.nft.id) {",
+                  "        pm.collectionVariables.set('nft_id', response.data.nft.id);",
+                  "        console.log('NFT ID set:', response.data.nft.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"chatId\": \"{{chat_id}}\",\n  \"selectedVariety\": \"variation_1\",\n  \"designName\": \"Summer Floral Dress\",\n  \"price\": 150.00,\n  \"collectionQuantity\": 8,\n  \"deadline\": \"2025-12-31\",\n  \"description\": \"Elegant summer dress with floral pattern, perfect for outdoor events\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/design/approve",
+              "host": ["{{base_url}}"],
+              "path": ["design", "approve"]
+            }
+          }
+        },
+        {
+          "name": "Approve Design with AI Suggestions (Recommended)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.data && response.data.nft && response.data.nft.id) {",
+                  "        pm.collectionVariables.set('nft_id', response.data.nft.id);",
+                  "        console.log('NFT ID set:', response.data.nft.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"chatId\": \"{{chat_id}}\",\n  \"selectedVariety\": \"variation_1\",\n  \"useAISuggestions\": true,\n  \"customName\": \"Summer Floral Dress\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/design/approve-simple",
+              "host": ["{{base_url}}"],
+              "path": ["design", "approve-simple"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Minting & Publishing",
+      "item": [
+        {
+          "name": "Publish to Market (Trigger Web3)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nftId\": \"{{nft_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/design/publish-to-market",
+              "host": ["{{base_url}}"],
+              "path": ["design", "publish-to-market"]
+            }
+          }
+        },
+        {
+          "name": "Mint and Publish Design",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nftId\": \"{{nft_id}}\",\n  \"transactionHash\": \"0x1234567890abcdef...\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/design/mint-and-publish",
+              "host": ["{{base_url}}"],
+              "path": ["design", "mint-and-publish"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Creator Inventory & Actions",
+      "item": [
+        {
+          "name": "Get Creator Inventory",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/creator/inventory",
+              "host": ["{{base_url}}"],
+              "path": ["creator", "inventory"]
+            }
+          }
+        },
+        {
+          "name": "Hire Maker (Published Design)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"designId\": \"{{nft_id}}\",\n  \"requirements\": \"High quality production with attention to detail\",\n  \"quantity\": 8,\n  \"deadlineDate\": \"2025-12-31\",\n  \"productTimeline\": \"3-4 weeks\",\n  \"budgetRange\": {\n    \"min\": 800,\n    \"max\": 2500\n  },\n  \"shippingRegion\": \"United States\",\n  \"fabricSource\": \"Premium cotton blend with silk accents\",\n  \"skillKeywords\": [\"sewing\", \"pattern-making\", \"quality-control\", \"embroidery\"],\n  \"experienceLevel\": \"advanced\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/creator/hire-maker",
+              "host": ["{{base_url}}"],
+              "path": ["creator", "hire-maker"]
+            }
+          }
+        },
+        {
+          "name": "Hire Maker (Draft Design - Should Fail)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"designId\": \"{{nft_id}}\",\n  \"requirements\": \"Test hiring with draft design\",\n  \"quantity\": 5,\n  \"deadlineDate\": \"2025-12-31\",\n  \"productTimeline\": \"2-3 weeks\",\n  \"budgetRange\": {\n    \"min\": 500,\n    \"max\": 1500\n  },\n  \"shippingRegion\": \"Europe\",\n  \"fabricSource\": \"Sustainable cotton\",\n  \"skillKeywords\": [\"sewing\", \"pattern-making\"],\n  \"experienceLevel\": \"intermediate\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/creator/hire-maker",
+              "host": ["{{base_url}}"],
+              "path": ["creator", "hire-maker"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Marketplace Integration",
+      "item": [
+        {
+          "name": "Get Marketplace Jobs (Enriched with Design Data)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/marketplace/jobs",
+              "host": ["{{base_url}}"],
+              "path": ["marketplace", "jobs"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

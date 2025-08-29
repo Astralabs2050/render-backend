@@ -1,0 +1,219 @@
+{
+	"info": {
+		"_postman_id": "creator-inventory-api",
+		"name": "Creator Inventory API",
+		"description": "API collection for testing the Creator Inventory endpoint that fetches designs created through the AI flow",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Creator Inventory",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{auth_token}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/creator/inventory",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"creator",
+						"inventory"
+					]
+				},
+				"description": "Fetches the creator's inventory of designs created and approved through the AI flow. Requires CREATOR role authentication."
+			},
+			"response": [
+				{
+					"name": "Success Response",
+					"originalRequest": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/creator/inventory",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"creator",
+								"inventory"
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"cookie": [],
+					"body": "{\n  \"status\": true,\n  \"message\": \"Creator inventory retrieved successfully\",\n  \"data\": [\n    {\n      \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"name\": \"Summer Collection Dress\",\n      \"price\": 150.00,\n      \"quantity\": 1,\n      \"publishedStatus\": \"listed\",\n      \"designLink\": \"https://res.cloudinary.com/example/image/upload/v123/summer-dress.jpg\",\n      \"lastUpdated\": \"2025-08-28T23:30:00.000Z\"\n    },\n    {\n      \"id\": \"550e8400-e29b-41d4-a716-446655440001\",\n      \"name\": \"Winter Coat Design\",\n      \"price\": 200.00,\n      \"quantity\": 1,\n      \"publishedStatus\": \"minted\",\n      \"designLink\": \"https://res.cloudinary.com/example/image/upload/v123/winter-coat.jpg\",\n      \"lastUpdated\": \"2025-08-28T22:15:00.000Z\"\n    }\n  ]\n}"
+				},
+				{
+					"name": "Unauthorized Response",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/creator/inventory",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"creator",
+								"inventory"
+							]
+						}
+					},
+					"status": "Unauthorized",
+					"code": 401,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"cookie": [],
+					"body": "{\n  \"status\": false,\n  \"message\": \"Unauthorized\",\n  \"error\": \"Unauthorized\",\n  \"path\": \"/creator/inventory\",\n  \"timestamp\": \"2025-08-28T23:25:18.396Z\"\n}"
+				},
+				{
+					"name": "Forbidden Response (Non-Creator)",
+					"originalRequest": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/creator/inventory",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"creator",
+								"inventory"
+							]
+						}
+					},
+					"status": "Forbidden",
+					"code": 403,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"cookie": [],
+					"body": "{\n  \"status\": false,\n  \"message\": \"Forbidden resource\",\n  \"error\": \"Forbidden\",\n  \"statusCode\": 403\n}"
+				}
+			]
+		},
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/health",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"health"
+					]
+				},
+				"description": "Simple health check to verify the server is running"
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Log request details for debugging",
+					"console.log('Request:', pm.request.method, pm.request.url);",
+					"console.log('Headers:', pm.request.headers.toObject());"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Test response status",
+					"pm.test('Status code is 200', function () {",
+					"    pm.response.to.have.status(200);",
+					"});",
+					"",
+					"// Test response structure",
+					"pm.test('Response has correct structure', function () {",
+					"    const response = pm.response.json();",
+					"    pm.expect(response).to.have.property('status');",
+					"    pm.expect(response).to.have.property('message');",
+					"    pm.expect(response).to.have.property('data');",
+					"});",
+					"",
+					"// Test data array structure if designs exist",
+					"if (pm.response.json().data && pm.response.json().data.length > 0) {",
+					"    pm.test('Design data has correct structure', function () {",
+					"        const design = pm.response.json().data[0];",
+					"        pm.expect(design).to.have.property('id');",
+					"        pm.expect(design).to.have.property('name');",
+					"        pm.expect(design).to.have.property('price');",
+					"        pm.expect(design).to.have.property('quantity');",
+					"        pm.expect(design).to.have.property('publishedStatus');",
+					"        pm.expect(design).to.have.property('designLink');",
+					"        pm.expect(design).to.have.property('lastUpdated');",
+					"    });",
+					"}",
+					"",
+					"// Test response time",
+					"pm.test('Response time is less than 2000ms', function () {",
+					"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+					"});"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "auth_token",
+			"value": "your_jwt_token_here",
+			"type": "string"
+		}
+	]
+}

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -11,7 +11,7 @@ import { RoleGuard } from './guards/role.guard';
 import { Web3Module } from '../web3/web3.module';
 @Module({
   imports: [
-    UsersModule,
+    forwardRef(() => UsersModule),
     Web3Module,
     PassportModule,
     JwtModule.registerAsync({
