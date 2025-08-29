@@ -1,0 +1,468 @@
+{
+	"info": {
+		"_postman_id": "hire-maker-api-collection",
+		"name": "Hire Maker API",
+		"description": "Complete API collection for testing the hire-maker endpoint. This endpoint allows creators to hire makers for their NFT designs.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login to Get JWT Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"kases14120@discrip.com\",\n  \"password\": \"Password123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Test if login was successful",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has access token\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.access_token).to.exist;",
+									"});",
+									"",
+									"// Automatically set the auth token for future requests",
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    pm.environment.set(\"auth_token\", jsonData.access_token);",
+									"    console.log(\"Auth token set successfully\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Creator Inventory",
+			"item": [
+				{
+					"name": "Get Creator Inventory",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/creator/inventory",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"creator",
+								"inventory"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Test if inventory request was successful",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has designs array\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.an('array');",
+									"});",
+									"",
+									"pm.test(\"Response has correct structure\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.be.true;",
+									"    pm.expect(jsonData.message).to.exist;",
+									"    pm.expect(jsonData.data).to.exist;",
+									"});",
+									"",
+									"// Store the first design ID for hire-maker testing",
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.data && jsonData.data.length > 0) {",
+									"        pm.environment.set(\"design_id\", jsonData.data[0].id);",
+									"        console.log(\"Design ID set: \" + jsonData.data[0].id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Hire Maker",
+			"item": [
+				{
+					"name": "Hire Maker - Basic Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"designId\": \"{{design_id}}\",\n  \"requirements\": \"Create high-quality versions of this design with premium materials\",\n  \"quantity\": 25,\n  \"deadlineDate\": \"2025-12-31\",\n  \"productTimeline\": \"3-4 weeks\",\n  \"budgetRange\": {\n    \"min\": 800,\n    \"max\": 2500\n  },\n  \"shippingRegion\": \"United States\",\n  \"fabricSource\": \"Premium cotton blend with silk accents\",\n  \"skillKeywords\": [\"sewing\", \"pattern-making\", \"quality-control\", \"embroidery\"],\n  \"experienceLevel\": \"advanced\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/creator/hire-maker",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"creator",
+								"hire-maker"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Test if hire-maker request was successful",
+									"pm.test(\"Status code is 200 or 201\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"});",
+									"",
+									"pm.test(\"Response has correct structure\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.be.true;",
+									"    pm.expect(jsonData.message).to.exist;",
+									"    pm.expect(jsonData.data).to.exist;",
+									"});",
+									"",
+									"pm.test(\"Job data contains required fields\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.data) {",
+									"        pm.expect(jsonData.data.jobId).to.exist;",
+									"        pm.expect(jsonData.data.title).to.exist;",
+									"        pm.expect(jsonData.data.status).to.exist;",
+									"        pm.expect(jsonData.data.budget).to.exist;",
+									"    }",
+									"});",
+									"",
+									"// Store the job ID for future reference",
+									"if (pm.response.code === 200 || pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.data && jsonData.data.jobId) {",
+									"        pm.environment.set(\"job_id\", jsonData.data.jobId);",
+									"        console.log(\"Job ID set: \" + jsonData.data.jobId);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Hire Maker - High Budget Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"designId\": \"{{design_id}}\",\n  \"requirements\": \"Create luxury versions with premium materials and hand-stitched details\",\n  \"quantity\": 10,\n  \"deadlineDate\": \"2025-11-30\",\n  \"productTimeline\": \"6-8 weeks\",\n  \"budgetRange\": {\n    \"min\": 5000,\n    \"max\": 15000\n  },\n  \"shippingRegion\": \"Worldwide\",\n  \"fabricSource\": \"Luxury silk and cashmere blend\",\n  \"skillKeywords\": [\"luxury-sewing\", \"hand-stitching\", \"premium-finishing\", \"quality-assurance\"],\n  \"experienceLevel\": \"expert\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/creator/hire-maker",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"creator",
+								"hire-maker"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Hire Maker - Quick Turnaround",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"designId\": \"{{design_id}}\",\n  \"requirements\": \"Fast production of simple design with basic materials\",\n  \"quantity\": 100,\n  \"deadlineDate\": \"2025-10-15\",\n  \"productTimeline\": \"1-2 weeks\",\n  \"budgetRange\": {\n    \"min\": 200,\n    \"max\": 800\n  },\n  \"shippingRegion\": \"Local\",\n  \"fabricSource\": \"Standard cotton\",\n  \"skillKeywords\": [\"fast-sewing\", \"bulk-production\", \"basic-finishing\"],\n  \"experienceLevel\": \"intermediate\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/creator/hire-maker",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"creator",
+								"hire-maker"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Validation Tests",
+			"item": [
+				{
+					"name": "Hire Maker - Missing Required Fields",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"designId\": \"{{design_id}}\",\n  \"quantity\": 25\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/creator/hire-maker",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"creator",
+								"hire-maker"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Test that validation fails for missing required fields",
+									"pm.test(\"Status code is 400 (Bad Request)\", function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test(\"Response indicates validation error\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.message).to.include('validation');",
+									"    pm.expect(jsonData.error).to.exist;",
+									"    pm.expect(jsonData.statusCode).to.equal(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Hire Maker - Invalid Design ID",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"designId\": \"invalid-uuid-here\",\n  \"requirements\": \"Test requirements\",\n  \"quantity\": 25,\n  \"deadlineDate\": \"2025-12-31\",\n  \"productTimeline\": \"3-4 weeks\",\n  \"budgetRange\": {\n    \"min\": 800,\n    \"max\": 2500\n  },\n  \"shippingRegion\": \"United States\",\n  \"fabricSource\": \"Premium cotton blend\",\n  \"skillKeywords\": [\"sewing\", \"pattern-making\"],\n  \"experienceLevel\": \"advanced\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/creator/hire-maker",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"creator",
+								"hire-maker"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Test that invalid design ID returns appropriate error",
+									"pm.test(\"Status code is 400 (Bad Request)\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+									"});",
+									"",
+									"pm.test(\"Response indicates validation error\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.message).to.exist;",
+									"    pm.expect(jsonData.error).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Hire Maker - Unauthorized (No Token)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"designId\": \"{{design_id}}\",\n  \"requirements\": \"Test requirements\",\n  \"quantity\": 25,\n  \"deadlineDate\": \"2025-12-31\",\n  \"productTimeline\": \"3-4 weeks\",\n  \"budgetRange\": {\n    \"min\": 800,\n    \"max\": 2500\n  },\n  \"shippingRegion\": \"United States\",\n  \"fabricSource\": \"Premium cotton blend\",\n  \"skillKeywords\": [\"sewing\", \"pattern-making\"],\n  \"experienceLevel\": \"advanced\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/creator/hire-maker",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"creator",
+								"hire-maker"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Test that unauthorized request returns 401",
+									"pm.test(\"Status code is 401 (Unauthorized)\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"",
+									"pm.test(\"Response indicates unauthorized\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.message).to.include('Unauthorized');",
+									"    pm.expect(jsonData.statusCode).to.equal(401);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Pre-request script to set up environment variables",
+					"if (!pm.environment.get('base_url')) {",
+					"    pm.environment.set('base_url', 'http://localhost:3000');",
+					"    console.log('Base URL set to: http://localhost:3000');",
+					"}",
+					"",
+					"// Log current environment state",
+					"console.log('Current environment:');",
+					"console.log('- Base URL:', pm.environment.get('base_url'));",
+					"console.log('- Auth Token:', pm.environment.get('auth_token') ? 'Set' : 'Not set');",
+					"console.log('- Design ID:', pm.environment.get('design_id') ? pm.environment.get('design_id') : 'Not set');",
+					"console.log('- Job ID:', pm.environment.get('job_id') ? pm.environment.get('job_id') : 'Not set');"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "auth_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "design_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "job_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

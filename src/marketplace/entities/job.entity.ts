@@ -37,7 +37,10 @@ export class Job extends BaseEntity {
   @Column('simple-array', { nullable: true })
   referenceImages: string[];
   @Column({ nullable: true })
-  chatId: string; 
+  chatId: string;
+  
+  @Column({ nullable: true })
+  designId: string; // Link to the NFT design this job is for 
   @ManyToOne(() => User, { eager: true })
   @JoinColumn({ name: 'creatorId' })
   creator: User;
