@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ChatService } from './chat.service';
 import { DesignWorkflowService } from './design-workflow.service';
+import { NFTService } from '../../web3/services/nft.service';
+import { JobService } from '../../marketplace/services/job.service';
 import { OpenAIService } from './openai.service';
 import { StreamChatService } from './stream-chat.service';
 import { PromptService } from './prompt.service';
@@ -14,6 +16,8 @@ export class InteractiveChatService {
   constructor(
     private readonly chatService: ChatService,
     private readonly designWorkflowService: DesignWorkflowService,
+    private readonly nftService: NFTService,
+    private readonly jobService: JobService,
     private readonly openaiService: OpenAIService,
     private readonly streamChatService: StreamChatService,
     private readonly promptService: PromptService,
@@ -41,6 +45,10 @@ export class InteractiveChatService {
       chat = await this.startDesignChat(userId);
       dto.chatId = chat.id;
     }
+    // Mark chat as managed by interactive flow to prevent legacy auto-replies
+    if (!chat.metadata?.managedByInteractive) {
+      await this.chatService.updateChat(dto.chatId, { metadata: { ...chat.metadata, managedByInteractive: true } });
+    }
     const messageData: any = {
       chatId: dto.chatId,
       content: dto.content,
@@ -51,6 +59,146 @@ export class InteractiveChatService {
     }
     
     await this.chatService.sendMessage(userId, messageData);
+
+    // Action-type short-circuit handlers (chat-only flow)
+    if (dto.actionType && dto.actionType.startsWith('design:')) {
+      const action = dto.actionType;
+      try {
+        if (action === 'design:start') {
+          const chatNow = await this.chatService.getChat(userId, dto.chatId);
+          const conversationHistory = chatNow.messages.map(m => `${m.role}: ${m.content}`).join('\n');
+          if (!chatNow.metadata?.confirmRequested) {
+            const confirmMsg = 'Generate 3 visual variations now? (yes/no)';
+            await this.streamChatService.sendAIMessage(dto.chatId, confirmMsg);
+            await this.chatService.updateChat(dto.chatId, { state: ChatState.INFO_GATHER, metadata: { ...chatNow.metadata, confirmRequested: true } });
+            return { chatId: dto.chatId, state: 'info_gather', aiResponse: confirmMsg, awaitingConfirmation: true };
+          }
+          // If somehow confirmRequested is already true and the client still sent design:start,
+          // fall back to waiting for a plain "yes" message handled by handleInfoGathering.
+          const reply = 'Please reply "yes" to proceed or "no" to continue refining.';
+          await this.streamChatService.sendAIMessage(dto.chatId, reply);
+          return { chatId: dto.chatId, state: 'info_gather', aiResponse: reply, awaitingConfirmation: true };
+        }
+        if (action === 'design:variation') {
+          const basePrompt = this.buildDesignPrompt((await this.chatService.getChat(userId, dto.chatId)).messages);
+          const result = await this.designWorkflowService.processDesignRequest(userId, { prompt: `${basePrompt} ${dto.content}`, fabricImageBase64: undefined });
+          const reply = `Generated new variations. Select one (variation_1/2/3) or refine again.`;
+          await this.streamChatService.sendAIMessage(dto.chatId, reply);
+          return { chatId: dto.chatId, state: 'design_preview', designPreviews: result.designImages, aiResponse: reply };
+        }
+        if (action === 'design:select') {
+          const sel = (dto.content || '').trim().toLowerCase();
+          const valid = ['variation_1','variation_2','variation_3'];
+          if (!valid.includes(sel)) {
+            const reply = `Please choose one of: variation_1, variation_2, variation_3.`;
+            await this.streamChatService.sendAIMessage(dto.chatId, reply);
+            return { chatId: dto.chatId, state: 'design_preview', aiResponse: reply };
+          }
+          const chatNow = await this.chatService.getChat(userId, dto.chatId);
+          await this.chatService.updateChat(dto.chatId, { metadata: { ...chatNow.metadata, selectedVariety: sel } });
+          const reply = `Selected ${sel}. Provide approval details in JSON: {"name":"...","price":150,"quantity":8,"deadline":"YYYY-MM-DD"}`;
+          await this.streamChatService.sendAIMessage(dto.chatId, reply);
+          return { chatId: dto.chatId, state: 'design_preview', aiResponse: reply };
+        }
+        if (action === 'design:approve') {
+          const chatNow = await this.chatService.getChat(userId, dto.chatId);
+          const selectedVariety = (chatNow.metadata?.selectedVariety as string) || 'variation_1';
+          let payload: any = {};
+          try { payload = JSON.parse(dto.content || '{}'); } catch {}
+          const missing: string[] = [];
+          if (!payload.name) missing.push('name');
+          if (typeof payload.price !== 'number') missing.push('price');
+          if (typeof payload.quantity !== 'number') missing.push('quantity');
+          if (!payload.deadline) missing.push('deadline');
+          if (missing.length) {
+            const reply = `Missing fields: ${missing.join(', ')}. Example: {"name":"...","price":150,"quantity":8,"deadline":"2025-12-31"}`;
+            await this.streamChatService.sendAIMessage(dto.chatId, reply);
+            return { chatId: dto.chatId, state: chatNow.state, aiResponse: reply };
+          }
+          const result = await this.designWorkflowService.approveDesign(userId, {
+            chatId: dto.chatId,
+            selectedVariety: selectedVariety as any,
+            designName: payload.name,
+            price: payload.price,
+            collectionQuantity: payload.quantity,
+            deadline: new Date(payload.deadline),
+            description: payload.description,
+          });
+          const reply = `Approved. Created DRAFT design: ${result.nft?.id}. You can "design:publish" to trigger minting, or "design:hire" to hire a maker (will require mint if still draft).`;
+          await this.streamChatService.sendAIMessage(dto.chatId, reply);
+          return { chatId: dto.chatId, state: ChatState.DESIGN_PREVIEW, aiResponse: reply, nft: result.nft };
+        }
+        if (action === 'design:publish') {
+          const reply = `Ready to mint. Please provide transaction hash via action design:mint with content {"transactionHash":"0x..."}.`;
+          await this.streamChatService.sendAIMessage(dto.chatId, reply);
+          return { chatId: dto.chatId, aiResponse: reply, web3Required: true };
+        }
+        if (action === 'design:mint') {
+          let payload: any = {};
+          try { payload = JSON.parse(dto.content || '{}'); } catch {}
+          const tx = payload.transactionHash;
+          if (!tx) {
+            const reply = `Please send transactionHash: {"transactionHash":"0x..."}`;
+            await this.streamChatService.sendAIMessage(dto.chatId, reply);
+            return { chatId: dto.chatId, aiResponse: reply };
+          }
+          const chatNow = await this.chatService.getChat(userId, dto.chatId);
+          if (!chatNow.nftId) {
+            const reply = `No approved design found. Approve first with design:approve.`;
+            await this.streamChatService.sendAIMessage(dto.chatId, reply);
+            return { chatId: dto.chatId, aiResponse: reply };
+          }
+          const nft = await this.designWorkflowService.mintAndPublishDesign(userId, chatNow.nftId, tx);
+          const reply = `Minted and published. NFT ${nft.id} is now PUBLISHED.`;
+          await this.streamChatService.sendAIMessage(dto.chatId, reply);
+          return { chatId: dto.chatId, aiResponse: reply, nft };
+        }
+        if (action === 'design:hire') {
+          let payload: any = {};
+          try { payload = JSON.parse(dto.content || '{}'); } catch {}
+          const chatNow = await this.chatService.getChat(userId, dto.chatId);
+          if (!chatNow.nftId) {
+            const reply = `No approved design found. Approve first with design:approve.`;
+            await this.streamChatService.sendAIMessage(dto.chatId, reply);
+            return { chatId: dto.chatId, aiResponse: reply };
+          }
+          const nft = await this.nftService.findById(chatNow.nftId);
+          if (nft.status === 'draft') {
+            const reply = `Design is still DRAFT. Please mint first (design:publish → design:mint).`;
+            await this.streamChatService.sendAIMessage(dto.chatId, reply);
+            return { chatId: dto.chatId, aiResponse: reply };
+          }
+          const required = ['quantity','deadlineDate','productTimeline','budgetRange','shippingRegion','fabricSource','skillKeywords','experienceLevel'];
+          const missing = required.filter(f => payload[f] === undefined);
+          if (missing.length) {
+            const reply = `Missing fields: ${missing.join(', ')}. Example: {"quantity":8,"deadlineDate":"2025-12-31","productTimeline":"3-4 weeks","budgetRange":{"min":800,"max":2500},"shippingRegion":"United States","fabricSource":"Premium cotton","skillKeywords":["sewing","pattern-making"],"experienceLevel":"advanced","requirements":"High quality production"}`;
+            await this.streamChatService.sendAIMessage(dto.chatId, reply);
+            return { chatId: dto.chatId, aiResponse: reply };
+          }
+          const createJobDto: any = {
+            title: `Hire Maker for ${nft.name}`,
+            description: payload.requirements,
+            requirements: `Quantity: ${payload.quantity}\nDeadline: ${payload.deadlineDate}\nTimeline: ${payload.productTimeline}\nBudget Range: $${payload.budgetRange?.min}-$${payload.budgetRange?.max}\nShipping: ${payload.shippingRegion}\nFabric Source: ${payload.fabricSource}\nExperience Level: ${payload.experienceLevel}\nSkills: ${(payload.skillKeywords||[]).join(', ')}`,
+            budget: payload.budgetRange?.max,
+            currency: 'USD',
+            priority: 'medium',
+            deadline: new Date(payload.deadlineDate).toISOString(),
+            tags: ['maker-hiring','production', payload.experienceLevel, `budget-${payload.budgetRange?.min}-${payload.budgetRange?.max}`, ...(payload.skillKeywords||[])],
+            referenceImages: [nft.imageUrl],
+            chatId: dto.chatId,
+            designId: nft.id,
+          };
+          const job = await this.jobService.createJob(createJobDto, userId);
+          const reply = `Maker hiring request created. Job ${job.id} is now visible to makers.`;
+          await this.streamChatService.sendAIMessage(dto.chatId, reply);
+          return { chatId: dto.chatId, aiResponse: reply, job };
+        }
+      } catch (err) {
+        const msg = `Sorry, something went wrong: ${err?.message || 'unknown error'}`;
+        await this.streamChatService.sendAIMessage(dto.chatId, msg);
+        return { chatId: dto.chatId, aiResponse: msg };
+      }
+    }
     
     // Sync user message to database via Stream Chat
     await this.streamChatService.syncUserMessageToDatabase(dto.chatId, dto.content, userId);
@@ -136,50 +284,89 @@ Reply with ONLY the state name.`;
   private async handleInfoGathering(userId: string, chatId: string, content: string, metadata: any) {
     const chat = await this.chatService.getChat(userId, chatId);
     const conversationHistory = chat.messages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-    const shouldGenerate = await this.shouldGenerateDesign(conversationHistory + `\nuser: ${content}`);
-    if (shouldGenerate) {
-      const isConfirming = await this.isUserConfirming(content);
-      if (isConfirming) {
-        const generatingMessage = "Perfect! Let me generate a visual design for you... This will take a moment.";
-        await this.streamChatService.sendAIMessage(chatId, generatingMessage);
-        const designPrompt = this.buildDesignPrompt(chat.messages);
-        const sketchBase64 = this.extractSketchFromMessages(chat.messages);
-        const variations = [];
-        for (let i = 1; i <= 3; i++) {
-          const result = await this.designWorkflowService.processDesignRequest(userId, {
-            prompt: `${designPrompt} - Variation ${i}`,
-            fabricImageBase64: sketchBase64,
-          });
-          variations.push(result);
-        }
-        const completionMessage = `Here are your design variations! 🎨\n\n${variations.map((v, i) => `**Variation ${i + 1}**: ${v.designImages?.[0] || 'Design created'}`).join('\n')}\n\nWhich one do you like best?`;
-        await this.streamChatService.sendAIMessage(chatId, completionMessage);
-        await this.chatService.updateChat(chatId, { state: ChatState.DESIGN_PREVIEW });
-        return { 
-          chatId, 
-          state: 'design_preview',
-          designPreviews: variations.flatMap(v => v.designImages || []),
-          job: variations[0]?.job,
-          nft: variations[0]?.nft,
-          aiResponse: completionMessage,
-          variations: variations,
-        };
-      } else {
-        const confirmMessage = "I have enough details to create your design! Should I generate some visual options for you?";
-        await this.streamChatService.sendAIMessage(chatId, confirmMessage);
-        return { chatId, state: 'info_gather', aiResponse: confirmMessage, designPreviews: undefined };
-      }
-    } else {
-      const aiResponse = await this.generateContextualResponse(content, conversationHistory, 'info_gather');
-      await this.streamChatService.sendAIMessage(chatId, aiResponse);
-      return { chatId, state: 'info_gather', aiResponse, designPreviews: undefined };
+    // Prevent duplicate generation while in progress
+    if (chat.metadata?.generating === true) {
+      const waitMsg = 'Working on your variations… one moment please.';
+      await this.streamChatService.sendAIMessage(chatId, waitMsg);
+      return { chatId, state: 'info_gather', aiResponse: waitMsg, awaitingConfirmation: false };
     }
+    // Cooldown: if we already generated 3 in the last 2 minutes, don't regenerate
+    const lastDone = chat.metadata?.lastGenerationCompletedAt ? new Date(chat.metadata.lastGenerationCompletedAt).getTime() : 0;
+    const recent = lastDone && (Date.now() - lastDone < 2 * 60 * 1000);
+    // Confirmation gate: always ask before generating
+    const confirmRequested = !!chat.metadata?.confirmRequested;
+    if (!confirmRequested) {
+      const confirmMsg = 'I can generate 3 visual variations for your design now. Would you like me to proceed? (yes/no)';
+      await this.streamChatService.sendAIMessage(chatId, confirmMsg);
+      await this.chatService.updateChat(chatId, { metadata: { ...chat.metadata, confirmRequested: true } });
+      return { chatId, state: 'info_gather', aiResponse: confirmMsg, awaitingConfirmation: true };
+    }
+    // If user explicitly confirmed, proceed immediately without re-checking intent
+    const isConfirming = await this.isUserConfirming(content, conversationHistory);
+    if (isConfirming && recent && (chat.designPreviews?.length || 0) >= 3) {
+      const msg = "I already generated 3 variations. Please pick one (variation_1/2/3) or tell me what to tweak.";
+      await this.streamChatService.sendAIMessage(chatId, msg);
+      return { chatId, state: 'info_gather', aiResponse: msg };
+    }
+    if (isConfirming) {
+      await this.chatService.updateChat(chatId, { metadata: { ...chat.metadata, generating: true } });
+      const generatingMessage = "Perfect! Let me generate a visual design for you... This will take a moment.";
+      await this.streamChatService.sendAIMessage(chatId, generatingMessage);
+      const designPrompt = this.buildDesignPrompt(chat.messages);
+      const sketchBase64 = this.extractSketchFromMessages(chat.messages);
+      const variations = [];
+      for (let i = 1; i <= 3; i++) {
+        const result = await this.designWorkflowService.processDesignRequest(userId, {
+          prompt: `${designPrompt} - Variation ${i}`,
+          fabricImageBase64: sketchBase64,
+        });
+        variations.push(result);
+      }
+      const completionMessage = `Here are your design variations! 🎨\n\n${variations.map((v, i) => `**Variation ${i + 1}**: ${v.designImages?.[0] || 'Design created'}`).join('\n')}\n\nWhich one do you like best?`;
+      await this.streamChatService.sendAIMessage(chatId, completionMessage);
+      await this.chatService.updateChat(chatId, { state: ChatState.DESIGN_PREVIEW, metadata: { ...chat.metadata, confirmRequested: false, generating: false, lastGenerationCompletedAt: new Date().toISOString() } });
+      return { 
+        chatId, 
+        state: 'design_preview',
+        designPreviews: variations.flatMap(v => v.designImages || []),
+        job: variations[0]?.job,
+        nft: variations[0]?.nft,
+        aiResponse: completionMessage,
+        variations: variations,
+      };
+    }
+    // Otherwise, continue gathering info conversationally
+    const aiResponse = await this.generateContextualResponse(content, conversationHistory, 'info_gather');
+    await this.streamChatService.sendAIMessage(chatId, aiResponse);
+    return { chatId, state: 'info_gather', aiResponse, designPreviews: undefined };
   }
   private async handleDesignSelection(userId: string, chatId: string, content: string) {
     const chat = await this.chatService.getChat(userId, chatId);
     const conversationHistory = chat.messages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+    // If we already have 3 previews recently, block further generation until selection or tweak
+    const lastDone = chat.metadata?.lastGenerationCompletedAt ? new Date(chat.metadata.lastGenerationCompletedAt).getTime() : 0;
+    const recent = lastDone && (Date.now() - lastDone < 2 * 60 * 1000);
+    const hasThree = (chat.designPreviews?.length || 0) >= 3;
     const wantsNewVariation = await this.wantsNewVariation(content);
     if (wantsNewVariation) {
+      if (recent && hasThree) {
+        const msg = "I already generated 3 variations. Please pick one (variation_1/2/3) or tell me what to tweak.";
+        await this.streamChatService.sendAIMessage(chatId, msg);
+        return { chatId, state: 'design_preview', aiResponse: msg };
+      }
+      // Confirmation gate before creating another variation
+      if (!chat.metadata?.confirmVariationRequested) {
+        const ask = 'Generate another variation now? (yes/no)';
+        await this.streamChatService.sendAIMessage(chatId, ask);
+        await this.chatService.updateChat(chatId, { metadata: { ...chat.metadata, confirmVariationRequested: true } });
+        return { chatId, state: 'design_preview', aiResponse: ask };
+      }
+      const confirm = await this.isUserConfirming(content, conversationHistory);
+      if (!confirm) {
+        const msg = "Okay. Tell me what to tweak, or say 'yes' when you want another variation.";
+        await this.streamChatService.sendAIMessage(chatId, msg);
+        return { chatId, state: 'design_preview', aiResponse: msg };
+      }
       const generatingMessage = "Generating another variation for you...";
       await this.streamChatService.sendAIMessage(chatId, generatingMessage);
       const designPrompt = this.buildDesignPrompt(chat.messages);
@@ -190,6 +377,7 @@ Reply with ONLY the state name.`;
       });
       const completionMessage = "Here's a new variation! Do you like this one better?";
       await this.streamChatService.sendAIMessage(chatId, completionMessage);
+      await this.chatService.updateChat(chatId, { metadata: { ...chat.metadata, confirmVariationRequested: false } });
       return { 
         chatId, 
         state: 'design_preview',
@@ -211,24 +399,20 @@ Reply with ONLY the state name.`;
   private async shouldGenerateDesign(conversationHistory: string): Promise<boolean> {
     try {
       const response = await this.openaiService.generateChatResponse([
-        { role: 'system', content: 'You are evaluating if a user has provided enough fashion design details to generate a visual design. Reply only "yes" or "no".' },
-        { role: 'user', content: `Based on this conversation, does the user have enough design details to generate a visual design?
-Conversation:
-${conversationHistory}` }
+        { role: 'system', content: 'Decide if we should generate design variations NOW. Consider both detail sufficiency and user intent for the AI to proceed. Reply only "yes" or "no".' },
+        { role: 'user', content: `Conversation so far:\n${conversationHistory}\n\nShould we generate variations now?` }
       ]);
-      return response.trim().toLowerCase().includes('yes');
+      return /^(yes|y)/i.test(response.trim());
     } catch (error) {
       return false;
     }
   }
-  private async isUserConfirming(content: string): Promise<boolean> {
+  private async isUserConfirming(content: string, conversationHistory?: string): Promise<boolean> {
     try {
       const response = await this.openaiService.generateResponse(
-        `Is the user confirming/agreeing to proceed with design generation, or are they adding more details/asking questions?
-        CONFIRMING examples: "yes", "go ahead", "proceed", "let's do it", "sounds good", "create it"
-        NOT CONFIRMING examples: "wait, also add...", "what about...", "can you make it...", "I want to change..."
-        Reply only "CONFIRM" or "MORE_INFO".
-        User message: "${content}"`
+        `Given the conversation context and the user's latest message, decide if we should proceed generating design variations NOW without asking more questions.
+Context:\n${conversationHistory || ''}\nUser: "${content}"
+Reply ONLY: CONFIRM or MORE_INFO.`
       );
       return response.trim().toUpperCase().includes('CONFIRM');
     } catch (error) {

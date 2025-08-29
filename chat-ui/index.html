@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIGent Chat UI</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>AIGent – Design Chat</h1>
+      <div class="env">
+        <label>Base URL</label>
+        <input id="baseUrl" type="text" placeholder="http://localhost:3000" />
+      </div>
+      <div class="auth">
+        <input id="email" type="email" placeholder="email" />
+        <input id="password" type="password" placeholder="password" />
+        <button id="loginBtn">Login</button>
+        <span id="authStatus"></span>
+      </div>
+    </header>
+
+    <main class="layout" style="grid-template-columns: 1fr;">
+      <section class="chat">
+        <div id="messages" class="messages"></div>
+        <div id="previews" class="messages" style="display:none"></div>
+        <div class="composer">
+          <input id="promptInput" type="text" placeholder="Type your message (I'll infer the next step automatically)" />
+          <button id="sendPromptBtn">Send</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

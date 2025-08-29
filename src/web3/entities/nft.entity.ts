@@ -6,6 +6,7 @@ export enum NFTStatus {
   DRAFT = 'draft',
   MINTING = 'minting',
   MINTED = 'minted',
+  PUBLISHED = 'published', // New status for approved designs
   LISTED = 'listed',
   SOLD = 'sold',
 }
@@ -21,6 +22,12 @@ export class NFT extends BaseEntity {
   price: number;
   @Column()
   quantity: number;
+  
+  @Column({ nullable: true })
+  designLink: string; // Link to view the design details
+  
+  @Column({ nullable: true })
+  deadline: Date; // Deadline for production
   @Column({
     type: 'enum',
     enum: NFTStatus,
