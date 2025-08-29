@@ -81,7 +81,7 @@ export class InteractiveChatService {
         }
         if (action === 'design:variation') {
           const basePrompt = this.buildDesignPrompt((await this.chatService.getChat(userId, dto.chatId)).messages);
-          const result = await this.designWorkflowService.processDesignRequest(userId, { prompt: `${basePrompt} ${dto.content}`, fabricImageBase64: undefined });
+          const result = await this.designWorkflowService.processDesignVariation(userId, dto.chatId, `${basePrompt} ${dto.content}`);
           const reply = `Generated new variations. Select one (variation_1/2/3) or refine again.`;
           await this.streamChatService.sendAIMessage(dto.chatId, reply);
           return { chatId: dto.chatId, state: 'design_preview', designPreviews: result.designImages, aiResponse: reply };
@@ -314,25 +314,23 @@ Reply with ONLY the state name.`;
       await this.streamChatService.sendAIMessage(chatId, generatingMessage);
       const designPrompt = this.buildDesignPrompt(chat.messages);
       const sketchBase64 = this.extractSketchFromMessages(chat.messages);
-      const variations = [];
-      for (let i = 1; i <= 3; i++) {
-        const result = await this.designWorkflowService.processDesignRequest(userId, {
-          prompt: `${designPrompt} - Variation ${i}`,
-          fabricImageBase64: sketchBase64,
-        });
-        variations.push(result);
-      }
-      const completionMessage = `Here are your design variations! 🎨\n\n${variations.map((v, i) => `**Variation ${i + 1}**: ${v.designImages?.[0] || 'Design created'}`).join('\n')}\n\nWhich one do you like best?`;
+      const result = await this.designWorkflowService.processDesignRequest(userId, {
+        prompt: designPrompt,
+        fabricImageBase64: sketchBase64,
+        // Ensure centralized guard can use the chat context
+        ...( { chatId } as any ),
+      } as any);
+      const images = result.designImages || [];
+      const completionMessage = `Here are your design variations! 🎨\n\n${images.map((url, i) => `**Variation ${i + 1}**: ${url || 'Design created'}`).join('\n')}\n\nWhich one do you like best?`;
       await this.streamChatService.sendAIMessage(chatId, completionMessage);
       await this.chatService.updateChat(chatId, { state: ChatState.DESIGN_PREVIEW, metadata: { ...chat.metadata, confirmRequested: false, generating: false, lastGenerationCompletedAt: new Date().toISOString() } });
       return { 
         chatId, 
         state: 'design_preview',
-        designPreviews: variations.flatMap(v => v.designImages || []),
-        job: variations[0]?.job,
-        nft: variations[0]?.nft,
+        designPreviews: images,
+        job: result?.job,
+        nft: result?.nft,
         aiResponse: completionMessage,
-        variations: variations,
       };
     }
     // Otherwise, continue gathering info conversationally
@@ -361,6 +359,7 @@ Reply with ONLY the state name.`;
         await this.chatService.updateChat(chatId, { metadata: { ...chat.metadata, confirmVariationRequested: true } });
         return { chatId, state: 'design_preview', aiResponse: ask };
       }
+      
       const confirm = await this.isUserConfirming(content, conversationHistory);
       if (!confirm) {
         const msg = "Okay. Tell me what to tweak, or say 'yes' when you want another variation.";
@@ -371,11 +370,8 @@ Reply with ONLY the state name.`;
       await this.streamChatService.sendAIMessage(chatId, generatingMessage);
       const designPrompt = this.buildDesignPrompt(chat.messages);
       const sketchBase64 = this.extractSketchFromMessages(chat.messages);
-      const result = await this.designWorkflowService.processDesignRequest(userId, {
-        prompt: `${designPrompt} - New Variation`,
-        fabricImageBase64: sketchBase64,
-      });
-      const completionMessage = "Here's a new variation! Do you like this one better?";
+      const result = await this.designWorkflowService.processDesignVariation(userId, chatId, `${designPrompt} - New Variation`);
+      const completionMessage = "Here's a new set of variations! Do you like one of these better?";
       await this.streamChatService.sendAIMessage(chatId, completionMessage);
       await this.chatService.updateChat(chatId, { metadata: { ...chat.metadata, confirmVariationRequested: false } });
       return { 
