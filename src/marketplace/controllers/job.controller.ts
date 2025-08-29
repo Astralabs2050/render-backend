@@ -12,6 +12,7 @@ import {
   ParseUUIDPipe 
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { Public } from '../../auth/decorators/public.decorator';
 import { JobService } from '../services/job.service';
 import { WorkflowService, DesignRequirements } from '../services/workflow.service';
 import { CreateJobDto, UpdateJobDto, JobApplicationDto, JobFilterDto } from '../dto/job.dto';
@@ -27,20 +28,24 @@ export class JobController {
   async createJob(@Body() createJobDto: CreateJobDto, @Request() req) {
     return this.jobService.createJob(createJobDto, req.user.id);
   }
+  @Public()
   @Get('jobs')
   async findAllJobs(@Query() filters: JobFilterDto) {
     return this.jobService.findAllJobs(filters);
   }
 
+  @Public()
   @Get('jobs/listed')
   async getListedJobs() {
     return this.jobService.getListedJobs();
   }
+  @Public()
   @Get('jobs/:id')
   async findJobById(@Param('id', ParseUUIDPipe) id: string) {
     return this.jobService.findJobById(id);
   }
 
+  @Public()
   @Get('jobs/:id/details')
   async getJobDetails(@Param('id', ParseUUIDPipe) id: string) {
     return this.jobService.getJobDetails(id);

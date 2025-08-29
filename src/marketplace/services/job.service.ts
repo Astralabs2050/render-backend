@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, Between } from 'typeorm';
+import { Repository, Like, Between, In } from 'typeorm';
 import { Job, JobStatus } from '../entities/job.entity';
 import { JobApplication, ApplicationStatus } from '../entities/job-application.entity';
 import { User, UserType } from '../../users/entities/user.entity';
 import { CreateJobDto, UpdateJobDto, JobApplicationDto, JobFilterDto } from '../dto/job.dto';
 import { NotificationService } from './notification.service';
+import { NFT } from '../../web3/entities/nft.entity';
 @Injectable()
 export class JobService {
   constructor(
@@ -15,6 +16,8 @@ export class JobService {
     private applicationRepository: Repository<JobApplication>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(NFT)
+    private nftRepository: Repository<NFT>,
     private notificationService: NotificationService,
   ) {}
   async createJob(createJobDto: CreateJobDto, creatorId: string): Promise<Job> {
@@ -34,7 +37,7 @@ export class JobService {
     return savedJob;
   }
   async findAllJobs(filters: JobFilterDto): Promise<{ jobs: any[]; total: number; page: number; totalPages: number }> {
-    const { page = 1, limit = 10, status, priority, minBudget, maxBudget, tags, search } = filters;
+    const { page = 1, limit = 10, status, priority, minBudget, maxBudget, tags, search, format } = filters;
     const queryBuilder = this.jobRepository.createQueryBuilder('job')
       .leftJoinAndSelect('job.creator', 'creator')
       .leftJoinAndSelect('job.maker', 'maker')
@@ -90,7 +93,20 @@ export class JobService {
         designName: rawJob.designName
       };
     });
-    
+    // Optional listed format for marketplace cards
+    if (format === 'listed') {
+      const openOnly = enrichedJobs.filter(j => j.status === JobStatus.OPEN);
+      const listed = openOnly.map(j => ({
+        id: j.id,
+        approvedDesignImage: j.image || j.referenceImages?.[0] || null,
+        lastUpdatedDay: j.lastUpdated ? Math.max(0, Math.floor((Date.now() - new Date(j.lastUpdated).getTime()) / (1000 * 60 * 60 * 24))) : 0,
+        nameOfDesign: j.title || j.designName || 'Untitled Design',
+        price: j.pay ?? j.budget ?? 0,
+        amountOfDesignsToMade: j.stock ?? 1
+      }));
+      return { jobs: listed, total: listed.length, page, totalPages };
+    }
+
     return { jobs: enrichedJobs, total, page, totalPages };
   }
   async findJobById(id: string): Promise<Job> {
@@ -354,6 +370,42 @@ export class JobService {
       order: { createdAt: 'DESC' }
     });
 
+    // Collect all designIds and batch-load NFTs to avoid N+1 queries
+    const designIdsSet = new Set<string>();
+    applications.forEach(app => { if (app.job?.designId) designIdsSet.add(app.job.designId); });
+    assignedJobs.forEach(job => { if (job.designId) designIdsSet.add(job.designId); });
+    const designIds = Array.from(designIdsSet);
+    const nfts = designIds.length
+      ? await this.nftRepository.find({ where: { id: In(designIds) } })
+      : [];
+    const nftById = new Map(nfts.map(n => [n.id, n] as const));
+
+    const toDesignFields = (job: Job) => {
+      const nft = job.designId ? nftById.get(job.designId) : undefined;
+      // Prefer permanent image URLs over temporary blob URLs
+      const getImageUrl = () => {
+        if (nft?.imageUrl && !nft.imageUrl.includes('blob.core.windows.net')) {
+          return nft.imageUrl;
+        }
+        if (nft?.ipfsUrl) {
+          return nft.ipfsUrl;
+        }
+        if (job.referenceImages?.[0] && !job.referenceImages[0].includes('blob.core.windows.net')) {
+          return job.referenceImages[0];
+        }
+        // Fallback to a professional fashion placeholder image
+        return 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=400&fit=crop&crop=center&auto=format&q=80';
+      };
+
+      return {
+        image: getImageUrl(),
+        pay: nft?.price ?? job.budget ?? null,
+        stock: nft?.quantity ?? 1, // Default to 1 if no NFT quantity
+        link: nft?.designLink ?? null,
+        lastUpdated: nft?.updatedAt ?? job.updatedAt ?? null,
+      };
+    };
+
     if (filter === 'completed') {
       const withdrawnApps = applications.filter(app => app.status === ApplicationStatus.WITHDRAWN);
       const completedJobs = assignedJobs.filter(job => job.status === JobStatus.COMPLETED);
@@ -363,14 +415,16 @@ export class JobService {
           brandName: app.job.creator?.brandName || app.job.creator?.fullName || 'Unknown',
           jobDescription: app.job.description,
           dateTimeApplied: app.createdAt,
-          status: 'withdrawn'
+          status: 'withdrawn',
+          ...toDesignFields(app.job)
         })),
         ...completedJobs.map(job => ({
           id: job.id,
           brandName: job.creator?.brandName || job.creator?.fullName || 'Unknown',
           jobDescription: job.description,
           dateTimeApplied: job.acceptedAt,
-          status: 'completed'
+          status: 'completed',
+          ...toDesignFields(job)
         }))
       ];
     }
@@ -382,7 +436,8 @@ export class JobService {
         brandName: job.creator?.brandName || job.creator?.fullName || 'Unknown',
         jobDescription: job.description,
         dateTimeApplied: job.acceptedAt,
-        dueDate: job.deadline
+        dueDate: job.deadline,
+        ...toDesignFields(job)
       }));
     }
 
@@ -398,7 +453,8 @@ export class JobService {
           brandName: app.job.creator?.brandName || app.job.creator?.fullName || 'Unknown',
           jobDescription: app.job.description,
           dateTimeApplied: app.createdAt,
-          status
+          status,
+          ...toDesignFields(app.job)
         };
       });
     }
@@ -411,7 +467,8 @@ export class JobService {
       brandName: job.creator?.brandName || job.creator?.fullName || 'Unknown',
       jobDescription: job.description,
       dateTimeApplied: (job as any).appliedAt || job.acceptedAt,
-      status: job.status
+      status: job.status,
+      ...toDesignFields(job as Job)
     }));
   }
 

@@ -81,7 +81,7 @@ export class InteractiveChatService {
         }
         if (action === 'design:variation') {
           const basePrompt = this.buildDesignPrompt((await this.chatService.getChat(userId, dto.chatId)).messages);
-          const result = await this.designWorkflowService.processDesignRequest(userId, { prompt: `${basePrompt} ${dto.content}`, fabricImageBase64: undefined });
+          const result = await this.designWorkflowService.processDesignVariation(userId, dto.chatId, `${basePrompt} ${dto.content}`);
           const reply = `Generated new variations. Select one (variation_1/2/3) or refine again.`;
           await this.streamChatService.sendAIMessage(dto.chatId, reply);
           return { chatId: dto.chatId, state: 'design_preview', designPreviews: result.designImages, aiResponse: reply };
@@ -284,12 +284,6 @@ Reply with ONLY the state name.`;
   private async handleInfoGathering(userId: string, chatId: string, content: string, metadata: any) {
     const chat = await this.chatService.getChat(userId, chatId);
     const conversationHistory = chat.messages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-    // Prevent duplicate generation while in progress
-    if (chat.metadata?.generating === true) {
-      const waitMsg = 'Working on your variations… one moment please.';
-      await this.streamChatService.sendAIMessage(chatId, waitMsg);
-      return { chatId, state: 'info_gather', aiResponse: waitMsg, awaitingConfirmation: false };
-    }
     // Cooldown: if we already generated 3 in the last 2 minutes, don't regenerate
     const lastDone = chat.metadata?.lastGenerationCompletedAt ? new Date(chat.metadata.lastGenerationCompletedAt).getTime() : 0;
     const recent = lastDone && (Date.now() - lastDone < 2 * 60 * 1000);
@@ -308,31 +302,34 @@ Reply with ONLY the state name.`;
       await this.streamChatService.sendAIMessage(chatId, msg);
       return { chatId, state: 'info_gather', aiResponse: msg };
     }
+    // If not confirming and a generation is already in progress, ask user to wait
+    if (!isConfirming && chat.metadata?.generating === true) {
+      const waitMsg = 'Working on your variations… one moment please.';
+      await this.streamChatService.sendAIMessage(chatId, waitMsg);
+      return { chatId, state: 'info_gather', aiResponse: waitMsg, awaitingConfirmation: false };
+    }
     if (isConfirming) {
-      await this.chatService.updateChat(chatId, { metadata: { ...chat.metadata, generating: true } });
       const generatingMessage = "Perfect! Let me generate a visual design for you... This will take a moment.";
       await this.streamChatService.sendAIMessage(chatId, generatingMessage);
       const designPrompt = this.buildDesignPrompt(chat.messages);
       const sketchBase64 = this.extractSketchFromMessages(chat.messages);
-      const variations = [];
-      for (let i = 1; i <= 3; i++) {
-        const result = await this.designWorkflowService.processDesignRequest(userId, {
-          prompt: `${designPrompt} - Variation ${i}`,
-          fabricImageBase64: sketchBase64,
-        });
-        variations.push(result);
-      }
-      const completionMessage = `Here are your design variations! 🎨\n\n${variations.map((v, i) => `**Variation ${i + 1}**: ${v.designImages?.[0] || 'Design created'}`).join('\n')}\n\nWhich one do you like best?`;
+      const result = await this.designWorkflowService.processDesignRequest(userId, {
+        prompt: designPrompt,
+        fabricImageBase64: sketchBase64,
+        // Ensure centralized guard can use the chat context
+        ...( { chatId } as any ),
+      } as any);
+      const images = result.designImages || [];
+      const completionMessage = `Here are your design variations! 🎨\n\n${images.map((url, i) => `**Variation ${i + 1}**: ${url || 'Design created'}`).join('\n')}\n\nWhich one do you like best?`;
       await this.streamChatService.sendAIMessage(chatId, completionMessage);
       await this.chatService.updateChat(chatId, { state: ChatState.DESIGN_PREVIEW, metadata: { ...chat.metadata, confirmRequested: false, generating: false, lastGenerationCompletedAt: new Date().toISOString() } });
       return { 
         chatId, 
         state: 'design_preview',
-        designPreviews: variations.flatMap(v => v.designImages || []),
-        job: variations[0]?.job,
-        nft: variations[0]?.nft,
+        designPreviews: images,
+        job: result?.job,
+        nft: result?.nft,
         aiResponse: completionMessage,
-        variations: variations,
       };
     }
     // Otherwise, continue gathering info conversationally
@@ -361,6 +358,7 @@ Reply with ONLY the state name.`;
         await this.chatService.updateChat(chatId, { metadata: { ...chat.metadata, confirmVariationRequested: true } });
         return { chatId, state: 'design_preview', aiResponse: ask };
       }
+      
       const confirm = await this.isUserConfirming(content, conversationHistory);
       if (!confirm) {
         const msg = "Okay. Tell me what to tweak, or say 'yes' when you want another variation.";
@@ -371,11 +369,8 @@ Reply with ONLY the state name.`;
       await this.streamChatService.sendAIMessage(chatId, generatingMessage);
       const designPrompt = this.buildDesignPrompt(chat.messages);
       const sketchBase64 = this.extractSketchFromMessages(chat.messages);
-      const result = await this.designWorkflowService.processDesignRequest(userId, {
-        prompt: `${designPrompt} - New Variation`,
-        fabricImageBase64: sketchBase64,
-      });
-      const completionMessage = "Here's a new variation! Do you like this one better?";
+      const result = await this.designWorkflowService.processDesignVariation(userId, chatId, `${designPrompt} - New Variation`);
+      const completionMessage = "Here's a new set of variations! Do you like one of these better?";
       await this.streamChatService.sendAIMessage(chatId, completionMessage);
       await this.chatService.updateChat(chatId, { metadata: { ...chat.metadata, confirmVariationRequested: false } });
       return { 
@@ -409,12 +404,21 @@ Reply with ONLY the state name.`;
   }
   private async isUserConfirming(content: string, conversationHistory?: string): Promise<boolean> {
     try {
-      const response = await this.openaiService.generateResponse(
-        `Given the conversation context and the user's latest message, decide if we should proceed generating design variations NOW without asking more questions.
-Context:\n${conversationHistory || ''}\nUser: "${content}"
-Reply ONLY: CONFIRM or MORE_INFO.`
-      );
-      return response.trim().toUpperCase().includes('CONFIRM');
+      const prompt = `You are a strict confirmation validator.
+Task: Decide if the user explicitly confirmed to generate design variations NOW.
+Output: Respond with EXACTLY one token: CONFIRM or HOLD.
+
+Guidelines:
+- Treat as CONFIRM: "yes", "yup", "yeah", "y", "sure", "ok", "okay", "k", "pls generate", "proceed", "go ahead", "do it", "start", "let's go", "go", "alright", "fine", "sounds good".
+- Treat as HOLD: any request for changes/refinement, questions, or uncertainty ("maybe", "not yet", "wait", "later", "no").
+- If the assistant just asked: "Generate 3 visual variations now? (yes/no)", favor CONFIRM for clear affirmatives.
+
+Conversation so far:
+${conversationHistory || ''}
+User latest: "${content}"
+Answer: `;
+      const response = await this.openaiService.generateResponse(prompt);
+      return response.trim().toUpperCase() === 'CONFIRM';
     } catch (error) {
       return false;
     }

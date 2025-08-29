@@ -118,4 +118,8 @@ export class JobFilterDto {
   @IsOptional()
   @Type(() => Number)
   limit?: number = 10;
+
+  @IsString()
+  @IsOptional()
+  format?: string;
 }
