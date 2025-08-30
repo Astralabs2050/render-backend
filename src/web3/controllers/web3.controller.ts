@@ -29,11 +29,11 @@ export class Web3Controller {
     }
     @Post('nft/mint')
     @UseGuards(JwtAuthGuard)
-    async mintNFT(@Body() dto: MintNFTDto) {
-        const nft = await this.nftService.mintNFT(dto);
+    async mintDesign(@Req() req, @Body() body: { chatId: string; selectedVariation: string; paymentTransactionHash: string }) {
+        const nft = await this.nftService.mintFromChatDesign(req.user.id, body.chatId, body.selectedVariation, body.paymentTransactionHash);
         return {
             status: true,
-            message: 'NFT minted successfully',
+            message: 'Design minted successfully',
             data: nft,
         };
     }

@@ -33,9 +33,10 @@ import { ConfigService } from '@nestjs/config';
           maxQueryExecutionTime: 1000,
           cache: false,
           extra: {
-            max: 5,
-            connectionTimeoutMillis: 5000,
-            idleTimeoutMillis: 10000
+            max: 10,
+            connectionTimeoutMillis: 30000,
+            idleTimeoutMillis: 30000,
+            query_timeout: 30000
           }
         };
       },

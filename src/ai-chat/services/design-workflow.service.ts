@@ -126,7 +126,7 @@ export class DesignWorkflowService {
       
       const designsText = designImages.map((url, index) => `Design ${index + 1}: ${url}`).join('\n');
       
-      const aiGeneratedDetails = `Here are your ${successCount} design options:\n\n${designsText}\n\nNext steps to proceed:\n• Tell me the design name\n• Set price per piece\n• Set quantity (e.g., 8)\n• Provide a production deadline (YYYY-MM-DD)\nYou can also request tweaks or new variations until you're satisfied. When ready, submit these details to approve.`;
+      const aiGeneratedDetails = `Here are your ${successCount} design options:\n\n${designsText}\n\nWhich one do you like best? You can also request tweaks or new variations until you're satisfied.`;
 
       await this.chatService.sendMessage(userId, { chatId: chat.id, content: aiGeneratedDetails });
       await this.chatService.updateChat(chat.id, { metadata: { ...chat.metadata, generating: false, lastGenerationCompletedAt: new Date().toISOString() } });
