@@ -9,10 +9,11 @@ export class AppController {
     const indexPath = process.env.NODE_ENV === 'production' 
       ? join(__dirname, '..', 'public', 'index.html')
       : join(process.cwd(), 'public', 'index.html');
+    
     if (fs.existsSync(indexPath)) {
-      return res.sendFile(indexPath);
+      res.sendFile(indexPath);
     } else {
-      return res.json({
+      res.json({
         message: 'Astra Fashion Backend API',
         status: 'running',
         timestamp: new Date().toISOString(),
