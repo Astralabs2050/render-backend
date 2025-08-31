@@ -196,6 +196,105 @@ export class NFTService {
       throw error;
     }
   }
+  async mintFromChatDesign(userId: string, chatId: string, selectedVariation: string, paymentTransactionHash: string): Promise<NFT> {
+    try {
+      this.logger.log(`Minting design from chat: ${chatId}, variation: ${selectedVariation}`);
+      
+      // Verify payment transaction hash
+      if (!paymentTransactionHash) {
+        throw new Error('Payment transaction hash is required for minting');
+      }
+      
+      // Get user wallet for payment verification
+      const user = await this.nftRepository.manager.query(
+        'SELECT wallet_address FROM users WHERE id = $1',
+        [userId]
+      );
+      
+      if (!user || !user[0] || !user[0].wallet_address) {
+        throw new Error('User wallet not found');
+      }
+      
+      // Verify payment was successful using existing Thirdweb service
+      const paymentStatus = await this.thirdwebService.checkPaymentStatus({
+        fromAddress: user[0].wallet_address,
+        amount: 50, // Minting fee
+        collectionId: chatId // Use chatId as collection identifier
+      });
+      
+      if (!paymentStatus || paymentStatus.transactionHash !== paymentTransactionHash) {
+        throw new Error('Payment verification failed - transaction not found or hash mismatch');
+      }
+      
+      this.logger.log(`Payment verified: ${paymentTransactionHash}`);
+      
+      // Get chat and design previews
+      const chat = await this.nftRepository.manager.query(
+        'SELECT * FROM ai_chats WHERE id = $1 AND (user_id = $2 OR creator_id = $2)',
+        [chatId, userId]
+      );
+      
+      if (!chat || !chat[0]) {
+        throw new Error('Chat not found or access denied');
+      }
+      
+      const chatData = chat[0];
+      const designPreviews = chatData.design_previews || [];
+      
+      if (designPreviews.length === 0) {
+        throw new Error('No design previews found in chat');
+      }
+      
+      // Extract variation number and get image URL
+      const variationIndex = parseInt(selectedVariation.split('_')[1]) - 1;
+      const selectedImageUrl = designPreviews[variationIndex];
+      
+      if (!selectedImageUrl) {
+        throw new Error('Selected design variation not found');
+      }
+      
+      // Generate design name from chat messages
+      const messages = await this.nftRepository.manager.query(
+        'SELECT content FROM ai_chat_messages WHERE chat_id = $1 AND role = $2 ORDER BY created_at',
+        [chatId, 'user']
+      );
+      
+      const userMessages = messages.map(m => m.content).join(' ');
+      const designName = `Custom Design - ${userMessages.substring(0, 50)}...`;
+      
+      // Create NFT with payment info
+      const nft = await this.createNFT({
+        name: designName,
+        description: `Custom fashion design created through AI chat`,
+        category: 'AI Generated Design',
+        price: 50, // Minting fee 
+        quantity: 1,
+        imageUrl: selectedImageUrl,
+        creatorId: userId,
+        chatId: chatId,
+      });
+      
+      // Store payment transaction hash
+      nft.transactionHash = paymentTransactionHash;
+      
+      // Mint the NFT
+      const mintedNFT = await this.mintNFT({ nftId: nft.id });
+      
+      // Update chat state
+      await this.nftRepository.manager.query(
+        'UPDATE ai_chats SET nft_id = $1, state = $2 WHERE id = $3',
+        [mintedNFT.id, 'design_approved', chatId]
+      );
+      
+      this.logger.log(`Design minted successfully from chat: ${mintedNFT.id}`);
+      return mintedNFT;
+      
+    } catch (error) {
+      this.logger.error(`Failed to mint from chat design: ${error.message}`);
+      throw error;
+    }
+  }
+
   async getContractInfo(contractAddress: string): Promise<any> {
     try {
       return {

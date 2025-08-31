@@ -340,6 +340,53 @@ Reply with ONLY the state name.`;
   private async handleDesignSelection(userId: string, chatId: string, content: string) {
     const chat = await this.chatService.getChat(userId, chatId);
     const conversationHistory = chat.messages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+    
+    // Check if we're waiting for confirmation and user is providing more details
+    if (chat.metadata?.confirmVariationRequested) {
+      const confirm = await this.isUserConfirming(content, conversationHistory);
+      if (confirm) {
+        const generatingMessage = "Generating another variation for you...";
+        await this.streamChatService.sendAIMessage(chatId, generatingMessage);
+        const designPrompt = this.buildDesignPrompt(chat.messages);
+        const sketchBase64 = this.extractSketchFromMessages(chat.messages);
+        
+        // Get the user's modification request from metadata and combine with current input
+        const pendingMod = chat.metadata?.pendingModification || '';
+        const userModification = pendingMod + (pendingMod ? ' ' + content : content);
+        const enhancedPrompt = `${designPrompt} - ${userModification}`;
+        
+        const result = await this.designWorkflowService.processDesignVariation(userId, chatId, enhancedPrompt);
+        const completionMessage = "Here's a new set of variations! Do you like one of these better?";
+        await this.streamChatService.sendAIMessage(chatId, completionMessage);
+        await this.chatService.updateChat(chatId, { 
+          metadata: { 
+            ...chat.metadata, 
+            confirmVariationRequested: false,
+            pendingModification: null,
+            lastGenerationCompletedAt: new Date().toISOString()
+          } 
+        });
+        return { 
+          chatId, 
+          state: 'design_preview',
+          aiResponse: completionMessage
+        };
+      } else {
+        // User is providing more details, update the pending modification
+        const pendingMod = chat.metadata?.pendingModification || '';
+        const updatedModification = pendingMod + (pendingMod ? ' ' + content : content);
+        await this.chatService.updateChat(chatId, { 
+          metadata: { 
+            ...chat.metadata, 
+            pendingModification: updatedModification
+          } 
+        });
+        const msg = "Got it! Any other details you'd like to add, or should I proceed with the design? (yes/no)";
+        await this.streamChatService.sendAIMessage(chatId, msg);
+        return { chatId, state: 'design_preview', aiResponse: msg };
+      }
+    }
+    
     // If we already have 3 previews recently, block further generation until selection or tweak
     const lastDone = chat.metadata?.lastGenerationCompletedAt ? new Date(chat.metadata.lastGenerationCompletedAt).getTime() : 0;
     const recent = lastDone && (Date.now() - lastDone < 2 * 60 * 1000);
@@ -352,34 +399,65 @@ Reply with ONLY the state name.`;
         return { chatId, state: 'design_preview', aiResponse: msg };
       }
       // Confirmation gate before creating another variation
-      if (!chat.metadata?.confirmVariationRequested) {
-        const ask = 'Generate another variation now? (yes/no)';
-        await this.streamChatService.sendAIMessage(chatId, ask);
-        await this.chatService.updateChat(chatId, { metadata: { ...chat.metadata, confirmVariationRequested: true } });
-        return { chatId, state: 'design_preview', aiResponse: ask };
-      }
-      
-      const confirm = await this.isUserConfirming(content, conversationHistory);
-      if (!confirm) {
-        const msg = "Okay. Tell me what to tweak, or say 'yes' when you want another variation.";
-        await this.streamChatService.sendAIMessage(chatId, msg);
-        return { chatId, state: 'design_preview', aiResponse: msg };
-      }
-      const generatingMessage = "Generating another variation for you...";
-      await this.streamChatService.sendAIMessage(chatId, generatingMessage);
-      const designPrompt = this.buildDesignPrompt(chat.messages);
-      const sketchBase64 = this.extractSketchFromMessages(chat.messages);
-      const result = await this.designWorkflowService.processDesignVariation(userId, chatId, `${designPrompt} - New Variation`);
-      const completionMessage = "Here's a new set of variations! Do you like one of these better?";
-      await this.streamChatService.sendAIMessage(chatId, completionMessage);
-      await this.chatService.updateChat(chatId, { metadata: { ...chat.metadata, confirmVariationRequested: false } });
-      return { 
-        chatId, 
-        state: 'design_preview',
-        designPreviews: result.designImages || [],
-        aiResponse: completionMessage,
-      };
+      const ask = 'I can generate another variation now. Would you like me to proceed? (yes/no)';
+      await this.streamChatService.sendAIMessage(chatId, ask);
+      await this.chatService.updateChat(chatId, { 
+        metadata: { 
+          ...chat.metadata, 
+          confirmVariationRequested: true,
+          pendingModification: content // Store the user's modification request
+        } 
+      });
+      return { chatId, state: 'design_preview', aiResponse: ask };
     }
+    
+    // Check if user is selecting/approving a specific design
+    const designSelection = await this.detectDesignSelection(content);
+    if (designSelection) {
+      // Ask for minting confirmation
+      const mintingConfirmationMsg = `Perfect! You've selected ${designSelection}. Would you like to mint this design as an NFT? This will make it available in your "My Designs" collection. (yes/no)`;
+      await this.streamChatService.sendAIMessage(chatId, mintingConfirmationMsg);
+      await this.chatService.updateChat(chatId, { 
+        metadata: { 
+          ...chat.metadata, 
+          selectedDesign: designSelection,
+          awaitingMintConfirmation: true
+        } 
+      });
+      return { chatId, state: 'design_preview', aiResponse: mintingConfirmationMsg };
+    }
+
+    // Check if user is confirming minting
+    if (chat.metadata?.awaitingMintConfirmation) {
+      const confirmMinting = await this.isUserConfirming(content, conversationHistory);
+      if (confirmMinting) {
+        const handoffMsg = `Great! I'll prepare your design for minting. The frontend will now handle the payment and minting process. Once minted, your design will appear in "My Designs" collection.`;
+        await this.streamChatService.sendAIMessage(chatId, handoffMsg);
+        await this.chatService.updateChat(chatId, { 
+          state: ChatState.DESIGN_APPROVED,
+          metadata: { 
+            ...chat.metadata, 
+            awaitingMintConfirmation: false,
+            readyForMinting: true,
+            selectedVariation: chat.metadata?.selectedDesign
+          } 
+        });
+        return { chatId, state: 'design_approved', aiResponse: handoffMsg };
+      } else {
+        const cancelMsg = `No problem! You can continue browsing the variations or request changes. Which design do you prefer?`;
+        await this.streamChatService.sendAIMessage(chatId, cancelMsg);
+        await this.chatService.updateChat(chatId, { 
+          metadata: { 
+            ...chat.metadata, 
+            awaitingMintConfirmation: false,
+            selectedDesign: null
+          } 
+        });
+        return { chatId, state: 'design_preview', aiResponse: cancelMsg };
+      }
+    }
+
+    // Handle other cases (general comments)
     const aiResponse = await this.generateContextualResponse(content, conversationHistory, 'design_preview');
     await this.streamChatService.sendAIMessage(chatId, aiResponse);
     return { chatId, state: 'design_preview', aiResponse, designPreviews: undefined };
@@ -404,19 +482,23 @@ Reply with ONLY the state name.`;
   }
   private async isUserConfirming(content: string, conversationHistory?: string): Promise<boolean> {
     try {
-      const prompt = `You are a strict confirmation validator.
-Task: Decide if the user explicitly confirmed to generate design variations NOW.
-Output: Respond with EXACTLY one token: CONFIRM or HOLD.
+      const prompt = `Analyze if the user is confirming to proceed with generating design variations.
 
-Guidelines:
-- Treat as CONFIRM: "yes", "yup", "yeah", "y", "sure", "ok", "okay", "k", "pls generate", "proceed", "go ahead", "do it", "start", "let's go", "go", "alright", "fine", "sounds good".
-- Treat as HOLD: any request for changes/refinement, questions, or uncertainty ("maybe", "not yet", "wait", "later", "no").
-- If the assistant just asked: "Generate 3 visual variations now? (yes/no)", favor CONFIRM for clear affirmatives.
+Context: The system asked if the user wants to generate variations, and now we need to determine if their response is a confirmation.
 
-Conversation so far:
+User intent analysis:
+- CONFIRM: Any affirmative response indicating they want to proceed
+- HOLD: Negative responses, requests for more changes, questions, or uncertainty
+
+Consider natural language patterns and context. The user may confirm in various ways beyond just "yes".
+
+Conversation context:
 ${conversationHistory || ''}
-User latest: "${content}"
-Answer: `;
+
+User response: "${content}"
+
+Respond with exactly one word: "CONFIRM" or "HOLD"`;
+      
       const response = await this.openaiService.generateResponse(prompt);
       return response.trim().toUpperCase() === 'CONFIRM';
     } catch (error) {
@@ -426,10 +508,20 @@ Answer: `;
   private async wantsNewVariation(content: string): Promise<boolean> {
     try {
       const response = await this.openaiService.generateResponse(
-        `Does the user want a new/different design variation or are they selecting/commenting on existing ones?
-        NEW VARIATION examples: "try another", "show me more", "different style", "can you make another"
-        SELECTING/COMMENTING examples: "I like #2", "this one looks good", "not quite right", "too formal"
-        Reply only "NEW" or "SELECT".
+        `Analyze the user's message and determine their intent regarding design variations.
+
+        The user might want:
+        1. NEW VARIATION - They want to generate new/different design options (modifications, changes, improvements, or completely new variations)
+        2. SELECT/COMMENT - They are selecting from existing variations, commenting on current designs, or asking questions
+
+        Consider the context:
+        - Any request for changes, modifications, additions, or improvements = NEW VARIATION
+        - Any expression of wanting different options or alternatives = NEW VARIATION  
+        - Selecting specific variations (like "variation_1", "I like #2") = SELECT/COMMENT
+        - General comments without modification requests = SELECT/COMMENT
+
+        Respond with exactly one word: "NEW" or "SELECT"
+
         User message: "${content}"`
       );
       return response.trim().toUpperCase().includes('NEW');
@@ -437,6 +529,33 @@ Answer: `;
       return false;
     }
   }
+  
+  private async detectDesignSelection(content: string): Promise<string | null> {
+    try {
+      const response = await this.openaiService.generateResponse(
+        `Analyze if the user is selecting/approving a specific design variation.
+
+        Look for:
+        - Explicit selections
+        - Approval phrases
+        - Clear preference statements indicating they want to proceed with a specific design
+
+        If they are selecting a design, respond with the variation number in format "variation_X" (where X is 1, 2, or 3).
+        If they are not selecting a specific design, respond with "NONE".
+
+        User message: "${content}"`
+      );
+      
+      const result = response.trim().toLowerCase();
+      if (result.includes('variation_')) {
+        return result.match(/variation_[123]/)?.[0] || null;
+      }
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+  
   private buildDesignPrompt(messages: ChatMessage[]): string {
     const userMessages = messages.filter(msg => msg.role === 'user').map(msg => msg.content).join(' ');
     return `Fashion design based on: ${userMessages}`;

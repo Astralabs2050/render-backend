@@ -62,5 +62,7 @@ export class Job extends BaseEntity {
   @Column('text', { nullable: true })
   feedback: string;
   @Column({ type: 'int', nullable: true, default: null })
-  rating: number; 
+  rating: number;
+  @Column('text', { nullable: true })
+  aiPrompt: string; // Summarized AI prompt used to create the design 
 }

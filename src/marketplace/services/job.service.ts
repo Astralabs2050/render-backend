@@ -109,6 +109,42 @@ export class JobService {
 
     return { jobs: enrichedJobs, total, page, totalPages };
   }
+
+  async getJobWithClientInfo(jobId: string): Promise<any> {
+    const job = await this.jobRepository.findOne({
+      where: { id: jobId },
+      relations: ['creator'],
+    });
+
+    if (!job) {
+      throw new NotFoundException('Job not found');
+    }
+
+    // Get AI chat messages to extract prompt
+    let aiPrompt = null;
+    if (job.chatId) {
+      const messages = await this.jobRepository.manager.query(
+        'SELECT content FROM ai_chat_messages WHERE chat_id = $1 AND role = $2 ORDER BY created_at LIMIT 5',
+        [job.chatId, 'user']
+      );
+      if (messages.length > 0) {
+        aiPrompt = messages.map(m => m.content).join(' ').substring(0, 200) + '...';
+      }
+    }
+
+    return {
+      ...job,
+      aiPrompt: aiPrompt || job.aiPrompt,
+      client: {
+        id: job.creator.id,
+        name: job.creator.fullName || job.creator.brandName,
+        profilePicture: job.creator.profilePicture,
+        bio: job.creator.bio,
+        datePosted: job.createdAt,
+        dueDate: job.deadline
+      }
+    };
+  }
   async findJobById(id: string): Promise<Job> {
     const job = await this.jobRepository.findOne({
       where: { id },
@@ -130,6 +166,7 @@ export class JobService {
     Object.assign(job, updateJobDto);
     return this.jobRepository.save(job);
   }
+
   async deleteJob(id: string, userId: string): Promise<void> {
     const job = await this.findJobById(id);
     if (job.creatorId !== userId) {
@@ -472,5 +509,116 @@ export class JobService {
     }));
   }
 
+  async applyToJobWithPortfolio(jobId: string, applicationDto: any, makerId: string): Promise<any> {
+    const job = await this.findJobById(jobId);
+    
+    // Verify maker exists
+    const maker = await this.userRepository.findOne({
+      where: { id: makerId, userType: UserType.MAKER }
+    });
+    
+    if (!maker) {
+      throw new BadRequestException('Only makers can apply to jobs');
+    }
+    
+    if (job.status !== JobStatus.OPEN) {
+      throw new BadRequestException('Job is not open for applications');
+    }
+    
+    // Check if already applied
+    const existingApplication = await this.jobRepository.manager.query(
+      'SELECT id FROM job_applications WHERE job_id = $1 AND maker_id = $2',
+      [jobId, makerId]
+    );
+    
+    if (existingApplication.length > 0) {
+      throw new BadRequestException('You have already applied to this job');
+    }
+    
+    // Create application with portfolio info
+    const application = await this.jobRepository.manager.query(
+      `INSERT INTO job_applications (job_id, maker_id, portfolio_links, selected_projects, proposed_amount, minimum_negotiable_amount, timeline, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', NOW(), NOW())
+       RETURNING *`,
+      [
+        jobId,
+        makerId,
+        JSON.stringify(applicationDto.portfolioLinks || []),
+        JSON.stringify(applicationDto.selectedProjects || []),
+        applicationDto.proposedAmount,
+        applicationDto.minimumNegotiableAmount,
+        applicationDto.timeline
+      ]
+    );
+    
+    return {
+      message: 'Application submitted successfully',
+      applicationId: application[0].id,
+      proposedAmount: applicationDto.proposedAmount,
+      minimumNegotiableAmount: applicationDto.minimumNegotiableAmount
+    };
+  }
+
+  async saveJobForMaker(jobId: string, makerId: string): Promise<any> {
+    const job = await this.findJobById(jobId);
+    
+    // Verify maker exists
+    const maker = await this.userRepository.findOne({
+      where: { id: makerId, userType: UserType.MAKER }
+    });
+    
+    if (!maker) {
+      throw new BadRequestException('Only makers can save jobs');
+    }
+    
+    // Check if already saved
+    const existingSave = await this.jobRepository.manager.query(
+      'SELECT id FROM saved_jobs WHERE job_id = $1 AND maker_id = $2',
+      [jobId, makerId]
+    );
+    
+    if (existingSave.length > 0) {
+      throw new BadRequestException('Job already saved');
+    }
+    
+    // Save job
+    await this.jobRepository.manager.query(
+      'INSERT INTO saved_jobs (job_id, maker_id, created_at) VALUES ($1, $2, NOW())',
+      [jobId, makerId]
+    );
+    
+    return {
+      message: 'Job saved successfully',
+      jobId: jobId
+    };
+  }
+
+  async getSavedJobs(makerId: string): Promise<any[]> {
+    const savedJobs = await this.jobRepository.manager.query(
+      `SELECT j.*, u.full_name as creator_name, u.brand_name, u.profile_picture as creator_profile_picture
+       FROM saved_jobs sj
+       JOIN jobs j ON j.id = sj.job_id
+       JOIN users u ON u.id = j.creator_id
+       WHERE sj.maker_id = $1
+       ORDER BY sj.created_at DESC`,
+      [makerId]
+    );
+    
+    return savedJobs.map(job => ({
+      id: job.id,
+      title: job.title,
+      description: job.description,
+      budget: job.budget,
+      deadline: job.deadline,
+      status: job.status,
+      aiPrompt: job.ai_prompt,
+      client: {
+        name: job.creator_name || job.brand_name,
+        profilePicture: job.creator_profile_picture
+      },
+      datePosted: job.created_at,
+      dateSaved: job.created_at
+    }));
+  }
 
 }
