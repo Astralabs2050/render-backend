@@ -88,6 +88,12 @@ export class User extends BaseEntity {
   @Column({ nullable: true })
   brandLogo: string;
 
+  @Column({ nullable: true })
+  profilePicture: string;
+
+  @Column('text', { nullable: true })
+  bio: string;
+
   @OneToMany(() => OAuthProvider, oauthProvider => oauthProvider.user)
   oauthProviders: OAuthProvider[];
 }

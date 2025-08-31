@@ -15,7 +15,8 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { Public } from '../../auth/decorators/public.decorator';
 import { JobService } from '../services/job.service';
 import { WorkflowService, DesignRequirements } from '../services/workflow.service';
-import { CreateJobDto, UpdateJobDto, JobApplicationDto, JobFilterDto } from '../dto/job.dto';
+import { JobApplicationDto } from '../dto/job-application.dto';
+import { CreateJobDto, UpdateJobDto, JobFilterDto } from '../dto/job.dto';
 import { UserType } from '../../users/entities/user.entity';
 @Controller('marketplace')
 @UseGuards(JwtAuthGuard)
@@ -51,6 +52,12 @@ export class JobController {
     return this.jobService.getJobDetails(id);
   }
 
+  @Public()
+  @Get('jobs/:id')
+  async getJobWithClientInfo(@Param('id', ParseUUIDPipe) id: string) {
+    return this.jobService.getJobWithClientInfo(id);
+  }
+
   @Get('maker/projects')
   async getMakerProjects(@Request() req) {
     return this.jobService.getMakerProjects(req.user.id);
@@ -83,7 +90,20 @@ export class JobController {
     @Body() applicationDto: JobApplicationDto,
     @Request() req
   ) {
-    return this.jobService.applyToJob(jobId, applicationDto, req.user.id);
+    return this.jobService.applyToJobWithPortfolio(jobId, applicationDto, req.user.id);
+  }
+
+  @Post('jobs/:id/save')
+  async saveJob(@Param('id', ParseUUIDPipe) jobId: string, @Request() req) {
+    return this.jobService.saveJobForMaker(jobId, req.user.id);
+  }
+
+  @Get('maker/saved-jobs')
+  async getSavedJobs(@Request() req) {
+    if (req.user.userType !== UserType.MAKER) {
+      throw new Error('Only makers can access saved jobs');
+    }
+    return this.jobService.getSavedJobs(req.user.id);
   }
   @Get('jobs/:id/applications')
   async getJobApplications(@Param('id', ParseUUIDPipe) jobId: string, @Request() req) {
