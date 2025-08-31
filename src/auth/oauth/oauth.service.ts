@@ -151,6 +151,6 @@ export class OAuthService {
       </body>
       </html>
     `;
-    return res.send(successHtml);
+    res.send(successHtml);
   }
 }
