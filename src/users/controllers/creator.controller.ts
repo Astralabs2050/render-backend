@@ -1,4 +1,4 @@
-import { Controller, Get, Post, UseGuards, Req, Body } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards, Req, Body, Inject, forwardRef } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RoleGuard } from '../../auth/guards/role.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -14,6 +14,7 @@ import { JobPriority } from '../../marketplace/entities/job.entity';
 export class CreatorController {
   constructor(
     private readonly designService: DesignService,
+    @Inject(forwardRef(() => JobService))
     private readonly jobService: JobService,
   ) {}
 

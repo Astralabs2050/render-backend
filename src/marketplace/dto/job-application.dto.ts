@@ -1,4 +1,24 @@
-import { IsString, IsOptional, IsArray, IsNumber, Min } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsNumber, Min, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+class SelectedProject {
+  @IsString()
+  id: string;
+
+  @IsString()
+  title: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  images: string[];
+
+  @IsString()
+  description: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  tags: string[];
+}
 
 export class JobApplicationDto {
   @IsArray()
@@ -6,8 +26,10 @@ export class JobApplicationDto {
   portfolioLinks?: string[];
 
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SelectedProject)
   @IsOptional()
-  selectedProjects?: string[]; // Previous works on platform
+  selectedProjects?: SelectedProject[];
 
   @IsNumber()
   @Min(0)

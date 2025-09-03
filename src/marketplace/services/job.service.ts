@@ -1,10 +1,12 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, Between, In } from 'typeorm';
 import { Job, JobStatus } from '../entities/job.entity';
 import { JobApplication, ApplicationStatus } from '../entities/job-application.entity';
+import { SavedJob } from '../entities/saved-job.entity';
 import { User, UserType } from '../../users/entities/user.entity';
-import { CreateJobDto, UpdateJobDto, JobApplicationDto, JobFilterDto } from '../dto/job.dto';
+import { CreateJobDto, UpdateJobDto, JobFilterDto } from '../dto/job.dto';
+import { JobApplicationDto } from '../dto/job-application.dto';
 import { NotificationService } from './notification.service';
 import { NFT } from '../../web3/entities/nft.entity';
 @Injectable()
@@ -14,6 +16,8 @@ export class JobService {
     private jobRepository: Repository<Job>,
     @InjectRepository(JobApplication)
     private applicationRepository: Repository<JobApplication>,
+    @InjectRepository(SavedJob)
+    private savedJobRepository: Repository<SavedJob>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
     @InjectRepository(NFT)
@@ -198,7 +202,10 @@ export class JobService {
       throw new BadRequestException('You have already applied to this job');
     }
     const application = this.applicationRepository.create({
-      ...applicationDto,
+      portfolioLinks: applicationDto.portfolioLinks,
+      proposedBudget: applicationDto.proposedAmount,
+      proposedTimeline: applicationDto.minimumNegotiableAmount,
+      selectedProjects: applicationDto.selectedProjects || [],
       jobId,
       makerId,
       job,
@@ -571,53 +578,49 @@ export class JobService {
       throw new BadRequestException('Only makers can save jobs');
     }
     
-    // Check if already saved
-    const existingSave = await this.jobRepository.manager.query(
-      'SELECT id FROM saved_jobs WHERE job_id = $1 AND maker_id = $2',
-      [jobId, makerId]
-    );
+    // Check if already saved using entity repository
+    const existingSave = await this.savedJobRepository.findOne({
+      where: { jobId, makerId }
+    });
     
-    if (existingSave.length > 0) {
+    if (existingSave) {
       throw new BadRequestException('Job already saved');
     }
     
-    // Save job
-    await this.jobRepository.manager.query(
-      'INSERT INTO saved_jobs (job_id, maker_id, created_at) VALUES ($1, $2, NOW())',
-      [jobId, makerId]
-    );
+    // Save job using entity
+    const savedJob = this.savedJobRepository.create({
+      jobId,
+      makerId
+    });
+    await this.savedJobRepository.save(savedJob);
     
     return {
       message: 'Job saved successfully',
-      jobId: jobId
+      jobId
     };
   }
 
   async getSavedJobs(makerId: string): Promise<any[]> {
-    const savedJobs = await this.jobRepository.manager.query(
-      `SELECT j.*, u.full_name as creator_name, u.brand_name, u.profile_picture as creator_profile_picture
-       FROM saved_jobs sj
-       JOIN jobs j ON j.id = sj.job_id
-       JOIN users u ON u.id = j.creator_id
-       WHERE sj.maker_id = $1
-       ORDER BY sj.created_at DESC`,
-      [makerId]
-    );
+    const savedJobs = await this.savedJobRepository.find({
+      where: { makerId },
+      relations: ['job', 'job.creator'],
+      order: { savedAt: 'DESC' }
+    });
     
-    return savedJobs.map(job => ({
-      id: job.id,
-      title: job.title,
-      description: job.description,
-      budget: job.budget,
-      deadline: job.deadline,
-      status: job.status,
-      aiPrompt: job.ai_prompt,
+    return savedJobs.map(savedJob => ({
+      id: savedJob.job.id,
+      title: savedJob.job.title,
+      description: savedJob.job.description,
+      budget: savedJob.job.budget,
+      deadline: savedJob.job.deadline,
+      status: savedJob.job.status,
+      aiPrompt: savedJob.job.aiPrompt,
       client: {
-        name: job.creator_name || job.brand_name,
-        profilePicture: job.creator_profile_picture
+        name: savedJob.job.creator.fullName || savedJob.job.creator.brandName,
+        profilePicture: savedJob.job.creator.profilePicture
       },
-      datePosted: job.created_at,
-      dateSaved: job.created_at
+      datePosted: savedJob.job.createdAt,
+      dateSaved: savedJob.savedAt
     }));
   }
 

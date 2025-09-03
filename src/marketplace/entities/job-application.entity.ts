@@ -11,14 +11,14 @@ export enum ApplicationStatus {
 @Entity('job_applications')
 export class JobApplication extends BaseEntity {
   @ManyToOne(() => Job, { eager: true })
-  @JoinColumn({ name: 'jobId' })
+  @JoinColumn({ name: 'job_id' })
   job: Job;
-  @Column()
+  @Column({ name: 'job_id' })
   jobId: string;
   @ManyToOne(() => User, { eager: true })
-  @JoinColumn({ name: 'makerId' })
+  @JoinColumn({ name: 'maker_id' })
   maker: User;
-  @Column()
+  @Column({ name: 'maker_id' })
   makerId: string;
   @Column('text', { nullable: true })
   proposal: string;
