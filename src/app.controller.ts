@@ -22,7 +22,7 @@ export class AppController {
           'ai-chat': '/ai-chat',
           web3: '/web3',
           health: '/health'
-        },
+      },
         testPages: {
           directory: '/',
           complete: '/all-features-test.html',

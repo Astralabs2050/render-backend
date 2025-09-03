@@ -438,6 +438,145 @@
 			]
 		},
 		{
+			"name": "Mint Design NFT",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{auth_token}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"chatId\": \"chat-456\",\n  \"selectedVariation\": \"variation_1\",\n  \"paymentTransactionHash\": \"0x1234567890abcdef1234567890abcdef12345678\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/web3/nft/mint",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"web3",
+						"nft",
+						"mint"
+					]
+				},
+				"description": "Mint an NFT from a chat design with payment confirmation"
+			},
+			"response": [
+				{
+					"name": "Mint Success",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"chatId\": \"chat-456\",\n  \"selectedVariation\": \"variation_1\",\n  \"paymentTransactionHash\": \"0x1234567890abcdef1234567890abcdef12345678\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/web3/nft/mint",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"web3",
+								"nft",
+								"mint"
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"cookie": [],
+					"body": "{\n  \"status\": true,\n  \"message\": \"Design minted successfully\",\n  \"data\": {\n    \"id\": \"nft-789\",\n    \"tokenId\": \"12345\",\n    \"contractAddress\": \"0xabcdef1234567890abcdef1234567890abcdef12\",\n    \"name\": \"Custom Design - Create a blue dress with floral patterns...\",\n    \"description\": \"Custom fashion design created through AI chat\",\n    \"category\": \"AI Generated Design\",\n    \"price\": 50,\n    \"quantity\": 1,\n    \"imageUrl\": \"https://res.cloudinary.com/example/image/upload/v123/design_chat_456_variation_1.jpg\",\n    \"ipfsUrl\": \"ipfs://QmYourIPFSHashHere\",\n    \"ipfsHash\": \"QmYourIPFSHashHere\",\n    \"creatorId\": \"creator-123\",\n    \"chatId\": \"chat-456\",\n    \"status\": \"minted\",\n    \"transactionHash\": \"0x9876543210fedcba9876543210fedcba98765432\",\n    \"attributes\": [],\n    \"metadata\": {\n      \"name\": \"Custom Design - Create a blue dress with floral patterns...\",\n      \"description\": \"Custom fashion design created through AI chat\",\n      \"image\": \"ipfs://QmImageHashHere\",\n      \"attributes\": []\n    },\n    \"createdAt\": \"2025-08-31T14:00:00.000Z\",\n    \"updatedAt\": \"2025-08-31T14:05:00.000Z\",\n    \"mintedAt\": \"2025-08-31T14:05:00.000Z\"\n  }\n}"
+				},
+				{
+					"name": "Invalid Chat ID",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"chatId\": \"invalid-chat\",\n  \"selectedVariation\": \"variation_1\",\n  \"paymentTransactionHash\": \"0x1234567890abcdef1234567890abcdef12345678\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/web3/nft/mint",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"web3",
+								"nft",
+								"mint"
+							]
+						}
+					},
+					"status": "Not Found",
+					"code": 404,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"cookie": [],
+					"body": "{\n  \"status\": false,\n  \"message\": \"Chat design not found\",\n  \"error\": \"Not Found\",\n  \"statusCode\": 404\n}"
+				}
+			]
+		},
+		{
 			"name": "Get Saved Jobs",
 			"request": {
 				"method": "GET",
