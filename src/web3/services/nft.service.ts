@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NFT, NFTStatus } from '../entities/nft.entity';
+import { User } from '../../users/entities/user.entity';
 import { ThirdwebService } from './thirdweb.service';
 import { IPFSService } from './ipfs.service';
 import { QRService } from './qr.service';
@@ -205,19 +206,20 @@ export class NFTService {
         throw new Error('Payment transaction hash is required for minting');
       }
       
-      // Get user wallet for payment verification
-      const user = await this.nftRepository.manager.query(
-        'SELECT wallet_address FROM users WHERE id = $1',
-        [userId]
-      );
+      // Get user wallet for payment verification using TypeORM repository
+      const userRepository = this.nftRepository.manager.getRepository('User');
+      const user = await userRepository.findOne({
+        where: { id: userId },
+        select: ['walletAddress']
+      });
       
-      if (!user || !user[0] || !user[0].wallet_address) {
+      if (!user || !user.walletAddress) {
         throw new Error('User wallet not found');
       }
       
       // Verify payment was successful using existing Thirdweb service
       const paymentStatus = await this.thirdwebService.checkPaymentStatus({
-        fromAddress: user[0].wallet_address,
+        fromAddress: user.walletAddress,
         amount: 50, // Minting fee
         collectionId: chatId // Use chatId as collection identifier
       });

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+import { CloudinaryService } from '../../common/services/cloudinary.service';
 import { PromptService } from './prompt.service';
 @Injectable()
 export class OpenAIService {
@@ -11,6 +12,7 @@ export class OpenAIService {
   constructor(
     private configService: ConfigService,
     private promptService: PromptService,
+    private cloudinaryService: CloudinaryService,
   ) {
     this.apiKey = this.configService.get<string>('OPENAI_API_KEY');
     this.axiosInstance = axios.create({
@@ -237,14 +239,56 @@ export class OpenAIService {
         }
       );
       if (response.data.data && response.data.data.length > 0) {
-        const imageUrl = response.data.data[0].url;
-        this.logger.log(`Generated image: ${imageUrl}`);
-        return imageUrl;
+        const temporaryImageUrl = response.data.data[0].url;
+        this.logger.log(`Generated temporary image: ${temporaryImageUrl}`);
+        
+        // Download and store the image permanently in Cloudinary
+        const permanentImageUrl = await this.storeImagePermanently(temporaryImageUrl, prompt);
+        this.logger.log(`Stored permanent image: ${permanentImageUrl}`);
+        
+        return permanentImageUrl;
       }
       throw new Error('No image generated from DALL-E');
     } catch (error) {
       this.logger.error(`DALL-E image generation error: ${error.response?.data?.error?.message || error.message}`);
       throw error; 
+    }
+  }
+
+  private async storeImagePermanently(temporaryUrl: string, prompt: string): Promise<string> {
+    try {
+      // Download the image from the temporary URL
+      const imageResponse = await axios.get(temporaryUrl, {
+        responseType: 'arraybuffer',
+        timeout: 30000 // 30 second timeout
+      });
+      
+      const imageBuffer = Buffer.from(imageResponse.data);
+      
+      // Upload to Cloudinary with AI-generated tag
+      const result = await this.cloudinaryService.uploadImage(imageBuffer, {
+        folder: 'astra-fashion/ai-generated',
+        tags: ['ai-generated', 'dall-e', 'design'],
+        context: {
+          source: 'dall-e-3',
+          prompt: prompt.substring(0, 500), // Truncate long prompts
+          generated_at: new Date().toISOString()
+        },
+        transformation: {
+          width: 1024,
+          height: 1024,
+          crop: 'fit',
+          quality: 'auto',
+          format: 'auto'
+        }
+      });
+      
+      return result.secure_url;
+    } catch (error) {
+      this.logger.error(`Failed to store image permanently: ${error.message}`);
+      // Return the temporary URL as fallback, but log the issue
+      this.logger.warn('Falling back to temporary URL - image may expire');
+      return temporaryUrl;
     }
   }
   private async enhanceDesignPrompt(prompt: string, referenceImageBase64?: string): Promise<string> {
