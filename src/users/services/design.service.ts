@@ -52,6 +52,46 @@ export class DesignService {
     }
   }
 
+  async getInventoryById(designId: string, creatorId: string): Promise<CreateDesignInventoryDto | null> {
+    try {
+      const design = await this.nftRepository.findOne({
+        where: { 
+          id: designId,
+          creatorId: creatorId
+        },
+        select: [
+          'id',
+          'name',
+          'price',
+          'quantity',
+          'status',
+          'imageUrl',
+          'updatedAt'
+        ]
+      });
+
+      if (!design) {
+        this.logger.log(`Design not found or does not belong to creator: ${designId}`);
+        return null;
+      }
+
+      this.logger.log(`Found inventory item: ${design.name} (ID: ${designId}) for creator: ${creatorId}`);
+
+      return {
+        id: design.id,
+        name: design.name,
+        price: design.price || 0,
+        quantity: design.quantity || 0,
+        publishedStatus: design.status,
+        designLink: design.imageUrl,
+        lastUpdated: design.updatedAt
+      };
+    } catch (error) {
+      this.logger.error(`Failed to fetch inventory by ID: ${error.message}`, error.stack);
+      throw new NotFoundException('Failed to fetch inventory item');
+    }
+  }
+
   async getDesignById(designId: string): Promise<NFT | null> {
     try {
       const design = await this.nftRepository.findOne({

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, UseGuards, Req, Body, Inject, forwardRef } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards, Req, Body, Inject, forwardRef, Param, ParseUUIDPipe, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RoleGuard } from '../../auth/guards/role.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -40,6 +40,24 @@ export class CreatorController {
       status: true,
       message: 'Creator inventory retrieved successfully',
       data: designs,
+    };
+  }
+
+  @Get('inventory/:id')
+  async getInventoryById(
+    @Param('id', ParseUUIDPipe) designId: string,
+    @Req() req
+  ) {
+    const design = await this.designService.getInventoryById(designId, req.user.id);
+    
+    if (!design) {
+      throw new NotFoundException('Design not found');
+    }
+
+    return {
+      status: true,
+      message: 'Design retrieved successfully',
+      data: design,
     };
   }
 

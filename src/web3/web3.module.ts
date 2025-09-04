@@ -33,4 +33,4 @@ import { EscrowMilestone } from './entities/escrow.entity';
     WebhookService,
   ],
 })
-export class Web3Module {}
+export class Web3Module { }
