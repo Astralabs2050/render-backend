@@ -51,17 +51,17 @@ export class CreatorController {
       throw new Error('Design not found or does not belong to you');
     }
 
-    // Check if design needs minting first (if in DRAFT status)
-    if (design.status === 'draft') {
+    // Check if design needs minting first (if in PUBLISHED status, needs minting)
+    if (design.status === 'published') {
       return {
         status: false,
-        message: 'Design needs to be minted before hiring a maker',
+        message: 'Design needs to be minted to marketplace before hiring a maker',
         data: {
           designId: design.id,
           currentStatus: design.status,
           action: 'mint_required',
           web3Required: true,
-          message: 'Please mint your design first, then try hiring a maker again.'
+          message: 'Please mint your design to the marketplace first, then try hiring a maker again.'
         }
       };
     }

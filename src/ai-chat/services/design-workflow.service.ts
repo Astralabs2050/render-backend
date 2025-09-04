@@ -308,6 +308,57 @@ Your design is now in DRAFT status and ready for the next step!`
     }
     }
 
+  async payForDesign(userId: string, chatId: string, paymentTransactionHash: string): Promise<any> {
+    try {
+      this.logger.log(`Processing payment for design in chat: ${chatId}`);
+      
+      // Get the chat to find the NFT
+      const chat = await this.chatService.getChat(userId, chatId);
+      if (!chat.nftId) {
+        throw new Error('No design found in this chat');
+      }
+
+      // Get the NFT
+      const nft = await this.nftService.findById(chat.nftId);
+      if (!nft || nft.creatorId !== userId) {
+        throw new Error('Design not found or does not belong to you');
+      }
+
+      // Verify payment (you may want to add actual payment verification logic here)
+      if (!paymentTransactionHash) {
+        throw new Error('Payment transaction hash is required');
+      }
+
+      // Update NFT status to PUBLISHED (meaning it's now in user's "My Designs")
+      const updatedMetadata = {
+        ...nft.metadata,
+        paymentTransactionHash,
+        paidAt: new Date().toISOString(),
+        status: 'owned'
+      };
+      
+      await this.nftService.updateNFT(nft.id, {
+        status: 'PUBLISHED' as any,
+        metadata: updatedMetadata
+      });
+
+      this.logger.log(`Design payment completed for NFT: ${nft.id}`);
+      
+      return {
+        nft: await this.nftService.findById(nft.id),
+        message: 'Payment successful! Design added to My Designs.',
+        status: 'owned',
+        nextSteps: [
+          'Hire a Maker (will mint to marketplace)',
+          'View in My Designs collection'
+        ]
+      };
+    } catch (error) {
+      this.logger.error(`Design payment error: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
   async mintAndPublishDesign(userId: string, nftId: string, transactionHash: string): Promise<any> {
     try {
       this.logger.log(`Minting and publishing design: ${nftId}`);

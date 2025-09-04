@@ -44,8 +44,8 @@ export class DesignController {
         nft: result.nft,
         chatId: dto.chatId,
         nextSteps: [
-          'Publish to Market (triggers minting)',
-          'Hire a Maker (triggers minting if in DRAFT status)'
+          'Complete Payment to add to My Designs',
+          'Then: Hire a Maker (triggers minting to marketplace)'
         ]
       }
     };
@@ -64,8 +64,8 @@ export class DesignController {
         chatId: dto.chatId,
         aiGenerated: true,
         nextSteps: [
-          'Publish to Market (triggers minting)',
-          'Hire a Maker (triggers minting if in DRAFT status)'
+          'Complete Payment to add to My Designs',
+          'Then: Hire a Maker (triggers minting to marketplace)'
         ]
       }
     };
@@ -78,6 +78,17 @@ export class DesignController {
     return {
       status: true,
       message: 'Job listed successfully',
+      data: result,
+    };
+  }
+
+  @Post('pay-for-design')
+  async payForDesign(@Req() req, @Body() dto: { chatId: string; paymentTransactionHash: string }) {
+    const userId = req.user.id;
+    const result = await this.designWorkflowService.payForDesign(userId, dto.chatId, dto.paymentTransactionHash);
+    return {
+      status: true,
+      message: 'Payment successful! Design added to My Designs.',
       data: result,
     };
   }
