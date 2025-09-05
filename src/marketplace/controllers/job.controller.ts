@@ -17,8 +17,10 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { Public } from '../../auth/decorators/public.decorator';
 import { JobService } from '../services/job.service';
 import { WorkflowService, DesignRequirements } from '../services/workflow.service';
+import { MarketplaceService } from '../services/marketplace.service';
 import { JobApplicationDto } from '../dto/job-application.dto';
 import { CreateJobDto, UpdateJobDto, JobFilterDto } from '../dto/job.dto';
+import { MarketplaceFilterDto } from '../dto/marketplace-filter.dto';
 import { UserType } from '../../users/entities/user.entity';
 @Controller('marketplace')
 @UseGuards(JwtAuthGuard)
@@ -26,6 +28,7 @@ export class JobController {
   constructor(
     private readonly jobService: JobService,
     private readonly workflowService: WorkflowService,
+    private readonly marketplaceService: MarketplaceService,
   ) {}
   @Post('jobs')
   async createJob(@Body() createJobDto: CreateJobDto, @Request() req) {
@@ -157,6 +160,27 @@ export class JobController {
   async createJobFromChat(@Param('chatId', ParseUUIDPipe) chatId: string, @Request() req) {
     return this.workflowService.createJobFromChat(chatId, req.user.id);
   }
+  // NFT Marketplace Endpoints
+  @Public()
+  @Get('browse')
+  async browseMarketplace(@Query() filters: MarketplaceFilterDto) {
+    return this.marketplaceService.browseMarketplace(filters);
+  }
+
+  @Public()
+  @Get('items/:id')
+  async getMarketplaceItem(@Param('id', ParseUUIDPipe) id: string) {
+    const item = await this.marketplaceService.getMarketplaceItem(id);
+    if (!item) {
+      throw new Error('Marketplace item not found');
+    }
+    return {
+      status: true,
+      message: 'Marketplace item retrieved successfully',
+      data: item,
+    };
+  }
+
   @Get('stats')
   async getMarketplaceStats(@Request() req) {
     const myJobs = await this.jobService.getMyJobs(req.user.id, req.user.userType);

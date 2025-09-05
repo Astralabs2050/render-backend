@@ -1,10 +1,11 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Req, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, Req, Query, HttpException, HttpStatus } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { NFTService, CreateNFTDto, MintNFTDto } from '../services/nft.service';
 import { EscrowService, CreateEscrowDto, FundEscrowDto, ReleaseMilestoneDto } from '../services/escrow.service';
 import { QRService, CreateQRDto } from '../services/qr.service';
 import { WebhookService, DHLWebhookPayload } from '../services/webhook.service';
 import { ThirdwebService } from '../services/thirdweb.service';
+import { TransactionHashValidatorService } from '../services/transaction-hash-validator.service';
 @Controller('web3')
 export class Web3Controller {
     constructor(
@@ -13,6 +14,7 @@ export class Web3Controller {
         private readonly qrService: QRService,
         private readonly webhookService: WebhookService,
         private readonly thirdwebService: ThirdwebService,
+        private readonly transactionHashValidator: TransactionHashValidatorService,
     ) { }
     @Post('nft/create')
     @UseGuards(JwtAuthGuard)
@@ -30,12 +32,62 @@ export class Web3Controller {
     @Post('nft/mint')
     @UseGuards(JwtAuthGuard)
     async mintDesign(@Req() req, @Body() body: { chatId: string; selectedVariation: string; paymentTransactionHash: string }) {
-        const nft = await this.nftService.mintFromChatDesign(req.user.id, body.chatId, body.selectedVariation, body.paymentTransactionHash);
-        return {
-            status: true,
-            message: 'Design minted successfully',
-            data: nft,
-        };
+        const startTime = Date.now();
+        const requestId = `mint_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        try {
+            console.log(`[${requestId}] NFT minting request started`, {
+                userId: req.user.id,
+                chatId: body.chatId,
+                selectedVariation: body.selectedVariation,
+                transactionHashProvided: !!body.paymentTransactionHash,
+                timestamp: new Date().toISOString()
+            });
+
+            const nft = await this.nftService.mintFromChatDesign(req.user.id, body.chatId, body.selectedVariation, body.paymentTransactionHash);
+            
+            const duration = Date.now() - startTime;
+            console.log(`[${requestId}] NFT minting completed successfully`, {
+                nftId: nft.id,
+                tokenId: nft.tokenId,
+                duration: `${duration}ms`,
+                timestamp: new Date().toISOString()
+            });
+
+            return {
+                status: true,
+                message: 'Design minted successfully',
+                data: nft,
+            };
+        } catch (error) {
+            const duration = Date.now() - startTime;
+            console.error(`[${requestId}] NFT minting failed`, {
+                error: error.message,
+                userId: req.user.id,
+                chatId: body.chatId,
+                duration: `${duration}ms`,
+                timestamp: new Date().toISOString()
+            });
+
+            // Check if it's a validation error
+            if (error.message.includes('Transaction hash') || error.message.includes('Payment verification')) {
+                const validationResult = this.transactionHashValidator.validateFormat(body.paymentTransactionHash);
+                if (!validationResult.isValid) {
+                    const errorResponse = this.transactionHashValidator.createErrorResponse(validationResult);
+                    errorResponse.path = '/web3/nft/mint';
+                    throw new HttpException(errorResponse, HttpStatus.BAD_REQUEST);
+                }
+            }
+
+            // Handle other errors with standardized format
+            throw new HttpException({
+                status: false,
+                message: 'Internal server error',
+                error: error.message,
+                path: '/web3/nft/mint',
+                timestamp: new Date().toISOString(),
+            }, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
     @Post('nft/:id/list')
     @UseGuards(JwtAuthGuard)

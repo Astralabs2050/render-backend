@@ -9,6 +9,7 @@ import { JobController } from './controllers/job.controller';
 import { JobService } from './services/job.service';
 import { WorkflowService } from './services/workflow.service';
 import { NotificationService } from './services/notification.service';
+import { MarketplaceService } from './services/marketplace.service';
 import { UsersModule } from '../users/users.module';
 import { Web3Module } from '../web3/web3.module';
 
@@ -19,7 +20,7 @@ import { Web3Module } from '../web3/web3.module';
     Web3Module,
   ],
   controllers: [JobController],
-  providers: [JobService, WorkflowService, NotificationService],
-  exports: [JobService, WorkflowService, NotificationService],
+  providers: [JobService, WorkflowService, NotificationService, MarketplaceService],
+  exports: [JobService, WorkflowService, NotificationService, MarketplaceService],
 })
 export class MarketplaceModule {}
