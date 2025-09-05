@@ -250,7 +250,7 @@ export class NFTService {
       
       // Get chat and design previews
       const chat = await this.nftRepository.manager.query(
-        'SELECT * FROM ai_chats WHERE id = $1 AND (user_id = $2 OR creator_id = $2)',
+        'SELECT * FROM ai_chats WHERE id = $1 AND ("userId" = $2 OR "creatorId" = $2)',
         [chatId, userId]
       );
       
@@ -259,7 +259,7 @@ export class NFTService {
       }
       
       const chatData = chat[0];
-      const designPreviews = chatData.design_previews || [];
+      const designPreviews = chatData.designPreviews || [];
       
       if (designPreviews.length === 0) {
         throw new Error('No design previews found in chat');
@@ -275,7 +275,7 @@ export class NFTService {
       
       // Generate design name from chat messages
       const messages = await this.nftRepository.manager.query(
-        'SELECT content FROM ai_chat_messages WHERE chat_id = $1 AND role = $2 ORDER BY created_at',
+        'SELECT content FROM ai_chat_messages WHERE "chatId" = $1 AND role = $2 ORDER BY "createdAt"',
         [chatId, 'user']
       );
       
@@ -302,7 +302,7 @@ export class NFTService {
       
       // Update chat state
       await this.nftRepository.manager.query(
-        'UPDATE ai_chats SET nft_id = $1, state = $2 WHERE id = $3',
+        'UPDATE ai_chats SET "nftId" = $1, state = $2 WHERE id = $3',
         [mintedNFT.id, 'design_approved', chatId]
       );
       
