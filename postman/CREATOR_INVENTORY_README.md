@@ -15,11 +15,17 @@ This collection provides comprehensive testing for the Creator Inventory endpoin
 - **Returns:** ID, name, price, quantity, status, image link, and lastUpdated
 - **Uses:** `{{design_id}}` variable (auto-set from inventory list)
 
-### 3. **Mint NFT from Chat Design**
+### 3. **Publish to Marketplace** ⭐ NEW
+- **Endpoint:** `POST /creator/publish-marketplace`
+- **Description:** Publishes a minted design to the marketplace with pricing and delivery info
+- **Requires:** Design must be in 'minted' status
+- **Body:** Price per outfit, quantity available, delivery window, brand story, region of delivery
+
+### 4. **Mint NFT from Chat Design**
 - **Endpoint:** `POST /web3/nft/mint`
 - **Description:** Mints an NFT from AI-generated design
 
-### 4. **Health Check**
+### 5. **Health Check**
 - **Endpoint:** `GET /health`
 - **Description:** Server health verification
 
