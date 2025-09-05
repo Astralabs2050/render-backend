@@ -344,7 +344,7 @@ export class ThirdwebService {
       });
       
       // Simulate checking blockchain for transaction
-      const hasTransaction = Math.random() > 0.7; // 30% chance transaction exists
+      const hasTransaction = true; // Always find transaction for development
       
       if (hasTransaction) {
         const foundTransactionHash = `0x${Math.random().toString(16).substr(2, 64)}`;
