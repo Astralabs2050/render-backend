@@ -7,6 +7,7 @@ import { ThirdwebService } from './thirdweb.service';
 import { IPFSService } from './ipfs.service';
 import { QRService } from './qr.service';
 import { ConfigService } from '@nestjs/config';
+import { TransactionHashValidatorService } from './transaction-hash-validator.service';
 export interface CreateNFTDto {
   name: string;
   description: string;
@@ -22,6 +23,14 @@ export interface MintNFTDto {
   nftId: string;
   recipientAddress?: string;
 }
+
+export interface PaymentVerificationResult {
+  isValid: boolean;
+  transactionHash: string;
+  amount: number;
+  status: 'confirmed' | 'pending' | 'failed';
+  errors?: string[];
+}
 @Injectable()
 export class NFTService {
   private readonly logger = new Logger(NFTService.name);
@@ -33,6 +42,7 @@ export class NFTService {
     private ipfsService: IPFSService,
     private qrService: QRService,
     private configService: ConfigService,
+    private transactionHashValidator: TransactionHashValidatorService,
   ) {
     this.defaultContractAddress = this.configService.get<string>('NFT_CONTRACT_ADDRESS');
   }
@@ -201,10 +211,15 @@ export class NFTService {
     try {
       this.logger.log(`Minting design from chat: ${chatId}, variation: ${selectedVariation}`);
       
-      // Verify payment transaction hash
-      if (!paymentTransactionHash) {
-        throw new Error('Payment transaction hash is required for minting');
+      // Validate transaction hash format
+      const validationResult = this.transactionHashValidator.validateFormat(paymentTransactionHash);
+      if (!validationResult.isValid) {
+        const userFriendlyError = this.transactionHashValidator.getUserFriendlyError(validationResult);
+        this.logger.error(`Transaction hash validation failed: ${validationResult.errors.join(', ')}`);
+        throw new Error(userFriendlyError);
       }
+
+      this.logger.log(`Transaction hash validation successful: ${validationResult.normalizedHash?.substring(0, 10)}...`);
       
       // Get user wallet for payment verification using TypeORM repository
       const userRepository = this.nftRepository.manager.getRepository('User');
@@ -218,22 +233,20 @@ export class NFTService {
       }
       
       // Verify payment was successful using existing Thirdweb service
-      const paymentStatus = await this.thirdwebService.checkPaymentStatus({
+      const paymentVerification = await this.verifyPayment({
+        transactionHash: validationResult.normalizedHash!,
         fromAddress: user.walletAddress,
-        amount: 50, // Minting fee
-        collectionId: chatId // Use chatId as collection identifier
+        expectedAmount: 50, // Minting fee
+        collectionId: chatId
       });
       
-      if (!paymentStatus) {
-        throw new Error('Payment verification failed - transaction not found');
+      if (!paymentVerification.isValid) {
+        const errorMessage = paymentVerification.errors?.join(', ') || 'Payment verification failed';
+        this.logger.error(`Payment verification failed: ${errorMessage}`);
+        throw new Error(`Payment verification failed: ${errorMessage}`);
       }
       
-      // For development: accept any valid transaction hash format
-      if (!paymentTransactionHash || !paymentTransactionHash.startsWith('0x') || paymentTransactionHash.length !== 66) {
-        throw new Error('Invalid transaction hash format');
-      }
-      
-      this.logger.log(`Payment verified: ${paymentTransactionHash}`);
+      this.logger.log(`Payment verified successfully: ${paymentVerification.transactionHash} - Status: ${paymentVerification.status}`);
       
       // Get chat and design previews
       const chat = await this.nftRepository.manager.query(
@@ -281,8 +294,8 @@ export class NFTService {
         chatId: chatId,
       });
       
-      // Store payment transaction hash
-      nft.transactionHash = paymentTransactionHash;
+      // Store normalized payment transaction hash
+      nft.transactionHash = validationResult.normalizedHash;
       
       // Mint the NFT
       const mintedNFT = await this.mintNFT({ nftId: nft.id });
@@ -313,6 +326,82 @@ export class NFTService {
     } catch (error) {
       this.logger.error(`Failed to get contract info: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Verifies payment transaction with enhanced error handling
+   */
+  private async verifyPayment(params: {
+    transactionHash: string;
+    fromAddress: string;
+    expectedAmount: number;
+    collectionId: string;
+  }): Promise<PaymentVerificationResult> {
+    try {
+      this.logger.log(`Verifying payment transaction: ${params.transactionHash.substring(0, 10)}...`);
+
+      // Check payment status using Thirdweb service
+      const paymentStatus = await this.thirdwebService.checkPaymentStatus({
+        fromAddress: params.fromAddress,
+        amount: params.expectedAmount,
+        collectionId: params.collectionId
+      });
+
+      if (!paymentStatus) {
+        return {
+          isValid: false,
+          transactionHash: params.transactionHash,
+          amount: params.expectedAmount,
+          status: 'failed',
+          errors: ['Transaction not found on blockchain', 'Please verify the transaction hash and try again']
+        };
+      }
+
+      // Additional validation could be added here:
+      // - Check transaction confirmations
+      // - Verify transaction amount matches expected amount
+      // - Check transaction status (success/failed)
+      // - Verify sender address matches user wallet
+
+      return {
+        isValid: true,
+        transactionHash: paymentStatus.transactionHash,
+        amount: params.expectedAmount,
+        status: 'confirmed',
+      };
+
+    } catch (error) {
+      this.logger.error(`Payment verification error: ${error.message}`);
+      
+      // Handle specific blockchain errors
+      if (error.message.includes('network')) {
+        return {
+          isValid: false,
+          transactionHash: params.transactionHash,
+          amount: params.expectedAmount,
+          status: 'failed',
+          errors: ['Network error while verifying payment', 'Please check your internet connection and try again']
+        };
+      }
+
+      if (error.message.includes('timeout')) {
+        return {
+          isValid: false,
+          transactionHash: params.transactionHash,
+          amount: params.expectedAmount,
+          status: 'pending',
+          errors: ['Payment verification timed out', 'Transaction may still be processing, please try again in a few minutes']
+        };
+      }
+
+      return {
+        isValid: false,
+        transactionHash: params.transactionHash,
+        amount: params.expectedAmount,
+        status: 'failed',
+        errors: ['Payment verification failed', error.message]
+      };
     }
   }
 }

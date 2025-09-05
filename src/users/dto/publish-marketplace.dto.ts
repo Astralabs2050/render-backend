@@ -17,11 +17,11 @@ export class PublishMarketplaceDto {
 
   @IsString()
   @IsNotEmpty()
-  deliveryWindow: string; 
+  deliveryWindow: string;
 
   @IsString()
   @IsOptional()
-  brandStory?: string; 
+  brandStory?: string;
 
   @IsString()
   @IsNotEmpty()

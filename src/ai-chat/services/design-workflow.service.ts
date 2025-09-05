@@ -453,14 +453,9 @@ Your design is now in DRAFT status and ready for the next step!`
   }
 
   private detectCategoryFromPrompt(prompt: string): string {
-    const lowerPrompt = prompt.toLowerCase();
-    if (lowerPrompt.includes('dress')) return 'Dress';
-    if (lowerPrompt.includes('shirt') || lowerPrompt.includes('top')) return 'Top';
-    if (lowerPrompt.includes('pants') || lowerPrompt.includes('trousers')) return 'Pants';
-    if (lowerPrompt.includes('jacket') || lowerPrompt.includes('coat')) return 'Outerwear';
-    if (lowerPrompt.includes('skirt')) return 'Skirt';
-    if (lowerPrompt.includes('suit')) return 'Suit';
-    return 'Custom Design';
+    // Import CategoryService dynamically to avoid circular dependencies
+    const { CategoryService } = require('../../common/enums/category.enum');
+    return CategoryService.detectCategory(prompt);
   }
 
   private calculateSmartPrice(prompt: string): number {
