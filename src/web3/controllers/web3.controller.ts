@@ -6,6 +6,7 @@ import { QRService, CreateQRDto } from '../services/qr.service';
 import { WebhookService, DHLWebhookPayload } from '../services/webhook.service';
 import { ThirdwebService } from '../services/thirdweb.service';
 import { TransactionHashValidatorService } from '../services/transaction-hash-validator.service';
+import { MintNFTRequestDto } from '../dto/mint-nft-request.dto';
 @Controller('web3')
 export class Web3Controller {
     constructor(
@@ -31,7 +32,7 @@ export class Web3Controller {
     }
     @Post('nft/mint')
     @UseGuards(JwtAuthGuard)
-    async mintDesign(@Req() req, @Body() body: { chatId: string; selectedVariation: string; paymentTransactionHash: string }) {
+    async mintDesign(@Req() req, @Body() body: MintNFTRequestDto) {
         const startTime = Date.now();
         const requestId = `mint_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
