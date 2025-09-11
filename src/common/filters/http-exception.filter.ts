@@ -31,7 +31,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       const errorResponse = {
         status: false,
         message,
-        error: exception.response?.error || exception.response?.message || exception.message || null,
+        error: exception.response?.error || exception.response?.message || exception.message || message,
         path: request.url,
         timestamp: new Date().toISOString(),
       };

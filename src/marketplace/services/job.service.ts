@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, Between, In } from 'typeorm';
 import { Job, JobStatus } from '../entities/job.entity';
@@ -8,6 +8,7 @@ import { User, UserType } from '../../users/entities/user.entity';
 import { CreateJobDto, UpdateJobDto, JobFilterDto } from '../dto/job.dto';
 import { JobApplicationDto } from '../dto/job-application.dto';
 import { NotificationService } from './notification.service';
+import { ChatService } from './chat.service';
 import { NFT } from '../../web3/entities/nft.entity';
 @Injectable()
 export class JobService {
@@ -23,6 +24,8 @@ export class JobService {
     @InjectRepository(NFT)
     private nftRepository: Repository<NFT>,
     private notificationService: NotificationService,
+    @Inject(forwardRef(() => ChatService))
+    private chatService: ChatService,
   ) {}
   async createJob(createJobDto: CreateJobDto, creatorId: string): Promise<Job> {
     const creator = await this.userRepository.findOne({ 
@@ -252,6 +255,7 @@ export class JobService {
       { status: ApplicationStatus.REJECTED, respondedAt: new Date() }
     );
     const updatedJob = await this.jobRepository.save(application.job);
+    await this.chatService.createChat(application.jobId, application.job.creatorId, application.makerId);
     await this.notificationService.notifyMakerOfAcceptance(application);
     return updatedJob;
   }
