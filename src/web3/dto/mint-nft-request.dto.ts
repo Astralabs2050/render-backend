@@ -1,7 +1,8 @@
 import { IsUUID, IsString, IsNotEmpty } from 'class-validator';
 
 export class MintNFTRequestDto {
-  @IsUUID(4, { message: 'chatId must be a valid UUID' })
+  @IsString()
+  @IsNotEmpty({ message: 'chatId is required' })
   chatId: string;
 
   @IsString()
