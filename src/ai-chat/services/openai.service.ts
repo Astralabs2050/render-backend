@@ -270,9 +270,9 @@ export class OpenAIService {
         folder: 'astra-fashion/ai-generated',
         tags: ['ai-generated', 'dall-e', 'design'],
         context: {
-          source: 'dall-e-3',
-          prompt: prompt.substring(0, 500), // Truncate long prompts
-          generated_at: new Date().toISOString()
+          source: 'dall_e_3',
+          prompt: prompt.substring(0, 100).replace(/[^a-zA-Z0-9\s]/g, '_'), // Sanitize prompt
+          generated_at: new Date().toISOString().replace(/[^a-zA-Z0-9]/g, '_')
         },
         transformation: {
           width: 1024,
