@@ -95,8 +95,8 @@ export class CloudinaryService {
       public_id: `design_${designId}_${Date.now()}`,
       tags: ['design', 'fashion', userId],
       context: {
-        design_id: designId,
-        user_id: userId,
+        design_id: designId.replace(/[^a-zA-Z0-9]/g, '_'),
+        user_id: userId.replace(/[^a-zA-Z0-9]/g, '_'),
         type: 'design',
       },
       transformation: {
@@ -116,7 +116,7 @@ export class CloudinaryService {
       public_id: `profile_${userId}`,
       tags: ['profile', userId],
       context: {
-        user_id: userId,
+        user_id: userId.replace(/[^a-zA-Z0-9]/g, '_'),
         type: 'profile',
       },
       transformation: {
@@ -138,8 +138,8 @@ export class CloudinaryService {
       public_id: `nft_${nftId}`,
       tags: ['nft', 'fashion', userId],
       context: {
-        nft_id: nftId,
-        user_id: userId,
+        nft_id: nftId.replace(/[^a-zA-Z0-9]/g, '_'),
+        user_id: userId.replace(/[^a-zA-Z0-9]/g, '_'),
         type: 'nft',
       },
       transformation: {
