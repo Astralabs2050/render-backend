@@ -262,7 +262,7 @@ export class NFTService {
       const designPreviews = chatData.designPreviews || [];
       
       if (designPreviews.length === 0) {
-        throw new Error('No design previews found in chat');
+        throw new Error('No design previews found in chat. Please generate designs first.');
       }
       
       // Extract variation number and get image URL
