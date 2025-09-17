@@ -259,14 +259,29 @@ export class NFTService {
       }
       
       const chatData = chat[0];
-      const designPreviews = chatData.designPreviews || [];
+      let designPreviews: string[] = [];
+      try {
+        if (Array.isArray(chatData.designPreviews)) {
+          designPreviews = chatData.designPreviews as string[];
+        } else if (typeof chatData.designPreviews === 'string') {
+          // Handle JSON string or comma-separated storage
+          const str = chatData.designPreviews as string;
+          if (str.trim().startsWith('[')) {
+            designPreviews = JSON.parse(str);
+          } else if (str.length) {
+            designPreviews = str.split(',').map((s: string) => s.trim()).filter(Boolean);
+          }
+        }
+      } catch (e) {
+        this.logger.warn(`Failed to parse designPreviews for chat ${chatId}: ${e?.message}`);
+      }
       
       if (designPreviews.length === 0) {
         throw new Error('No design previews found in chat. Please generate designs first.');
       }
       
       // Extract variation number and get image URL
-      const variationIndex = parseInt(selectedVariation.split('_')[1]) - 1;
+      const variationIndex = parseInt((selectedVariation || '').split('_')[1]) - 1;
       const selectedImageUrl = designPreviews[variationIndex];
       
       if (!selectedImageUrl) {

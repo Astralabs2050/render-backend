@@ -577,6 +577,168 @@
 			]
 		},
 		{
+			"name": "Create Chat",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{auth_token}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"jobId\": \"{{job_id}}\",\n  \"makerId\": \"550e8400-e29b-41d4-a716-446655440001\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/marketplace/chat/create",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"marketplace",
+						"chat",
+						"create"
+					]
+				},
+				"description": "Create a chat between creator and maker for a job"
+			},
+			"response": [
+				{
+					"name": "Chat Created",
+					"status": "OK",
+					"code": 200,
+					"body": "{\n  \"status\": true,\n  \"message\": \"Chat created successfully\",\n  \"data\": {\n    \"id\": \"chat-uuid\",\n    \"jobId\": \"job-uuid\",\n    \"creatorId\": \"creator-uuid\",\n    \"makerId\": \"maker-uuid\",\n    \"isActive\": true,\n    \"createdAt\": \"2025-09-11T13:00:00.000Z\"\n  }\n}"
+				}
+			]
+		},
+		{
+			"name": "Get My Chats",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{auth_token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/marketplace/chat/my-chats",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"marketplace",
+						"chat",
+						"my-chats"
+					]
+				},
+				"description": "Get all chats for the authenticated user"
+			},
+			"response": [
+				{
+					"name": "Success",
+					"status": "OK",
+					"code": 200,
+					"body": "{\n  \"status\": true,\n  \"message\": \"Chats retrieved successfully\",\n  \"data\": [\n    {\n      \"id\": \"chat-uuid\",\n      \"jobId\": \"job-uuid\",\n      \"lastMessageAt\": \"2025-09-11T14:00:00.000Z\",\n      \"job\": {\n        \"title\": \"Summer Collection Design\"\n      },\n      \"creator\": {\n        \"fullName\": \"John Creator\"\n      },\n      \"maker\": {\n        \"fullName\": \"Jane Maker\"\n      }\n    }\n  ]\n}"
+				}
+			]
+		},
+		{
+			"name": "Get Chat Messages",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{auth_token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/marketplace/chat/{{chat_id}}/messages",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"marketplace",
+						"chat",
+						"{{chat_id}}",
+						"messages"
+					]
+				},
+				"description": "Get all messages in a chat"
+			},
+			"response": [
+				{
+					"name": "Success",
+					"status": "OK",
+					"code": 200,
+					"body": "{\n  \"status\": true,\n  \"message\": \"Messages retrieved successfully\",\n  \"data\": [\n    {\n      \"id\": \"msg-uuid\",\n      \"content\": \"Hello! I'm interested in your project.\",\n      \"type\": \"text\",\n      \"createdAt\": \"2025-09-11T13:30:00.000Z\",\n      \"sender\": {\n        \"id\": \"maker-uuid\",\n        \"fullName\": \"Jane Maker\"\n      }\n    }\n  ]\n}"
+				}
+			]
+		},
+		{
+			"name": "Send Message",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{auth_token}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"content\": \"Thanks for your interest! Let's discuss the details.\",\n  \"type\": \"text\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/marketplace/chat/{{chat_id}}/message",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"marketplace",
+						"chat",
+						"{{chat_id}}",
+						"message"
+					]
+				},
+				"description": "Send a message in a chat"
+			},
+			"response": [
+				{
+					"name": "Message Sent",
+					"status": "OK",
+					"code": 200,
+					"body": "{\n  \"status\": true,\n  \"message\": \"Message sent successfully\",\n  \"data\": {\n    \"id\": \"msg-uuid\",\n    \"content\": \"Thanks for your interest! Let's discuss the details.\",\n    \"type\": \"text\",\n    \"createdAt\": \"2025-09-11T14:00:00.000Z\"\n  }\n}"
+				}
+			]
+		},
+		{
 			"name": "Get Saved Jobs",
 			"request": {
 				"method": "GET",
@@ -738,6 +900,11 @@
 		{
 			"key": "job_id",
 			"value": "550e8400-e29b-41d4-a716-446655440000",
+			"type": "string"
+		},
+		{
+			"key": "chat_id",
+			"value": "550e8400-e29b-41d4-a716-446655440002",
 			"type": "string"
 		}
 	]

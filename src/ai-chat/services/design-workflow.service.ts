@@ -45,7 +45,7 @@ export class DesignWorkflowService {
         throw new Error('Failed to generate any design variations');
       }
 
-      chat.designPreviews = designImages;
+      await this.chatService.updateChat(chat.id, { designPreviews: designImages });
       
       const variationsText = designImages.map((url, index) => `Variation ${index + 1}: ${url}`).join('\n');
       
@@ -118,8 +118,10 @@ export class DesignWorkflowService {
         title: `Design: ${dto.prompt.substring(0, 50)}...`,
       });
       
-      chat.designPreviews = designImages;
-      chat.state = ChatState.DESIGN_PREVIEW;
+      await this.chatService.updateChat(chat.id, {
+        designPreviews: designImages,
+        state: ChatState.DESIGN_PREVIEW,
+      });
       
       // Do NOT create NFT or job yet; wait for explicit approval with user-provided details
       let nft = undefined, job = undefined;
