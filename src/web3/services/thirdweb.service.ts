@@ -8,10 +8,12 @@ export class ThirdwebService {
   private sdk: ThirdwebSDK;
   private readonly clientId: string;
   private readonly secretKey: string;
+  private readonly privateKey: string;
   private readonly chain: string;
   constructor(private configService: ConfigService) {
     this.clientId = this.configService.get<string>('THIRDWEB_CLIENT_ID');
     this.secretKey = this.configService.get<string>('THIRDWEB_SECRET_KEY');
+    this.privateKey = this.configService.get<string>('THIRDWEB_PRIVATE_KEY');
     this.chain = this.configService.get<string>('THIRDWEB_CHAIN_ID', '137'); 
     this.initializeSDK();
   }
@@ -21,11 +23,22 @@ export class ThirdwebService {
         this.logger.warn('Thirdweb client ID or secret key not configured');
         return;
       }
-      this.sdk = new ThirdwebSDK(this.chain, {
-        clientId: this.clientId,
-        secretKey: this.secretKey,
-      });
-      this.logger.log(`Thirdweb SDK initialized for chain ${this.chain} with client ID: ${this.clientId.substring(0, 8)}...`);
+      
+      if (this.privateKey) {
+        // Initialize with private key for minting operations
+        this.sdk = ThirdwebSDK.fromPrivateKey(this.privateKey, this.chain, {
+          clientId: this.clientId,
+          secretKey: this.secretKey,
+        });
+        this.logger.log(`Thirdweb SDK initialized with wallet for chain ${this.chain}`);
+      } else {
+        // Fallback to read-only SDK
+        this.sdk = new ThirdwebSDK(this.chain, {
+          clientId: this.clientId,
+          secretKey: this.secretKey,
+        });
+        this.logger.warn('Thirdweb SDK initialized without wallet - minting operations will fail');
+      }
     } catch (error) {
       this.logger.error(`Failed to initialize Thirdweb SDK: ${error.message}`);
     }
@@ -206,6 +219,20 @@ export class ThirdwebService {
       this.logger.error(`Failed to generate wallet: ${error.message}`);
       throw error;
     }
+  }
+
+  async generateServiceWallet(): Promise<{ address: string; privateKey: string }> {
+    const wallet = ethers.Wallet.createRandom();
+    console.log('=== SERVICE WALLET GENERATED ===');
+    console.log('Address:', wallet.address);
+    console.log('Private Key:', wallet.privateKey);
+    console.log('Add this to your .env file:');
+    console.log(`THIRDWEB_PRIVATE_KEY=${wallet.privateKey}`);
+    console.log('================================');
+    return {
+      address: wallet.address,
+      privateKey: wallet.privateKey,
+    };
   }
   async createUserWalletSDK(encryptedPrivateKey: string): Promise<ThirdwebSDK> {
     try {
