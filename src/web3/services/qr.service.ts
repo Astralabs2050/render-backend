@@ -43,7 +43,7 @@ export class QRService {
         imageUrl,
         type: QRCodeType.PRODUCT,
         nftId,
-        createdBy: createdBy || 'system',
+        createdBy: createdBy || null,
         metadata: {
           generatedAt: new Date().toISOString(),
           version: '1.0',
