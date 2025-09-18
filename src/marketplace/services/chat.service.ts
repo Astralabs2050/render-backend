@@ -57,7 +57,7 @@ export class ChatService {
     return savedMessage;
   }
 
-  async getMessages(chatId: string, userId: string): Promise<Message[]> {
+  async getMessages(chatId: string, userId: string): Promise<any[]> {
     const chat = await this.chatRepository.findOne({ where: { id: chatId } });
     if (!chat) throw new NotFoundException('Chat not found');
 
@@ -65,15 +65,23 @@ export class ChatService {
       throw new ForbiddenException('Not authorized to view this chat');
     }
 
-    return this.messageRepository.find({
+    const messages = await this.messageRepository.find({
       where: { chatId },
       relations: ['sender'],
       order: { createdAt: 'ASC' },
     });
+
+    return messages.map(message => ({
+      ...message,
+      sender: {
+        ...message.sender,
+        avatar: message.sender.profilePicture,
+      },
+    }));
   }
 
-  async getUserChats(userId: string): Promise<Chat[]> {
-    return this.chatRepository.find({
+  async getUserChats(userId: string): Promise<any[]> {
+    const chats = await this.chatRepository.find({
       where: [
         { creatorId: userId },
         { makerId: userId }
@@ -81,6 +89,41 @@ export class ChatService {
       relations: ['job', 'creator', 'maker'],
       order: { lastMessageAt: 'DESC' },
     });
+
+    // Get last message for each chat
+    const chatsWithLastMessage = await Promise.all(
+      chats.map(async (chat) => {
+        const lastMessage = await this.messageRepository.findOne({
+          where: { chatId: chat.id },
+          relations: ['sender'],
+          order: { createdAt: 'DESC' },
+        });
+
+        return {
+          ...chat,
+          creator: {
+            ...chat.creator,
+            avatar: chat.creator.profilePicture,
+          },
+          maker: {
+            ...chat.maker,
+            avatar: chat.maker.profilePicture,
+          },
+          lastMessage: lastMessage ? {
+            content: lastMessage.content,
+            type: lastMessage.type,
+            createdAt: lastMessage.createdAt,
+            sender: {
+              id: lastMessage.sender.id,
+              fullName: lastMessage.sender.fullName,
+              avatar: lastMessage.sender.profilePicture,
+            },
+          } : null,
+        };
+      })
+    );
+
+    return chatsWithLastMessage;
   }
 
   async validateChatAccess(chatId: string, userId: string): Promise<Chat | null> {
