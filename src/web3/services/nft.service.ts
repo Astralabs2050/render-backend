@@ -209,7 +209,13 @@ export class NFTService {
   }
   async mintFromChatDesign(userId: string, chatId: string, selectedVariation: string, paymentTransactionHash: string): Promise<NFT> {
     try {
-      this.logger.log(`Minting design from chat: ${chatId}, variation: ${selectedVariation}`);
+      this.logger.log(`Minting design from chat: ${chatId}, variation: ${selectedVariation}, userId: ${userId}`);
+      
+      // Validate userId is a valid UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(userId)) {
+        throw new Error(`Invalid user ID format: ${userId}`);
+      }
       
       // Validate transaction hash format
       const validationResult = this.transactionHashValidator.validateFormat(paymentTransactionHash);
