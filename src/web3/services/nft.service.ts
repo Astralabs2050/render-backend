@@ -123,7 +123,7 @@ export class NFTService {
       nft.status = NFTStatus.MINTED;
       nft.mintedAt = new Date();
       const mintedNFT = await this.nftRepository.save(nft);
-      await this.qrService.generateNFTQR(mintedNFT.id);
+      await this.qrService.generateNFTQR(mintedNFT.id, nft.creatorId);
       this.logger.log(`NFT minted successfully: ${mintedNFT.id} - Token ID: ${tokenId}`);
       return mintedNFT;
     } catch (error) {
