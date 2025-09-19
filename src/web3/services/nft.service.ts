@@ -315,11 +315,15 @@ export class NFTService {
         chatId: chatId,
       });
       
+      this.logger.log(`NFT created for inventory: ${nft.id}, creatorId: ${userId}, status: ${nft.status}`);
+      
       // Store normalized payment transaction hash
       nft.transactionHash = validationResult.normalizedHash;
       
       // Mint the NFT
       const mintedNFT = await this.mintNFT({ nftId: nft.id });
+      
+      this.logger.log(`NFT minted for inventory: ${mintedNFT.id}, status: ${mintedNFT.status}, creatorId: ${mintedNFT.creatorId}`);
       
       // Update chat state
       await this.nftRepository.manager.query(

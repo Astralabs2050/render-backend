@@ -31,4 +31,16 @@ export class Chat extends BaseEntity {
 
   @Column({ default: true })
   isActive: boolean;
+
+  @Column({ nullable: true })
+  escrowId: string;
+
+  @Column({ nullable: true })
+  escrowContractAddress: string;
+
+  @Column({ type: 'enum', enum: ['none', 'pending', 'funded', 'completed', 'disputed'], default: 'none' })
+  escrowStatus: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  escrowAmount: number;
 }

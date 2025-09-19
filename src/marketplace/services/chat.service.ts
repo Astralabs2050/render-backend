@@ -134,4 +134,43 @@ export class ChatService {
       ]
     });
   }
+
+  async createEscrow(chatId: string, amount: number, userId: string): Promise<Chat> {
+    const chat = await this.chatRepository.findOne({ where: { id: chatId } });
+    if (!chat) throw new NotFoundException('Chat not found');
+    
+    if (chat.creatorId !== userId) {
+      throw new ForbiddenException('Only job creator can create escrow');
+    }
+
+    chat.escrowAmount = amount;
+    chat.escrowStatus = 'pending';
+    
+    return this.chatRepository.save(chat);
+  }
+
+  async fundEscrow(chatId: string, userId: string): Promise<Chat> {
+    const chat = await this.chatRepository.findOne({ where: { id: chatId } });
+    if (!chat) throw new NotFoundException('Chat not found');
+    
+    if (chat.creatorId !== userId) {
+      throw new ForbiddenException('Only job creator can fund escrow');
+    }
+
+    chat.escrowStatus = 'funded';
+    return this.chatRepository.save(chat);
+  }
+
+  async releaseEscrow(chatId: string, userId: string): Promise<Chat> {
+    const chat = await this.chatRepository.findOne({ where: { id: chatId } });
+    if (!chat) throw new NotFoundException('Chat not found');
+    
+    if (chat.creatorId !== userId) {
+      throw new ForbiddenException('Only job creator can release escrow');
+    }
+
+    chat.escrowStatus = 'completed';
+    return this.chatRepository.save(chat);
+  }
+
 }

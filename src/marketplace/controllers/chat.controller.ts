@@ -56,4 +56,38 @@ export class ChatController {
       data: chats,
     };
   }
+
+  @Post(':chatId/escrow/create')
+  async createEscrow(
+    @Param('chatId') chatId: string,
+    @Body() body: { amount: number },
+    @Req() req
+  ) {
+    const chat = await this.chatService.createEscrow(chatId, body.amount, req.user.id);
+    return {
+      status: true,
+      message: 'Escrow created successfully',
+      data: chat,
+    };
+  }
+
+  @Post(':chatId/escrow/fund')
+  async fundEscrow(@Param('chatId') chatId: string, @Req() req) {
+    const chat = await this.chatService.fundEscrow(chatId, req.user.id);
+    return {
+      status: true,
+      message: 'Escrow funded successfully',
+      data: chat,
+    };
+  }
+
+  @Post(':chatId/escrow/release')
+  async releaseEscrow(@Param('chatId') chatId: string, @Req() req) {
+    const chat = await this.chatService.releaseEscrow(chatId, req.user.id);
+    return {
+      status: true,
+      message: 'Escrow released successfully',
+      data: chat,
+    };
+  }
 }
