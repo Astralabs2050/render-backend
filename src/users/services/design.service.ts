@@ -15,18 +15,6 @@ export class DesignService {
 
   async getCreatorInventory(creatorId: string): Promise<CreateDesignInventoryDto[]> {
     try {
-      this.logger.log(`Searching inventory for creatorId: ${creatorId}`);
-      
-      // Check all NFTs to debug
-      const allNFTs = await this.nftRepository.find({
-        select: ['id', 'name', 'creatorId', 'status'],
-        order: { createdAt: 'DESC' }
-      });
-      this.logger.log(`Total NFTs in database: ${allNFTs.length}`);
-      allNFTs.forEach(nft => {
-        this.logger.log(`NFT: ${nft.id}, creatorId: ${nft.creatorId}, status: ${nft.status}`);
-      });
-      
       const designs = await this.nftRepository.find({
         where: { creatorId },
         select: [
@@ -43,7 +31,6 @@ export class DesignService {
       });
 
       if (designs.length === 0) {
-        this.logger.log(`No designs found for creator: ${creatorId}`);
         return [];
       }
 
