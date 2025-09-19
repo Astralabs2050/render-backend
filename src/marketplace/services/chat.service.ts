@@ -136,7 +136,10 @@ export class ChatService {
   }
 
   async createEscrow(chatId: string, amount: number, userId: string): Promise<Chat> {
-    const chat = await this.chatRepository.findOne({ where: { id: chatId } });
+    const chat = await this.chatRepository.findOne({ 
+      where: { id: chatId },
+      relations: ['job']
+    });
     if (!chat) throw new NotFoundException('Chat not found');
     
     if (chat.creatorId !== userId) {
@@ -149,7 +152,7 @@ export class ChatService {
     return this.chatRepository.save(chat);
   }
 
-  async fundEscrow(chatId: string, userId: string): Promise<Chat> {
+  async fundEscrow(chatId: string, transactionHash: string, userId: string): Promise<Chat> {
     const chat = await this.chatRepository.findOne({ where: { id: chatId } });
     if (!chat) throw new NotFoundException('Chat not found');
     
@@ -172,5 +175,4 @@ export class ChatService {
     chat.escrowStatus = 'completed';
     return this.chatRepository.save(chat);
   }
-
 }
