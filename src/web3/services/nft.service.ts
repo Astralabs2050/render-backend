@@ -303,27 +303,23 @@ export class NFTService {
       const userMessages = messages.map(m => m.content).join(' ');
       const designName = `Custom Design - ${userMessages.substring(0, 50)}...`;
       
-      // Create NFT with payment info
+      // Create NFT with initial values (price/quantity set later in hire/publish flows)
       const nft = await this.createNFT({
         name: designName,
         description: `Custom fashion design created through AI chat`,
         category: 'AI Generated Design',
-        price: 50, // Minting fee 
-        quantity: 1,
+        price: 0, // Will be set in publish to marketplace
+        quantity: 0, // Will be set in hire maker flow
         imageUrl: selectedImageUrl,
         creatorId: userId,
         chatId: chatId,
       });
-      
-      this.logger.log(`NFT created for inventory: ${nft.id}, creatorId: ${userId}, status: ${nft.status}`);
       
       // Store normalized payment transaction hash
       nft.transactionHash = validationResult.normalizedHash;
       
       // Mint the NFT
       const mintedNFT = await this.mintNFT({ nftId: nft.id });
-      
-      this.logger.log(`NFT minted for inventory: ${mintedNFT.id}, status: ${mintedNFT.status}, creatorId: ${mintedNFT.creatorId}`);
       
       // Update chat state
       await this.nftRepository.manager.query(
