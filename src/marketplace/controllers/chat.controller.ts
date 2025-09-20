@@ -2,6 +2,7 @@ import { Controller, Post, Get, Body, Param, UseGuards, Req } from '@nestjs/comm
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ChatService } from '../services/chat.service';
 import { MessageType } from '../entities/message.entity';
+import { SendMessageWithDetailsDto } from '../dto/delivery-measurements.dto';
 
 @Controller('marketplace/chat')
 @UseGuards(JwtAuthGuard)
@@ -21,14 +22,17 @@ export class ChatController {
   @Post(':chatId/message')
   async sendMessage(
     @Param('chatId') chatId: string,
-    @Body() body: { content: string; type?: MessageType },
+    @Body() body: SendMessageWithDetailsDto,
     @Req() req
   ) {
     const message = await this.chatService.sendMessage(
       chatId,
       req.user.id,
       body.content,
-      body.type
+      body.type,
+      body.deliveryDetails,
+      body.measurements,
+      body.actionType
     );
     return {
       status: true,
@@ -90,6 +94,36 @@ export class ChatController {
       status: true,
       message: 'Escrow released successfully',
       data: chat,
+    };
+  }
+
+  @Get(':chatId/delivery-details')
+  async getDeliveryDetails(@Param('chatId') chatId: string, @Req() req) {
+    const deliveryDetails = await this.chatService.getDeliveryDetails(chatId, req.user.id);
+    return {
+      status: true,
+      message: 'Delivery details retrieved successfully',
+      data: deliveryDetails,
+    };
+  }
+
+  @Get(':chatId/measurements')
+  async getMeasurements(@Param('chatId') chatId: string, @Req() req) {
+    const measurements = await this.chatService.getMeasurements(chatId, req.user.id);
+    return {
+      status: true,
+      message: 'Measurements retrieved successfully',
+      data: measurements,
+    };
+  }
+
+  @Post(':chatId/complete-job')
+  async markJobCompleted(@Param('chatId') chatId: string, @Req() req) {
+    const message = await this.chatService.markJobCompleted(chatId, req.user.id);
+    return {
+      status: true,
+      message: 'Job marked as completed',
+      data: message,
     };
   }
 }

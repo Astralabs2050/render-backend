@@ -5,6 +5,8 @@ import { JobApplication } from './entities/job-application.entity';
 import { SavedJob } from './entities/saved-job.entity';
 import { Chat } from './entities/chat.entity';
 import { Message } from './entities/message.entity';
+import { DeliveryDetails } from './entities/delivery-details.entity';
+import { Measurements } from './entities/measurements.entity';
 import { User } from '../users/entities/user.entity';
 import { NFT } from '../web3/entities/nft.entity';
 import { JobController } from './controllers/job.controller';
@@ -21,7 +23,7 @@ import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Job, JobApplication, SavedJob, Chat, Message, User, NFT]),
+    TypeOrmModule.forFeature([Job, JobApplication, SavedJob, Chat, Message, DeliveryDetails, Measurements, User, NFT]),
     forwardRef(() => UsersModule),
     Web3Module,
     JwtModule.register({
