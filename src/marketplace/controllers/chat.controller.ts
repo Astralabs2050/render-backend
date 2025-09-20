@@ -40,6 +40,8 @@ export class ChatController {
   @Get(':chatId/messages')
   async getMessages(@Param('chatId') chatId: string, @Req() req) {
     const messages = await this.chatService.getMessages(chatId, req.user.id);
+    // Mark messages as read when user views them
+    await this.chatService.markMessagesAsRead(chatId, req.user.id);
     return {
       status: true,
       message: 'Messages retrieved successfully',

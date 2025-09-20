@@ -99,6 +99,15 @@ export class ChatService {
           order: { createdAt: 'DESC' },
         });
 
+        // Count unread messages (messages not sent by current user and not read)
+        const unreadCount = await this.messageRepository.count({
+          where: {
+            chatId: chat.id,
+            senderId: userId === chat.creatorId ? chat.makerId : chat.creatorId,
+            isRead: false,
+          },
+        });
+
         return {
           ...chat,
           creator: {
@@ -109,6 +118,7 @@ export class ChatService {
             ...chat.maker,
             avatar: chat.maker.profilePicture,
           },
+          unreadCount,
           lastMessage: lastMessage ? {
             content: lastMessage.content,
             type: lastMessage.type,
@@ -174,5 +184,17 @@ export class ChatService {
 
     chat.escrowStatus = 'completed';
     return this.chatRepository.save(chat);
+  }
+
+  async markMessagesAsRead(chatId: string, userId: string): Promise<void> {
+    const chat = await this.validateChatAccess(chatId, userId);
+    if (!chat) throw new ForbiddenException('Not authorized to access this chat');
+
+    // Mark all messages from other user as read
+    const otherUserId = userId === chat.creatorId ? chat.makerId : chat.creatorId;
+    await this.messageRepository.update(
+      { chatId, senderId: otherUserId, isRead: false },
+      { isRead: true }
+    );
   }
 }
