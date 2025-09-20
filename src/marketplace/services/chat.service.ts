@@ -51,48 +51,37 @@ export class ChatService {
     actionType?: string,
     attachments?: string[]
   ): Promise<Message> {
-    const chat = await this.validateChatAccess(chatId, senderId);
-    if (!chat) throw new ForbiddenException('Not authorized to send messages in this chat');
+    try {
+      const chat = await this.validateChatAccess(chatId, senderId);
+      if (!chat) throw new ForbiddenException('Not authorized to send messages in this chat');
 
-    // Validate image size if sending an image
-    if (type === MessageType.IMAGE && content) {
-      if (!content.startsWith('data:image/')) {
-        throw new BadRequestException('Invalid image format');
-      }
-      const base64Data = content.split(',')[1] || content;
-      const imageSizeKB = Buffer.byteLength(base64Data, 'base64') / 1024;
-      if (imageSizeKB > 5120) {
-        throw new BadRequestException('Image size must be less than 5MB');
-      }
-    }
+      return await this.chatRepository.manager.transaction(async manager => {
+        const message = manager.create(Message, {
+          chatId,
+          senderId,
+          content,
+          type,
+          actionType,
+          attachments: attachments || [],
+        });
 
-    // Set message type based on content if not explicitly provided
-    const messageType = type;
+        const savedMessage = await manager.save(message);
+        
+        if (deliveryDetails) {
+          await manager.upsert(DeliveryDetails, { chatId, ...deliveryDetails }, ['chatId']);
+        }
 
-    return await this.chatRepository.manager.transaction(async manager => {
-      const message = manager.create(Message, {
-        chatId,
-        senderId,
-        content,
-        type: messageType,
-        actionType,
-        attachments: attachments || [],
+        if (measurements) {
+          await manager.upsert(Measurements, { chatId, ...measurements }, ['chatId']);
+        }
+        
+        await manager.update(Chat, chatId, { lastMessageAt: new Date() });
+
+        return savedMessage;
       });
-
-      const savedMessage = await manager.save(message);
-      
-      if (deliveryDetails) {
-        await this.saveDeliveryDetailsInTransaction(manager, chatId, deliveryDetails);
-      }
-
-      if (measurements) {
-        await this.saveMeasurementsInTransaction(manager, chatId, measurements);
-      }
-      
-      await manager.update(Chat, chatId, { lastMessageAt: new Date() });
-
-      return savedMessage;
-    });
+    } catch (error) {
+      throw error;
+    }
   }
 
   async getMessages(chatId: string, userId: string): Promise<any[]> {
@@ -115,60 +104,58 @@ export class ChatService {
   }
 
   async getUserChats(userId: string): Promise<any[]> {
-    const chats = await this.chatRepository.find({
-      where: [{ creatorId: userId }, { makerId: userId }],
-      relations: ['job', 'creator', 'maker'],
-      order: { lastMessageAt: 'DESC' },
-    });
+    try {
+      const chats = await this.chatRepository.find({
+        where: [{ creatorId: userId }, { makerId: userId }],
+        relations: ['job', 'creator', 'maker'],
+        order: { lastMessageAt: 'DESC' },
+      });
 
-    if (!chats.length) return [];
+      if (!chats.length) return [];
 
-    const chatIds = chats.map(c => c.id);
-    
-    // Get last messages in batch
-    const lastMessages = await this.messageRepository
-      .createQueryBuilder('m')
-      .leftJoinAndSelect('m.sender', 's')
-      .where('m.id IN (' +
-        'SELECT DISTINCT ON ("chatId") id FROM messages ' +
-        'WHERE "chatId" = ANY(:chatIds) ' +
-        'ORDER BY "chatId", "createdAt" DESC'
-      + ')', { chatIds })
-      .getMany();
+      const chatIds = chats.map(c => c.id);
+      
+      const lastMessages = await this.messageRepository
+        .createQueryBuilder('m')
+        .leftJoinAndSelect('m.sender', 's')
+        .where('m.id IN (' +
+          'SELECT DISTINCT ON ("chatId") id FROM messages ' +
+          'WHERE "chatId" = ANY(:chatIds) ' +
+          'ORDER BY "chatId", "createdAt" DESC'
+        + ')', { chatIds })
+        .getMany();
 
-    // Get unread counts in batch
-    const unreadCounts = await this.messageRepository.query(`
-      SELECT m."chatId", COUNT(*) as count
-      FROM messages m
-      JOIN chats c ON m."chatId" = c.id
-      WHERE m."chatId" = ANY($1)
-        AND m."isRead" = false
-        AND m."senderId" = CASE 
-          WHEN c."creatorId" = $2 THEN c."makerId" 
-          ELSE c."creatorId" 
-        END
-      GROUP BY m."chatId"
-    `, [chatIds, userId]);
+      const unreadCounts = await this.messageRepository.query(`
+        SELECT m."chatId", COUNT(*) as count
+        FROM messages m
+        WHERE m."chatId" = ANY($1)
+          AND m."isRead" = false
+          AND m."senderId" != $2
+        GROUP BY m."chatId"
+      `, [chatIds, userId]);
 
-    const lastMessageMap = new Map(lastMessages.map(m => [m.chatId, m]));
-    const unreadCountMap = new Map(unreadCounts.map(u => [u.chatId, parseInt(u.count)]));
+      const lastMessageMap = new Map(lastMessages.map(m => [m.chatId, m]));
+      const unreadCountMap = new Map(unreadCounts.map(u => [u.chatId, parseInt(u.count)]));
 
-    return chats.map(chat => ({
-      ...chat,
-      creator: { ...chat.creator, avatar: chat.creator.profilePicture },
-      maker: { ...chat.maker, avatar: chat.maker.profilePicture },
-      unreadCount: unreadCountMap.get(chat.id) || 0,
-      lastMessage: lastMessageMap.get(chat.id) ? {
-        content: lastMessageMap.get(chat.id).content,
-        type: lastMessageMap.get(chat.id).type,
-        createdAt: lastMessageMap.get(chat.id).createdAt,
-        sender: {
-          id: lastMessageMap.get(chat.id).sender.id,
-          fullName: lastMessageMap.get(chat.id).sender.fullName,
-          avatar: lastMessageMap.get(chat.id).sender.profilePicture,
-        },
-      } : null,
-    }));
+      return chats.map(chat => ({
+        ...chat,
+        creator: { ...chat.creator, avatar: chat.creator.profilePicture },
+        maker: { ...chat.maker, avatar: chat.maker.profilePicture },
+        unreadCount: unreadCountMap.get(chat.id) || 0,
+        lastMessage: lastMessageMap.get(chat.id) ? {
+          content: lastMessageMap.get(chat.id).content,
+          type: lastMessageMap.get(chat.id).type,
+          createdAt: lastMessageMap.get(chat.id).createdAt,
+          sender: {
+            id: lastMessageMap.get(chat.id).sender.id,
+            fullName: lastMessageMap.get(chat.id).sender.fullName,
+            avatar: lastMessageMap.get(chat.id).sender.profilePicture,
+          },
+        } : null,
+      }));
+    } catch (error) {
+      throw error;
+    }
   }
 
   async validateChatAccess(chatId: string, userId: string): Promise<Chat | null> {
@@ -225,20 +212,11 @@ export class ChatService {
     const chat = await this.validateChatAccess(chatId, userId);
     if (!chat) throw new ForbiddenException('Not authorized to access this chat');
 
-    // Mark all messages from other user as read
     const otherUserId = userId === chat.creatorId ? chat.makerId : chat.creatorId;
     await this.messageRepository.update(
       { chatId, senderId: otherUserId, isRead: false },
       { isRead: true }
     );
-  }
-
-  private async saveDeliveryDetailsInTransaction(manager: EntityManager, chatId: string, deliveryDetailsDto: DeliveryDetailsDto): Promise<void> {
-    await manager.upsert(DeliveryDetails, { chatId, ...deliveryDetailsDto }, ['chatId']);
-  }
-
-  private async saveMeasurementsInTransaction(manager: EntityManager, chatId: string, measurementsDto: MeasurementsDto): Promise<void> {
-    await manager.upsert(Measurements, { chatId, ...measurementsDto }, ['chatId']);
   }
 
   async getDeliveryDetails(chatId: string, userId: string): Promise<DeliveryDetails | null> {
