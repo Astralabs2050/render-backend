@@ -68,11 +68,21 @@ export class ChatService {
         const savedMessage = await manager.save(message);
         
         if (deliveryDetails) {
-          await manager.upsert(DeliveryDetails, { chatId, ...deliveryDetails }, ['chatId']);
+          const existing = await manager.findOne(DeliveryDetails, { where: { chatId } });
+          if (existing) {
+            await manager.update(DeliveryDetails, { chatId }, deliveryDetails);
+          } else {
+            await manager.save(DeliveryDetails, { chatId, ...deliveryDetails });
+          }
         }
 
         if (measurements) {
-          await manager.upsert(Measurements, { chatId, ...measurements }, ['chatId']);
+          const existing = await manager.findOne(Measurements, { where: { chatId } });
+          if (existing) {
+            await manager.update(Measurements, { chatId }, measurements);
+          } else {
+            await manager.save(Measurements, { chatId, ...measurements });
+          }
         }
         
         await manager.update(Chat, chatId, { lastMessageAt: new Date() });
