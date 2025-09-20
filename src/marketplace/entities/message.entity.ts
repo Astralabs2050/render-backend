@@ -8,8 +8,7 @@ export enum MessageType {
   IMAGE = 'image',
   FILE = 'file',
   SYSTEM = 'system',
-  DELIVERY_DETAILS = 'delivery_details',
-  MEASUREMENTS = 'measurements'
+  DELIVERY_AND_MEASUREMENTS = 'delivery_and_measurements'
 }
 
 @Entity('messages')

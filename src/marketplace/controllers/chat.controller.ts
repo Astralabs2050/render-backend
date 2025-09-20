@@ -1,13 +1,18 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, Req, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ChatService } from '../services/chat.service';
 import { MessageType } from '../entities/message.entity';
 import { SendMessageWithDetailsDto } from '../dto/delivery-measurements.dto';
+import { CloudinaryService } from '../../common/services/cloudinary.service';
 
 @Controller('marketplace/chat')
 @UseGuards(JwtAuthGuard)
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   @Post('create')
   async createChat(@Body() body: { jobId: string; makerId: string }, @Req() req) {
@@ -29,10 +34,11 @@ export class ChatController {
       chatId,
       req.user.id,
       body.content,
-      body.type,
+      body.type || MessageType.TEXT,
       body.deliveryDetails,
       body.measurements,
-      body.actionType
+      body.actionType,
+      body.attachments
     );
     return {
       status: true,
@@ -114,6 +120,28 @@ export class ChatController {
       status: true,
       message: 'Measurements retrieved successfully',
       data: measurements,
+    };
+  }
+
+  @Post('upload-image')
+  @UseInterceptors(FileInterceptor('image', {
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only image files allowed'), false);
+      }
+    },
+  }))
+  async uploadImage(@UploadedFile() file: Express.Multer.File, @Req() req) {
+    const result = await this.cloudinaryService.uploadImage(file.buffer, {
+      folder: 'chat-images'
+    });
+    return {
+      status: true,
+      message: 'Image uploaded successfully',
+      data: { imageUrl: result.secure_url },
     };
   }
 

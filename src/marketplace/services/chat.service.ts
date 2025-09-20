@@ -48,7 +48,8 @@ export class ChatService {
     type: MessageType = MessageType.TEXT,
     deliveryDetails?: DeliveryDetailsDto,
     measurements?: MeasurementsDto,
-    actionType?: string
+    actionType?: string,
+    attachments?: string[]
   ): Promise<Message> {
     const chat = await this.validateChatAccess(chatId, senderId);
     if (!chat) throw new ForbiddenException('Not authorized to send messages in this chat');
@@ -66,9 +67,7 @@ export class ChatService {
     }
 
     // Set message type based on content if not explicitly provided
-    const messageType = type === MessageType.TEXT && deliveryDetails ? MessageType.DELIVERY_DETAILS
-      : type === MessageType.TEXT && measurements ? MessageType.MEASUREMENTS
-      : type;
+    const messageType = type;
 
     return await this.chatRepository.manager.transaction(async manager => {
       const message = manager.create(Message, {
@@ -77,6 +76,7 @@ export class ChatService {
         content,
         type: messageType,
         actionType,
+        attachments: attachments || [],
       });
 
       const savedMessage = await manager.save(message);

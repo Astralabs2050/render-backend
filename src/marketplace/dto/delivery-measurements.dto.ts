@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsNumber, IsPositive } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsNumber, IsPositive, IsArray } from 'class-validator';
 import { DeliveryStatus } from '../entities/delivery-details.entity';
 import { MessageType } from '../entities/message.entity';
 
@@ -77,6 +77,11 @@ export class SendMessageWithDetailsDto {
   @IsOptional()
   @IsEnum(MessageType)
   type?: MessageType;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  attachments?: string[];
 
   @IsOptional()
   @IsString()
