@@ -1,4 +1,4 @@
-import { IsUUID, IsString, IsNotEmpty } from 'class-validator';
+import { IsUUID, IsString, IsNotEmpty, IsOptional } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class MintNFTRequestDto {
@@ -14,4 +14,8 @@ export class MintNFTRequestDto {
   @IsString()
   @IsNotEmpty({ message: 'paymentTransactionHash is required' })
   paymentTransactionHash: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
 }
