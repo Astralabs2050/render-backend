@@ -45,7 +45,7 @@ export class Web3Controller {
                 timestamp: new Date().toISOString()
             });
 
-            const nft = await this.nftService.mintFromChatDesign(req.user.id, body.chatId, body.selectedVariation, body.paymentTransactionHash);
+            const nft = await this.nftService.mintFromChatDesign(req.user.id, body.chatId, body.selectedVariation, body.paymentTransactionHash, body.name);
             
             const duration = Date.now() - startTime;
             console.log(`[${requestId}] NFT minting completed successfully`, {

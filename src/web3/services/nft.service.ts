@@ -207,7 +207,7 @@ export class NFTService {
       throw error;
     }
   }
-  async mintFromChatDesign(userId: string, chatId: string, selectedVariation: string, paymentTransactionHash: string): Promise<NFT> {
+  async mintFromChatDesign(userId: string, chatId: string, selectedVariation: string, paymentTransactionHash: string, customName?: string): Promise<NFT> {
     try {
       this.logger.log(`Minting design from chat: ${chatId}, variation: ${selectedVariation}, userId: ${userId}`);
       
@@ -301,11 +301,11 @@ export class NFTService {
       );
       
       const userMessages = messages.map(m => m.content).join(' ');
-      const designName = `Custom Design - ${userMessages.substring(0, 50)}...`;
+      const defaultName = `Custom Design - ${userMessages.substring(0, 50)}...`;
       
       // Create NFT with initial values (price/quantity set later in hire/publish flows)
       const nft = await this.createNFT({
-        name: designName,
+        name: customName || defaultName,
         description: `Custom fashion design created through AI chat`,
         category: 'AI Generated Design',
         price: 0, // Will be set in publish to marketplace
