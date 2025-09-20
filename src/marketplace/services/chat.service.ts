@@ -1,9 +1,12 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { Chat } from '../entities/chat.entity';
 import { Message, MessageType } from '../entities/message.entity';
 import { Job } from '../entities/job.entity';
+import { DeliveryDetails } from '../entities/delivery-details.entity';
+import { Measurements } from '../entities/measurements.entity';
+import { DeliveryDetailsDto, MeasurementsDto } from '../dto/delivery-measurements.dto';
 
 @Injectable()
 export class ChatService {
@@ -14,6 +17,10 @@ export class ChatService {
     private messageRepository: Repository<Message>,
     @InjectRepository(Job)
     private jobRepository: Repository<Job>,
+    @InjectRepository(DeliveryDetails)
+    private deliveryDetailsRepository: Repository<DeliveryDetails>,
+    @InjectRepository(Measurements)
+    private measurementsRepository: Repository<Measurements>,
   ) {}
 
   async createChat(jobId: string, creatorId: string, makerId: string): Promise<Chat> {
@@ -34,36 +41,63 @@ export class ChatService {
     return this.chatRepository.save(chat);
   }
 
-  async sendMessage(chatId: string, senderId: string, content: string, type: MessageType = MessageType.TEXT): Promise<Message> {
-    const chat = await this.chatRepository.findOne({ where: { id: chatId } });
-    if (!chat) throw new NotFoundException('Chat not found');
+  async sendMessage(
+    chatId: string, 
+    senderId: string, 
+    content: string, 
+    type: MessageType = MessageType.TEXT,
+    deliveryDetails?: DeliveryDetailsDto,
+    measurements?: MeasurementsDto,
+    actionType?: string,
+    attachments?: string[]
+  ): Promise<Message> {
+    const chat = await this.validateChatAccess(chatId, senderId);
+    if (!chat) throw new ForbiddenException('Not authorized to send messages in this chat');
 
-    if (chat.creatorId !== senderId && chat.makerId !== senderId) {
-      throw new ForbiddenException('Not authorized to send messages in this chat');
+    // Validate image size if sending an image
+    if (type === MessageType.IMAGE && content) {
+      if (!content.startsWith('data:image/')) {
+        throw new BadRequestException('Invalid image format');
+      }
+      const base64Data = content.split(',')[1] || content;
+      const imageSizeKB = Buffer.byteLength(base64Data, 'base64') / 1024;
+      if (imageSizeKB > 5120) {
+        throw new BadRequestException('Image size must be less than 5MB');
+      }
     }
 
-    const message = this.messageRepository.create({
-      chatId,
-      senderId,
-      content,
-      type,
+    // Set message type based on content if not explicitly provided
+    const messageType = type;
+
+    return await this.chatRepository.manager.transaction(async manager => {
+      const message = manager.create(Message, {
+        chatId,
+        senderId,
+        content,
+        type: messageType,
+        actionType,
+        attachments: attachments || [],
+      });
+
+      const savedMessage = await manager.save(message);
+      
+      if (deliveryDetails) {
+        await this.saveDeliveryDetailsInTransaction(manager, chatId, deliveryDetails);
+      }
+
+      if (measurements) {
+        await this.saveMeasurementsInTransaction(manager, chatId, measurements);
+      }
+      
+      await manager.update(Chat, chatId, { lastMessageAt: new Date() });
+
+      return savedMessage;
     });
-
-    const savedMessage = await this.messageRepository.save(message);
-    
-    chat.lastMessageAt = new Date();
-    await this.chatRepository.save(chat);
-
-    return savedMessage;
   }
 
   async getMessages(chatId: string, userId: string): Promise<any[]> {
-    const chat = await this.chatRepository.findOne({ where: { id: chatId } });
-    if (!chat) throw new NotFoundException('Chat not found');
-
-    if (chat.creatorId !== userId && chat.makerId !== userId) {
-      throw new ForbiddenException('Not authorized to view this chat');
-    }
+    const chat = await this.validateChatAccess(chatId, userId);
+    if (!chat) throw new ForbiddenException('Not authorized to view this chat');
 
     const messages = await this.messageRepository.find({
       where: { chatId },
@@ -82,58 +116,59 @@ export class ChatService {
 
   async getUserChats(userId: string): Promise<any[]> {
     const chats = await this.chatRepository.find({
-      where: [
-        { creatorId: userId },
-        { makerId: userId }
-      ],
+      where: [{ creatorId: userId }, { makerId: userId }],
       relations: ['job', 'creator', 'maker'],
       order: { lastMessageAt: 'DESC' },
     });
 
-    // Get last message for each chat
-    const chatsWithLastMessage = await Promise.all(
-      chats.map(async (chat) => {
-        const lastMessage = await this.messageRepository.findOne({
-          where: { chatId: chat.id },
-          relations: ['sender'],
-          order: { createdAt: 'DESC' },
-        });
+    if (!chats.length) return [];
 
-        // Count unread messages (messages not sent by current user and not read)
-        const unreadCount = await this.messageRepository.count({
-          where: {
-            chatId: chat.id,
-            senderId: userId === chat.creatorId ? chat.makerId : chat.creatorId,
-            isRead: false,
-          },
-        });
+    const chatIds = chats.map(c => c.id);
+    
+    // Get last messages in batch
+    const lastMessages = await this.messageRepository
+      .createQueryBuilder('m')
+      .leftJoinAndSelect('m.sender', 's')
+      .where('m.id IN (' +
+        'SELECT DISTINCT ON ("chatId") id FROM messages ' +
+        'WHERE "chatId" = ANY(:chatIds) ' +
+        'ORDER BY "chatId", "createdAt" DESC'
+      + ')', { chatIds })
+      .getMany();
 
-        return {
-          ...chat,
-          creator: {
-            ...chat.creator,
-            avatar: chat.creator.profilePicture,
-          },
-          maker: {
-            ...chat.maker,
-            avatar: chat.maker.profilePicture,
-          },
-          unreadCount,
-          lastMessage: lastMessage ? {
-            content: lastMessage.content,
-            type: lastMessage.type,
-            createdAt: lastMessage.createdAt,
-            sender: {
-              id: lastMessage.sender.id,
-              fullName: lastMessage.sender.fullName,
-              avatar: lastMessage.sender.profilePicture,
-            },
-          } : null,
-        };
-      })
-    );
+    // Get unread counts in batch
+    const unreadCounts = await this.messageRepository.query(`
+      SELECT m."chatId", COUNT(*) as count
+      FROM messages m
+      JOIN chats c ON m."chatId" = c.id
+      WHERE m."chatId" = ANY($1)
+        AND m."isRead" = false
+        AND m."senderId" = CASE 
+          WHEN c."creatorId" = $2 THEN c."makerId" 
+          ELSE c."creatorId" 
+        END
+      GROUP BY m."chatId"
+    `, [chatIds, userId]);
 
-    return chatsWithLastMessage;
+    const lastMessageMap = new Map(lastMessages.map(m => [m.chatId, m]));
+    const unreadCountMap = new Map(unreadCounts.map(u => [u.chatId, parseInt(u.count)]));
+
+    return chats.map(chat => ({
+      ...chat,
+      creator: { ...chat.creator, avatar: chat.creator.profilePicture },
+      maker: { ...chat.maker, avatar: chat.maker.profilePicture },
+      unreadCount: unreadCountMap.get(chat.id) || 0,
+      lastMessage: lastMessageMap.get(chat.id) ? {
+        content: lastMessageMap.get(chat.id).content,
+        type: lastMessageMap.get(chat.id).type,
+        createdAt: lastMessageMap.get(chat.id).createdAt,
+        sender: {
+          id: lastMessageMap.get(chat.id).sender.id,
+          fullName: lastMessageMap.get(chat.id).sender.fullName,
+          avatar: lastMessageMap.get(chat.id).sender.profilePicture,
+        },
+      } : null,
+    }));
   }
 
   async validateChatAccess(chatId: string, userId: string): Promise<Chat | null> {
@@ -196,5 +231,38 @@ export class ChatService {
       { chatId, senderId: otherUserId, isRead: false },
       { isRead: true }
     );
+  }
+
+  private async saveDeliveryDetailsInTransaction(manager: EntityManager, chatId: string, deliveryDetailsDto: DeliveryDetailsDto): Promise<void> {
+    await manager.upsert(DeliveryDetails, { chatId, ...deliveryDetailsDto }, ['chatId']);
+  }
+
+  private async saveMeasurementsInTransaction(manager: EntityManager, chatId: string, measurementsDto: MeasurementsDto): Promise<void> {
+    await manager.upsert(Measurements, { chatId, ...measurementsDto }, ['chatId']);
+  }
+
+  async getDeliveryDetails(chatId: string, userId: string): Promise<DeliveryDetails | null> {
+    const chat = await this.validateChatAccess(chatId, userId);
+    if (!chat) throw new ForbiddenException('Not authorized to access this chat');
+
+    return this.deliveryDetailsRepository.findOne({ where: { chatId } });
+  }
+
+  async getMeasurements(chatId: string, userId: string): Promise<Measurements | null> {
+    const chat = await this.validateChatAccess(chatId, userId);
+    if (!chat) throw new ForbiddenException('Not authorized to access this chat');
+
+    return this.measurementsRepository.findOne({ where: { chatId } });
+  }
+
+  async markJobCompleted(chatId: string, userId: string): Promise<Message> {
+    const chat = await this.validateChatAccess(chatId, userId);
+    if (!chat) throw new ForbiddenException('Not authorized to access this chat');
+    
+    if (chat.creatorId !== userId) {
+      throw new ForbiddenException('Only the job creator can mark job as completed');
+    }
+
+    return this.sendMessage(chatId, userId, 'Job has been completed', MessageType.SYSTEM, undefined, undefined, 'job_completed');
   }
 }

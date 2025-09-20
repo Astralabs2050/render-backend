@@ -7,7 +7,8 @@ export enum MessageType {
   TEXT = 'text',
   IMAGE = 'image',
   FILE = 'file',
-  SYSTEM = 'system'
+  SYSTEM = 'system',
+  DELIVERY_AND_MEASUREMENTS = 'delivery_and_measurements'
 }
 
 @Entity('messages')
@@ -37,4 +38,7 @@ export class Message extends BaseEntity {
 
   @Column({ default: false })
   isRead: boolean;
+
+  @Column({ nullable: true })
+  actionType: string;
 }

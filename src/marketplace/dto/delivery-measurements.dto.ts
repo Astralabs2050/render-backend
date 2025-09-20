@@ -1,0 +1,95 @@
+import { IsString, IsOptional, IsEnum, IsNumber, IsPositive, IsArray } from 'class-validator';
+import { DeliveryStatus } from '../entities/delivery-details.entity';
+import { MessageType } from '../entities/message.entity';
+
+export class DeliveryDetailsDto {
+  @IsString()
+  country: string;
+
+  @IsString()
+  name: string;
+
+  @IsString()
+  phone: string;
+
+  @IsString()
+  address: string;
+
+  @IsOptional()
+  @IsEnum(DeliveryStatus)
+  status?: DeliveryStatus;
+}
+
+export class MeasurementsDto {
+  @IsNumber()
+  @IsPositive()
+  neck: number;
+
+  @IsNumber()
+  @IsPositive()
+  chest: number;
+
+  @IsNumber()
+  @IsPositive()
+  armLeft: number;
+
+  @IsNumber()
+  @IsPositive()
+  armRight: number;
+
+  @IsNumber()
+  @IsPositive()
+  waist: number;
+
+  @IsNumber()
+  @IsPositive()
+  weight: number;
+
+  @IsNumber()
+  @IsPositive()
+  hips: number;
+
+  @IsNumber()
+  @IsPositive()
+  legs: number;
+
+  @IsNumber()
+  @IsPositive()
+  thighLeft: number;
+
+  @IsNumber()
+  @IsPositive()
+  thighRight: number;
+
+  @IsNumber()
+  @IsPositive()
+  calfLeft: number;
+
+  @IsNumber()
+  @IsPositive()
+  calfRight: number;
+}
+
+export class SendMessageWithDetailsDto {
+  @IsString()
+  content: string;
+
+  @IsOptional()
+  @IsEnum(MessageType)
+  type?: MessageType;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  attachments?: string[];
+
+  @IsOptional()
+  @IsString()
+  actionType?: string;
+
+  @IsOptional()
+  deliveryDetails?: DeliveryDetailsDto;
+
+  @IsOptional()
+  measurements?: MeasurementsDto;
+}
