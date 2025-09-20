@@ -27,12 +27,19 @@ export class DesignWorkflowService {
       
       const designImages = [];
       let successCount = 0;
+      let baseStylePrompt = null;
       
       for (let i = 0; i < 3; i++) {
         try {
-          const imageUrl = await this.openaiService.generateDesignImage(prompt);
+          const imageUrl = await this.openaiService.generateConsistentDesignImage(prompt, baseStylePrompt, i);
           designImages.push(imageUrl);
           successCount++;
+          
+          // Use first successful generation as style reference
+          if (!baseStylePrompt && successCount === 1) {
+            baseStylePrompt = prompt;
+          }
+          
           this.logger.log(`Generated design variation ${i + 1}: ${imageUrl}`);
         } catch (error) {
           this.logger.error(`Failed to generate design variation ${i + 1}: ${error.message}`);
@@ -90,15 +97,22 @@ export class DesignWorkflowService {
         await this.chatService.updateChat(chatForGuards.id, { metadata: { ...chatForGuards.metadata, generating: true } });
       }
 
-      // Generate 3 design variations
+      // Generate 3 design variations with consistent style
       const designImages = [];
       let successCount = 0;
+      let baseStylePrompt = null;
       
       for (let i = 0; i < 3; i++) {
         try {
-          const imageUrl = await this.openaiService.generateDesignImage(dto.prompt, dto.fabricImageBase64);
+          const imageUrl = await this.openaiService.generateConsistentDesignImage(dto.prompt, baseStylePrompt, i, dto.fabricImageBase64);
           designImages.push(imageUrl);
           successCount++;
+          
+          // Use first successful generation as style reference
+          if (!baseStylePrompt && successCount === 1) {
+            baseStylePrompt = dto.prompt;
+          }
+          
           this.logger.log(`Generated design ${i + 1}: ${imageUrl}`);
         } catch (error) {
           this.logger.error(`Failed to generate design image ${i + 1}: ${error.message}`);
