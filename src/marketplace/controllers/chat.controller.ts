@@ -135,6 +135,14 @@ export class ChatController {
     },
   }))
   async uploadImage(@UploadedFile() file: Express.Multer.File, @Req() req) {
+    if (!file) {
+      return {
+        status: false,
+        message: 'No image file provided',
+        data: null,
+      };
+    }
+
     const result = await this.cloudinaryService.uploadImage(file.buffer, {
       folder: 'chat-images'
     });
