@@ -50,7 +50,7 @@ export class ChatService {
     measurements?: MeasurementsDto,
     actionType?: string,
     attachments?: string[]
-  ): Promise<Message> {
+  ): Promise<any> {
     try {
       const chat = await this.validateChatAccess(chatId, senderId);
       if (!chat) throw new ForbiddenException('Not authorized to send messages in this chat');
@@ -87,7 +87,18 @@ export class ChatService {
         
         await manager.update(Chat, chatId, { lastMessageAt: new Date() });
 
-        return savedMessage;
+        const messageWithSender = await manager.findOne(Message, {
+          where: { id: savedMessage.id },
+          relations: ['sender']
+        });
+
+        return {
+          ...messageWithSender,
+          sender: {
+            ...messageWithSender.sender,
+            avatar: messageWithSender.sender.profilePicture,
+          },
+        };
       });
     } catch (error) {
       throw error;
