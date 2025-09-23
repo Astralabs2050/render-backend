@@ -153,6 +153,8 @@ export class ChatController {
     };
   }
 
+
+
   @Post(':chatId/complete-job')
   async markJobCompleted(@Param('chatId') chatId: string, @Req() req) {
     const message = await this.chatService.markJobCompleted(chatId, req.user.id);
@@ -162,4 +164,6 @@ export class ChatController {
       data: message,
     };
   }
+
+
 }

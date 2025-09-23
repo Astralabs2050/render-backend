@@ -235,6 +235,8 @@ export class CloudinaryService {
     if (options.gravity) transformation.gravity = options.gravity;
     return transformation;
   }
+
+
   async analyzeDesignImage(publicId: string): Promise<{
     colors: string[];
     tags: string[];
