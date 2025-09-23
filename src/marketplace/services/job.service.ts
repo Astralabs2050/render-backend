@@ -533,7 +533,7 @@ export class JobService {
     }
     
     if (job.status !== JobStatus.OPEN) {
-      throw new BadRequestException('Job is not open for applications');
+      throw new BadRequestException(`Job is not open for applications. Current status: ${job.status}`);
     }
     
     // Check if already applied
