@@ -277,6 +277,18 @@ export class ChatService {
     );
   }
 
+  async getDeliveryAndMeasurements(chatId: string, userId: string): Promise<{ deliveryDetails: DeliveryDetails | null; measurements: Measurements | null }> {
+    const chat = await this.validateChatAccess(chatId, userId);
+    if (!chat) throw new ForbiddenException('Not authorized to access this chat');
+
+    const [deliveryDetails, measurements] = await Promise.all([
+      this.deliveryDetailsRepository.findOne({ where: { chatId } }),
+      this.measurementsRepository.findOne({ where: { chatId } })
+    ]);
+
+    return { deliveryDetails, measurements };
+  }
+
   async getDeliveryDetails(chatId: string, userId: string): Promise<DeliveryDetails | null> {
     const chat = await this.validateChatAccess(chatId, userId);
     if (!chat) throw new ForbiddenException('Not authorized to access this chat');

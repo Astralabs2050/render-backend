@@ -103,6 +103,16 @@ export class ChatController {
     };
   }
 
+  @Get(':chatId/delivery-measurements')
+  async getDeliveryAndMeasurements(@Param('chatId') chatId: string, @Req() req) {
+    const data = await this.chatService.getDeliveryAndMeasurements(chatId, req.user.id);
+    return {
+      status: true,
+      message: 'Delivery details and measurements retrieved successfully',
+      data,
+    };
+  }
+
   @Get(':chatId/delivery-details')
   async getDeliveryDetails(@Param('chatId') chatId: string, @Req() req) {
     const deliveryDetails = await this.chatService.getDeliveryDetails(chatId, req.user.id);
