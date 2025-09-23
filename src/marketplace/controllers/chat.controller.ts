@@ -153,6 +153,37 @@ export class ChatController {
     };
   }
 
+  @Post('upload-file')
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 50 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = /\/(pdf|doc|docx|txt|zip|rar)$/;
+      if (file.mimetype.match(allowedTypes)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only PDF, DOC, DOCX, TXT, ZIP, RAR files allowed'), false);
+      }
+    },
+  }))
+  async uploadFile(@UploadedFile() file: Express.Multer.File, @Req() req) {
+    if (!file) {
+      return {
+        status: false,
+        message: 'No file provided',
+        data: null,
+      };
+    }
+
+    const result = await this.cloudinaryService.uploadFile(file.buffer, file.originalname, {
+      folder: 'chat-files'
+    });
+    return {
+      status: true,
+      message: 'File uploaded successfully',
+      data: { fileUrl: result.secure_url },
+    };
+  }
+
   @Post(':chatId/complete-job')
   async markJobCompleted(@Param('chatId') chatId: string, @Req() req) {
     const message = await this.chatService.markJobCompleted(chatId, req.user.id);
@@ -162,4 +193,6 @@ export class ChatController {
       data: message,
     };
   }
+
+
 }

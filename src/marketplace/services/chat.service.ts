@@ -55,6 +55,14 @@ export class ChatService {
       const chat = await this.validateChatAccess(chatId, senderId);
       if (!chat) throw new ForbiddenException('Not authorized to send messages in this chat');
 
+      // Handle payment action validations
+      if (actionType === 'payment_request' && chat.makerId !== senderId) {
+        throw new ForbiddenException('Only the maker can request payment');
+      }
+      if (actionType === 'payment_approved' && chat.creatorId !== senderId) {
+        throw new ForbiddenException('Only the creator can approve payment');
+      }
+
       return await this.chatRepository.manager.transaction(async manager => {
         const message = manager.create(Message, {
           chatId,
@@ -84,6 +92,15 @@ export class ChatService {
             await manager.save(Measurements, { chatId, ...measurements });
           }
         }
+
+        // Handle payment approval - release escrow
+        if (actionType === 'payment_approved') {
+          const chatToUpdate = await manager.findOne(Chat, { where: { id: chatId } });
+          if (!chatToUpdate || chatToUpdate.escrowStatus !== 'funded') {
+            throw new BadRequestException('Escrow must be funded before payment can be approved');
+          }
+          await manager.update(Chat, chatId, { escrowStatus: 'completed' });
+        }
         
         await manager.update(Chat, chatId, { lastMessageAt: new Date() });
 
@@ -96,7 +113,7 @@ export class ChatService {
           ...messageWithSender,
           sender: {
             ...messageWithSender.sender,
-            avatar: messageWithSender.sender.profilePicture,
+            avatar: messageWithSender.sender.profilePicture || null,
           },
         };
       });
@@ -119,7 +136,7 @@ export class ChatService {
       ...message,
       sender: {
         ...message.sender,
-        avatar: message.sender.profilePicture,
+        avatar: message.sender.profilePicture || null,
       },
     }));
   }
@@ -160,8 +177,8 @@ export class ChatService {
 
       return chats.map(chat => ({
         ...chat,
-        creator: { ...chat.creator, avatar: chat.creator.profilePicture },
-        maker: { ...chat.maker, avatar: chat.maker.profilePicture },
+        creator: { ...chat.creator, avatar: chat.creator.profilePicture || null },
+        maker: { ...chat.maker, avatar: chat.maker.profilePicture || null },
         unreadCount: unreadCountMap.get(chat.id) || 0,
         lastMessage: lastMessageMap.get(chat.id) ? {
           content: lastMessageMap.get(chat.id).content,
@@ -170,7 +187,7 @@ export class ChatService {
           sender: {
             id: lastMessageMap.get(chat.id).sender.id,
             fullName: lastMessageMap.get(chat.id).sender.fullName,
-            avatar: lastMessageMap.get(chat.id).sender.profilePicture,
+            avatar: lastMessageMap.get(chat.id).sender.profilePicture || null,
           },
         } : null,
       }));
@@ -264,4 +281,8 @@ export class ChatService {
 
     return this.sendMessage(chatId, userId, 'Job has been completed', MessageType.SYSTEM, undefined, undefined, 'job_completed');
   }
+
+
+
+
 }

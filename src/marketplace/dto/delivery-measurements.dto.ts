@@ -93,3 +93,4 @@ export class SendMessageWithDetailsDto {
   @IsOptional()
   measurements?: MeasurementsDto;
 }
+
