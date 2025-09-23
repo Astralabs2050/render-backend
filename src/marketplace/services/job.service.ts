@@ -523,7 +523,7 @@ export class JobService {
   async applyToJobWithPortfolio(jobId: string, applicationDto: any, makerId: string): Promise<any> {
     const job = await this.findJobById(jobId);
     
-    // Verify maker exists
+    // 1. Verify maker exists
     const maker = await this.userRepository.findOne({
       where: { id: makerId, userType: UserType.MAKER }
     });
@@ -532,11 +532,12 @@ export class JobService {
       throw new BadRequestException('Only makers can apply to jobs');
     }
     
+    // 2. Check job status FIRST
     if (job.status !== JobStatus.OPEN) {
       throw new BadRequestException(`Job is not open for applications. Current status: ${job.status}`);
     }
     
-    // Check if already applied
+    // 3. Check if already applied AFTER status validation
     const existingApplication = await this.jobRepository.manager.query(
       'SELECT id FROM job_applications WHERE job_id = $1 AND maker_id = $2',
       [jobId, makerId]
@@ -548,17 +549,16 @@ export class JobService {
     
     // Create application with portfolio info
     const application = await this.jobRepository.manager.query(
-      `INSERT INTO job_applications (job_id, maker_id, portfolio_links, selected_projects, proposed_amount, minimum_negotiable_amount, timeline, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', NOW(), NOW())
+      `INSERT INTO job_applications (job_id, maker_id, "portfolioLinks", "selectedProjects", "proposedBudget", "proposedTimeline", status, "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW(), NOW())
        RETURNING *`,
       [
         jobId,
         makerId,
         JSON.stringify(applicationDto.portfolioLinks || []),
         JSON.stringify(applicationDto.selectedProjects || []),
-        applicationDto.proposedAmount,
-        applicationDto.minimumNegotiableAmount,
-        applicationDto.timeline
+        applicationDto.proposedAmount || 0,
+        applicationDto.timeline || 7
       ]
     );
     
