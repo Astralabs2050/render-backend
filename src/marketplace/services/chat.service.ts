@@ -112,7 +112,10 @@ export class ChatService {
         return {
           ...messageWithSender,
           sender: {
-            ...messageWithSender.sender,
+            id: messageWithSender.sender.id,
+            fullName: messageWithSender.sender.fullName,
+            email: messageWithSender.sender.email,
+            userType: messageWithSender.sender.userType,
             avatar: messageWithSender.sender.profilePicture || null,
           },
         };
@@ -135,7 +138,10 @@ export class ChatService {
     return messages.map(message => ({
       ...message,
       sender: {
-        ...message.sender,
+        id: message.sender.id,
+        fullName: message.sender.fullName,
+        email: message.sender.email,
+        userType: message.sender.userType,
         avatar: message.sender.profilePicture || null,
       },
     }));
@@ -177,8 +183,20 @@ export class ChatService {
 
       return chats.map(chat => ({
         ...chat,
-        creator: { ...chat.creator, avatar: chat.creator.profilePicture || null },
-        maker: { ...chat.maker, avatar: chat.maker.profilePicture || null },
+        creator: {
+          id: chat.creator.id,
+          fullName: chat.creator.fullName,
+          email: chat.creator.email,
+          userType: chat.creator.userType,
+          avatar: chat.creator.profilePicture || null,
+        },
+        maker: {
+          id: chat.maker.id,
+          fullName: chat.maker.fullName,
+          email: chat.maker.email,
+          userType: chat.maker.userType,
+          avatar: chat.maker.profilePicture || null,
+        },
         unreadCount: unreadCountMap.get(chat.id) || 0,
         lastMessage: lastMessageMap.get(chat.id) ? {
           content: lastMessageMap.get(chat.id).content,
@@ -187,6 +205,8 @@ export class ChatService {
           sender: {
             id: lastMessageMap.get(chat.id).sender.id,
             fullName: lastMessageMap.get(chat.id).sender.fullName,
+            email: lastMessageMap.get(chat.id).sender.email,
+            userType: lastMessageMap.get(chat.id).sender.userType,
             avatar: lastMessageMap.get(chat.id).sender.profilePicture || null,
           },
         } : null,
