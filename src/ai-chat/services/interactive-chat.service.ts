@@ -415,7 +415,7 @@ Reply with ONLY the state name.`;
     const designSelection = await this.detectDesignSelection(content);
     if (designSelection) {
       // Ask for minting confirmation
-      const mintingConfirmationMsg = `Perfect! You've selected ${designSelection}. Would you like to mint this design as an NFT? This will make it available in your "My Designs" collection. (yes/no)`;
+      const mintingConfirmationMsg = `Perfect! You've selected ${designSelection}. Would you like to bring this to life? This will make it available in your "My Designs" collection. (yes/no)`;
       await this.streamChatService.sendAIMessage(chatId, mintingConfirmationMsg);
       await this.chatService.updateChat(chatId, { 
         metadata: { 
