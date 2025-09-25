@@ -306,12 +306,35 @@ export class ChatService {
   async markJobCompleted(chatId: string, userId: string): Promise<Message> {
     const chat = await this.validateChatAccess(chatId, userId);
     if (!chat) throw new ForbiddenException('Not authorized to access this chat');
-    
+
     if (chat.creatorId !== userId) {
       throw new ForbiddenException('Only the job creator can mark job as completed');
     }
 
     return this.sendMessage(chatId, userId, 'Job has been completed', MessageType.SYSTEM, undefined, undefined, 'job_completed');
+  }
+
+  async deleteMessage(chatId: string, messageId: string, userId: string): Promise<void> {
+    // Verify user has access to the chat
+    const chat = await this.validateChatAccess(chatId, userId);
+    if (!chat) throw new ForbiddenException('Not authorized to access this chat');
+
+    // Find the message
+    const message = await this.messageRepository.findOne({
+      where: { id: messageId, chatId }
+    });
+
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    // Only allow users to delete their own messages
+    if (message.senderId !== userId) {
+      throw new ForbiddenException('You can only delete your own messages');
+    }
+
+    // Delete the message
+    await this.messageRepository.remove(message);
   }
 
 

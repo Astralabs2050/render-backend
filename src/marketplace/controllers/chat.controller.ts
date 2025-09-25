@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Req, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Param, UseGuards, Req, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ChatService } from '../services/chat.service';
@@ -56,6 +56,20 @@ export class ChatController {
       status: true,
       message: 'Messages retrieved successfully',
       data: messages,
+    };
+  }
+
+  @Delete(':chatId/message/:messageId')
+  async deleteMessage(
+    @Param('chatId') chatId: string,
+    @Param('messageId') messageId: string,
+    @Req() req
+  ) {
+    await this.chatService.deleteMessage(chatId, messageId, req.user.id);
+    return {
+      status: true,
+      message: 'Message deleted successfully',
+      data: null,
     };
   }
 
