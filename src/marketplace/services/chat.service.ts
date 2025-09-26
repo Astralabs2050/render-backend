@@ -6,7 +6,7 @@ import { Message, MessageType } from '../entities/message.entity';
 import { Job } from '../entities/job.entity';
 import { DeliveryDetails } from '../entities/delivery-details.entity';
 import { Measurements } from '../entities/measurements.entity';
-import { DeliveryDetailsDto, MeasurementsDto } from '../dto/delivery-measurements.dto';
+import { DeliveryDetailsDto, MeasurementsDto, ApplicationAcceptedDto } from '../dto/delivery-measurements.dto';
 
 @Injectable()
 export class ChatService {
@@ -42,14 +42,15 @@ export class ChatService {
   }
 
   async sendMessage(
-    chatId: string, 
-    senderId: string, 
-    content: string, 
+    chatId: string,
+    senderId: string,
+    content: string,
     type: MessageType = MessageType.TEXT,
     deliveryDetails?: DeliveryDetailsDto,
     measurements?: MeasurementsDto,
     actionType?: string,
-    attachments?: string[]
+    attachments?: string[],
+    applicationData?: ApplicationAcceptedDto
   ): Promise<any> {
     try {
       const chat = await this.validateChatAccess(chatId, senderId);
@@ -71,6 +72,7 @@ export class ChatService {
           type,
           actionType,
           attachments: attachments || [],
+          applicationData: applicationData || null,
         });
 
         const savedMessage = await manager.save(message);
@@ -336,6 +338,7 @@ export class ChatService {
     // Delete the message
     await this.messageRepository.remove(message);
   }
+
 
 
 

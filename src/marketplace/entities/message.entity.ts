@@ -8,7 +8,8 @@ export enum MessageType {
   IMAGE = 'image',
   FILE = 'file',
   SYSTEM = 'system',
-  DELIVERY_AND_MEASUREMENTS = 'delivery_and_measurements'
+  DELIVERY_AND_MEASUREMENTS = 'delivery_and_measurements',
+  APPLICATION_ACCEPTED = 'applicationAccepted'
 }
 
 @Entity('messages')
@@ -41,4 +42,12 @@ export class Message extends BaseEntity {
 
   @Column({ nullable: true })
   actionType: string;
+
+  @Column('jsonb', { nullable: true })
+  applicationData: {
+    title?: string;
+    description?: string;
+    timeline?: string;
+    amount?: number;
+  } | null;
 }

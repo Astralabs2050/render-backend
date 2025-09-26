@@ -38,7 +38,8 @@ export class ChatController {
       body.deliveryDetails,
       body.measurements,
       body.actionType,
-      body.attachments
+      body.attachments,
+      body.applicationData
     );
     return {
       status: true,
@@ -46,6 +47,7 @@ export class ChatController {
       data: message,
     };
   }
+
 
   @Get(':chatId/messages')
   async getMessages(@Param('chatId') chatId: string, @Req() req) {

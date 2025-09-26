@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsEnum, IsNumber, IsPositive, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsNumber, IsPositive, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { DeliveryStatus } from '../entities/delivery-details.entity';
 import { MessageType } from '../entities/message.entity';
 
@@ -92,5 +93,26 @@ export class SendMessageWithDetailsDto {
 
   @IsOptional()
   measurements?: MeasurementsDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ApplicationAcceptedDto)
+  applicationData?: ApplicationAcceptedDto;
 }
+
+export class ApplicationAcceptedDto {
+  @IsString()
+  title: string;
+
+  @IsString()
+  description: string;
+
+  @IsString()
+  timeline: string;
+
+  @IsNumber()
+  @IsPositive()
+  amount: number;
+}
+
 
