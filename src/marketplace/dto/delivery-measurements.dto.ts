@@ -71,6 +71,21 @@ export class MeasurementsDto {
   calfRight: number;
 }
 
+export class ApplicationAcceptedDto {
+  @IsString()
+  title: string;
+
+  @IsString()
+  description: string;
+
+  @IsString()
+  timeline: string;
+
+  @IsNumber()
+  @IsPositive()
+  amount: number;
+}
+
 export class SendMessageWithDetailsDto {
   @IsString()
   content: string;
@@ -99,20 +114,4 @@ export class SendMessageWithDetailsDto {
   @Type(() => ApplicationAcceptedDto)
   applicationData?: ApplicationAcceptedDto;
 }
-
-export class ApplicationAcceptedDto {
-  @IsString()
-  title: string;
-
-  @IsString()
-  description: string;
-
-  @IsString()
-  timeline: string;
-
-  @IsNumber()
-  @IsPositive()
-  amount: number;
-}
-
 
