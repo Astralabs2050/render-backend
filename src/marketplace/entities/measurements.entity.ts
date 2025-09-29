@@ -3,7 +3,7 @@ import { BaseEntity } from '../../common/entities/base.entity';
 import { Chat } from './chat.entity';
 import { MeasurementColumn } from '../../common/decorators/measurement.decorator';
 
-@Entity('measurements')
+@Entity('marketplace_measurements')
 export class Measurements extends BaseEntity {
   @Column()
   chatId: string;

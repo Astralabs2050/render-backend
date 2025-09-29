@@ -2,6 +2,8 @@ import { Entity, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { User } from '../../users/entities/user.entity';
 import { Job } from './job.entity';
+import { DeliveryDetails } from './delivery-details.entity';
+import { Measurements } from './measurements.entity';
 
 @Entity('chats')
 export class Chat extends BaseEntity {
@@ -43,4 +45,10 @@ export class Chat extends BaseEntity {
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   escrowAmount: number;
+
+  @OneToMany(() => DeliveryDetails, deliveryDetails => deliveryDetails.chat)
+  deliveryDetails: DeliveryDetails[];
+
+  @OneToMany(() => Measurements, measurements => measurements.chat)
+  measurements: Measurements[];
 }

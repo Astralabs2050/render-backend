@@ -1,50 +1,45 @@
-import { IsString, IsNotEmpty, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsUUID } from 'class-validator';
 import { DeliveryStatus } from '../entities/delivery-details.entity';
 
 export class CreateDeliveryDetailsDto {
   @IsUUID()
-  @IsNotEmpty()
   chatId: string;
 
   @IsString()
-  @IsNotEmpty()
   country: string;
 
   @IsString()
-  @IsNotEmpty()
   name: string;
 
   @IsString()
-  @IsNotEmpty()
   phone: string;
 
   @IsString()
-  @IsNotEmpty()
   address: string;
 
-  @IsOptional()
   @IsEnum(DeliveryStatus)
+  @IsOptional()
   status?: DeliveryStatus;
 }
 
 export class UpdateDeliveryDetailsDto {
-  @IsOptional()
   @IsString()
+  @IsOptional()
   country?: string;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   name?: string;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   phone?: string;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   address?: string;
 
-  @IsOptional()
   @IsEnum(DeliveryStatus)
+  @IsOptional()
   status?: DeliveryStatus;
 }

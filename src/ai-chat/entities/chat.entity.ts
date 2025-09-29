@@ -1,8 +1,8 @@
 import { Entity, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { User } from '../../users/entities/user.entity';
-import { DeliveryDetails } from './delivery-details.entity';
-import { Measurements } from './measurements.entity';
+// import { DeliveryDetails } from './delivery-details.entity';
+// import { Measurements } from './measurements.entity';
 export enum UserType {
   CREATOR = 'creator',
   MAKER = 'maker',
@@ -62,11 +62,11 @@ export class Chat extends BaseEntity {
   @Column({ nullable: true })
   nftId: string;
 
-  @OneToMany(() => DeliveryDetails, deliveryDetails => deliveryDetails.chat)
-  deliveryDetails: DeliveryDetails[];
+  // @OneToMany(() => DeliveryDetails, deliveryDetails => deliveryDetails.chat)
+  // deliveryDetails: DeliveryDetails[];
 
-  @OneToMany(() => Measurements, measurements => measurements.chat)
-  measurements: Measurements[];
+  // @OneToMany(() => Measurements, measurements => measurements.chat)
+  // measurements: Measurements[];
 }
 @Entity('ai_chat_messages')
 export class ChatMessage extends BaseEntity {
