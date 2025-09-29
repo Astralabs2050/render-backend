@@ -132,6 +132,14 @@ export class JobController {
     }
     return this.jobService.getCreatorApplications(req.user.id);
   }
+
+  @Get('applications/:id/maker-profile')
+  async getMakerApplicationProfile(
+    @Param('id', ParseUUIDPipe) applicationId: string,
+    @Request() req
+  ) {
+    return this.jobService.getMakerApplicationProfile(applicationId, req.user.id);
+  }
   @Post('jobs/:id/complete')
   async completeJob(
     @Param('id', ParseUUIDPipe) jobId: string,
