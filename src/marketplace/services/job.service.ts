@@ -259,6 +259,78 @@ export class JobService {
     await this.notificationService.notifyMakerOfAcceptance(application);
     return updatedJob;
   }
+
+  async declineApplication(applicationId: string, creatorId: string): Promise<JobApplication> {
+    const application = await this.applicationRepository.findOne({
+      where: { id: applicationId },
+      relations: ['job', 'maker'],
+    });
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+    if (application.job.creatorId !== creatorId) {
+      throw new ForbiddenException('Only the job creator can decline applications');
+    }
+    if (application.status !== ApplicationStatus.PENDING) {
+      throw new BadRequestException('Application is no longer pending');
+    }
+    application.status = ApplicationStatus.REJECTED;
+    application.respondedAt = new Date();
+    const updatedApplication = await this.applicationRepository.save(application);
+    // Notify the maker if notification service has this method
+    // await this.notificationService.notifyMakerOfRejection(application);
+    return updatedApplication;
+  }
+
+  async getCreatorApplications(creatorId: string): Promise<any[]> {
+    // Get all jobs for this creator
+    const jobs = await this.jobRepository.find({
+      where: { creatorId },
+      relations: ['creator'],
+    });
+
+    if (!jobs.length) {
+      return [];
+    }
+
+    const jobIds = jobs.map(job => job.id);
+
+    // Get all applications for these jobs
+    const applications = await this.applicationRepository.find({
+      where: { jobId: In(jobIds) },
+      relations: ['job', 'maker'],
+      order: { createdAt: 'DESC' },
+    });
+
+    // Format the response with maker info, amount, and timeline
+    return applications.map(app => ({
+      id: app.id,
+      jobId: app.jobId,
+      jobTitle: app.job.title,
+      jobBudget: app.job.budget,
+      maker: {
+        id: app.maker.id,
+        fullName: app.maker.fullName,
+        email: app.maker.email,
+        profilePicture: app.maker.profilePicture,
+        bio: app.maker.bio,
+        skills: app.maker.skills,
+        brandName: app.maker.brandName,
+        location: app.maker.location,
+      },
+      proposedBudget: app.proposedBudget,
+      estimatedDays: app.estimatedDays,
+      proposedTimeline: app.proposedTimeline,
+      proposal: app.proposal,
+      coverLetter: app.coverLetter,
+      portfolioUrl: app.portfolioUrl,
+      selectedProjects: app.selectedProjects,
+      status: app.status,
+      createdAt: app.createdAt,
+      respondedAt: app.respondedAt,
+    }));
+  }
+
   async completeJob(jobId: string, userId: string, deliverables: string[]): Promise<Job> {
     const job = await this.findJobById(jobId);
     if (job.makerId !== userId) {
