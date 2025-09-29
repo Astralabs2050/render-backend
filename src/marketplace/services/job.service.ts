@@ -682,7 +682,7 @@ export class JobService {
       relations: ['job', 'job.creator'],
       order: { savedAt: 'DESC' }
     });
-    
+
     return savedJobs.map(savedJob => ({
       id: savedJob.job.id,
       title: savedJob.job.title,
@@ -698,6 +698,69 @@ export class JobService {
       datePosted: savedJob.job.createdAt,
       dateSaved: savedJob.savedAt
     }));
+  }
+
+  async getMakerApplicationProfile(applicationId: string, creatorId: string): Promise<any> {
+    const application = await this.applicationRepository.findOne({
+      where: { id: applicationId },
+      relations: ['job', 'job.creator', 'maker'],
+    });
+
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    if (application.job.creatorId !== creatorId) {
+      throw new ForbiddenException('Only the job creator can view this application');
+    }
+
+    const maker = application.maker;
+
+    // Calculate years of experience from work experience
+    let yearsOfExperience = 0;
+    if (maker.workExperience && maker.workExperience.length > 0) {
+      const experiences = maker.workExperience.map(exp => {
+        const startYear = parseInt(exp.startYear);
+        const endYear = exp.endYear ? parseInt(exp.endYear) : new Date().getFullYear();
+        return endYear - startYear;
+      });
+      yearsOfExperience = Math.max(...experiences);
+    }
+
+    return {
+      applicationId: application.id,
+      applicationStatus: application.status,
+      appliedAt: application.createdAt,
+      maker: {
+        id: maker.id,
+        fullName: maker.fullName,
+        email: maker.email,
+        profilePicture: maker.profilePicture,
+        bio: maker.bio,
+        location: maker.location,
+        skills: maker.skills || [],
+        brandName: maker.brandName,
+        brandStory: maker.brandStory,
+        brandLogo: maker.brandLogo,
+        yearsOfExperience,
+      },
+      application: {
+        proposedAmount: application.proposedBudget,
+        proposedTimeline: application.proposedTimeline,
+        coverLetter: application.coverLetter,
+        portfolioUrl: application.portfolioUrl,
+        portfolioLinks: application.portfolioLinks || [],
+        selectedProjects: application.selectedProjects || [],
+      },
+      verification: {
+        identityVerified: maker.identityVerified,
+        businessCertificate: maker.businessCertificateImage,
+        businessName: maker.businessName,
+        businessType: maker.businessType,
+      },
+      workExperience: maker.workExperience || [],
+      projects: maker.projects || [],
+    };
   }
 
 }
