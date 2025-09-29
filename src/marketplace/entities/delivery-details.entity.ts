@@ -9,7 +9,7 @@ export enum DeliveryStatus {
   CANCELED = 'canceled'
 }
 
-@Entity('delivery_details')
+@Entity('marketplace_delivery_details')
 export class DeliveryDetails extends BaseEntity {
   @Column()
   chatId: string;
