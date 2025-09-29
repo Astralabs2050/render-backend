@@ -119,6 +119,19 @@ export class JobController {
   async acceptApplication(@Param('id', ParseUUIDPipe) applicationId: string, @Request() req) {
     return this.jobService.acceptApplication(applicationId, req.user.id);
   }
+
+  @Post('applications/:id/decline')
+  async declineApplication(@Param('id', ParseUUIDPipe) applicationId: string, @Request() req) {
+    return this.jobService.declineApplication(applicationId, req.user.id);
+  }
+
+  @Get('creator/applications')
+  async getCreatorApplications(@Request() req) {
+    if (req.user.userType !== UserType.CREATOR) {
+      throw new Error('Only creators can view applications');
+    }
+    return this.jobService.getCreatorApplications(req.user.id);
+  }
   @Post('jobs/:id/complete')
   async completeJob(
     @Param('id', ParseUUIDPipe) jobId: string,
