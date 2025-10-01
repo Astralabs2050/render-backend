@@ -2,14 +2,18 @@ import { IsUUID, IsString, IsNotEmpty, IsOptional } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class MintNFTRequestDto {
+  @IsOptional()
   @Transform(({ value }) => value?.replace(/^chat-/, ''))
   @IsString()
-  @IsNotEmpty({ message: 'chatId is required' })
-  chatId: string;
+  chatId?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'selectedVariation is required' })
-  selectedVariation: string;
+  selectedVariation?: string;
+
+  @IsOptional()
+  @IsUUID('4', { message: 'designId must be a valid UUID' })
+  designId?: string;
 
   @IsString()
   @IsNotEmpty({ message: 'paymentTransactionHash is required' })

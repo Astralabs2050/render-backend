@@ -35,22 +35,73 @@ export class Web3Controller {
     async mintDesign(@Req() req, @Body() body: MintNFTRequestDto) {
         const startTime = Date.now();
         const requestId = `mint_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
+
         try {
+            if (body.designId && (body.chatId || body.selectedVariation)) {
+                throw new HttpException({
+                    status: false,
+                    message: 'Invalid request. Cannot provide both designId and chatId/selectedVariation. Choose one minting flow only.',
+                    path: '/web3/nft/mint',
+                    timestamp: new Date().toISOString(),
+                }, HttpStatus.BAD_REQUEST);
+            }
+
+            if ((body.chatId && !body.selectedVariation) || (!body.chatId && body.selectedVariation)) {
+                throw new HttpException({
+                    status: false,
+                    message: 'Invalid request. Both chatId and selectedVariation are required for AI-generated designs.',
+                    path: '/web3/nft/mint',
+                    timestamp: new Date().toISOString(),
+                }, HttpStatus.BAD_REQUEST);
+            }
+
+            const isDirectUpload = !!body.designId;
+            const isAIGenerated = !!body.chatId && !!body.selectedVariation;
+
+            if (!isDirectUpload && !isAIGenerated) {
+                throw new HttpException({
+                    status: false,
+                    message: 'Invalid request. Provide either (chatId + selectedVariation) for AI designs or (designId) for uploaded designs',
+                    path: '/web3/nft/mint',
+                    timestamp: new Date().toISOString(),
+                }, HttpStatus.BAD_REQUEST);
+            }
+
             console.log(`[${requestId}] NFT minting request started`, {
                 userId: req.user.id,
+                mintType: isDirectUpload ? 'uploaded_design' : 'ai_generated',
                 chatId: body.chatId,
+                designId: body.designId,
                 selectedVariation: body.selectedVariation,
                 transactionHashProvided: !!body.paymentTransactionHash,
                 timestamp: new Date().toISOString()
             });
 
-            const nft = await this.nftService.mintFromChatDesign(req.user.id, body.chatId, body.selectedVariation, body.paymentTransactionHash, body.name);
-            
+            let nft: any;
+            if (isDirectUpload) {
+                // Mint from uploaded design
+                nft = await this.nftService.mintFromUploadedDesign(
+                    req.user.id,
+                    body.designId!,
+                    body.paymentTransactionHash,
+                    body.name
+                );
+            } else {
+                // Mint from AI-generated chat design
+                nft = await this.nftService.mintFromChatDesign(
+                    req.user.id,
+                    body.chatId!,
+                    body.selectedVariation!,
+                    body.paymentTransactionHash,
+                    body.name
+                );
+            }
+
             const duration = Date.now() - startTime;
             console.log(`[${requestId}] NFT minting completed successfully`, {
                 nftId: nft.id,
                 tokenId: nft.tokenId,
+                mintType: isDirectUpload ? 'uploaded_design' : 'ai_generated',
                 duration: `${duration}ms`,
                 timestamp: new Date().toISOString()
             });
@@ -66,6 +117,7 @@ export class Web3Controller {
                 error: error.message,
                 userId: req.user.id,
                 chatId: body.chatId,
+                designId: body.designId,
                 duration: `${duration}ms`,
                 timestamp: new Date().toISOString()
             });
