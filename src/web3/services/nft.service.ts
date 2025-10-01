@@ -207,6 +207,101 @@ export class NFTService {
       throw error;
     }
   }
+  async mintFromUploadedDesign(userId: string, designId: string, paymentTransactionHash: string, customName?: string): Promise<NFT> {
+    try {
+      this.logger.log(`Minting uploaded design: ${designId}, userId: ${userId}`);
+
+      // Validate userId is a valid UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(userId)) {
+        throw new Error(`Invalid user ID format: ${userId}`);
+      }
+
+      // Validate transaction hash format
+      const validationResult = this.transactionHashValidator.validateFormat(paymentTransactionHash);
+      if (!validationResult.isValid) {
+        const userFriendlyError = this.transactionHashValidator.getUserFriendlyError(validationResult);
+        this.logger.error(`Transaction hash validation failed: ${validationResult.errors.join(', ')}`);
+        throw new Error(userFriendlyError);
+      }
+
+      this.logger.log(`Transaction hash validation successful: ${validationResult.normalizedHash?.substring(0, 10)}...`);
+
+      // Get user wallet for payment verification
+      const userRepository = this.nftRepository.manager.getRepository('User');
+      const user = await userRepository.findOne({
+        where: { id: userId },
+        select: ['walletAddress']
+      });
+
+      if (!user || !user.walletAddress) {
+        throw new Error('User wallet not found');
+      }
+
+      // Verify payment was successful
+      const paymentVerification = await this.verifyPayment({
+        transactionHash: validationResult.normalizedHash!,
+        fromAddress: user.walletAddress,
+        expectedAmount: 50, // Minting fee
+        collectionId: designId
+      });
+
+      if (!paymentVerification.isValid) {
+        const errorMessage = paymentVerification.errors?.join(', ') || 'Payment verification failed';
+        this.logger.error(`Payment verification failed: ${errorMessage}`);
+        throw new Error(`Payment verification failed: ${errorMessage}`);
+      }
+
+      this.logger.log(`Payment verified successfully: ${paymentVerification.transactionHash} - Status: ${paymentVerification.status}`);
+
+      // Get the existing NFT record (created during upload)
+      const nft = await this.findById(designId);
+
+      // Edge case: Design not found (findById throws NotFoundException, but we double-check)
+      if (!nft) {
+        throw new Error(`Design with ID ${designId} not found`);
+      }
+
+      // Edge case: Permission check
+      if (nft.creatorId !== userId) {
+        throw new Error('You do not have permission to mint this design');
+      }
+
+      // Edge case: Already minted or wrong status
+      if (nft.status !== NFTStatus.DRAFT) {
+        throw new Error(`Design cannot be minted. Current status: ${nft.status}. Only DRAFT designs can be minted.`);
+      }
+
+      // Edge case: Design has no image URL
+      if (!nft.imageUrl || nft.imageUrl.trim().length === 0) {
+        throw new Error('Design has no valid image. Please upload a design image first.');
+      }
+
+      // Edge case: Check if this design was created from AI chat (should use chatId flow instead)
+      if (nft.chatId) {
+        throw new Error('This design was created from AI chat. Please use chatId and selectedVariation to mint it.');
+      }
+
+      // Update name if provided
+      if (customName) {
+        nft.name = customName;
+      }
+
+      // Store normalized payment transaction hash
+      nft.transactionHash = validationResult.normalizedHash;
+
+      // Mint the NFT
+      const mintedNFT = await this.mintNFT({ nftId: nft.id });
+
+      this.logger.log(`Design minted successfully from upload: ${mintedNFT.id}`);
+      return mintedNFT;
+
+    } catch (error) {
+      this.logger.error(`Failed to mint from uploaded design: ${error.message}`);
+      throw error;
+    }
+  }
+
   async mintFromChatDesign(userId: string, chatId: string, selectedVariation: string, paymentTransactionHash: string, customName?: string): Promise<NFT> {
     try {
       this.logger.log(`Minting design from chat: ${chatId}, variation: ${selectedVariation}, userId: ${userId}`);
@@ -265,6 +360,15 @@ export class NFTService {
       }
       
       const chatData = chat[0];
+
+      // Edge case: Check if this chat design has already been minted
+      if (chatData.nftId) {
+        const existingNFT = await this.nftRepository.findOne({ where: { id: chatData.nftId } });
+        if (existingNFT && existingNFT.status !== NFTStatus.DRAFT) {
+          throw new Error(`This design has already been minted. NFT ID: ${chatData.nftId}`);
+        }
+      }
+
       let designPreviews: string[] = [];
       try {
         if (Array.isArray(chatData.designPreviews)) {
@@ -286,12 +390,33 @@ export class NFTService {
         throw new Error('No design previews found in chat. Please generate designs first.');
       }
       
-      // Extract variation number and get image URL
-      const variationIndex = parseInt((selectedVariation || '').split('_')[1]) - 1;
+      // Extract variation number and get image URL with validation
+      const variationParts = (selectedVariation || '').split('_');
+
+      // Edge case: Invalid variation format
+      if (variationParts.length !== 2 || variationParts[0] !== 'variation') {
+        throw new Error('Invalid selectedVariation format. Expected format: variation_1, variation_2, etc.');
+      }
+
+      const variationNumber = parseInt(variationParts[1]);
+
+      // Edge case: Invalid variation number
+      if (isNaN(variationNumber) || variationNumber < 1) {
+        throw new Error('Invalid variation number. Must be a positive integer.');
+      }
+
+      const variationIndex = variationNumber - 1;
+
+      // Edge case: Variation index out of bounds
+      if (variationIndex >= designPreviews.length) {
+        throw new Error(`Variation ${variationNumber} not found. Available variations: 1-${designPreviews.length}`);
+      }
+
       const selectedImageUrl = designPreviews[variationIndex];
-      
-      if (!selectedImageUrl) {
-        throw new Error('Selected design variation not found');
+
+      // Edge case: Empty or invalid URL
+      if (!selectedImageUrl || selectedImageUrl.trim().length === 0) {
+        throw new Error('Selected design variation has no valid image URL');
       }
       
       // Generate design name from chat messages
@@ -300,7 +425,7 @@ export class NFTService {
         [chatId, 'user']
       );
       
-      const userMessages = messages.map(m => m.content).join(' ');
+      const userMessages = messages.map((m: any) => m.content).join(' ');
       const defaultName = `Custom Design - ${userMessages.substring(0, 50)}...`;
       
       // Create NFT with initial values (price/quantity set later in hire/publish flows)
