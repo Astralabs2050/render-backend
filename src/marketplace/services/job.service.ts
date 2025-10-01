@@ -10,6 +10,7 @@ import { JobApplicationDto } from '../dto/job-application.dto';
 import { NotificationService } from './notification.service';
 import { ChatService } from './chat.service';
 import { NFT } from '../../web3/entities/nft.entity';
+import { CloudinaryService } from '../../common/services/cloudinary.service';
 @Injectable()
 export class JobService {
   constructor(
@@ -26,6 +27,7 @@ export class JobService {
     private notificationService: NotificationService,
     @Inject(forwardRef(() => ChatService))
     private chatService: ChatService,
+    private cloudinaryService: CloudinaryService,
   ) {}
   async createJob(createJobDto: CreateJobDto, creatorId: string): Promise<Job> {
     const creator = await this.userRepository.findOne({ 
@@ -760,6 +762,78 @@ export class JobService {
       },
       workExperience: maker.workExperience || [],
       projects: maker.projects || [],
+    };
+  }
+
+  async uploadDesignForMinting(file: Express.Multer.File, description: string, userId: string): Promise<any> {
+    // Verify user exists and is a creator
+    const user = await this.userRepository.findOne({
+      where: { id: userId, userType: UserType.CREATOR }
+    });
+
+    if (!user) {
+      throw new BadRequestException('Only creators can upload designs');
+    }
+
+    let uploadResult;
+    let savedNFT;
+
+    try {
+      // Upload image to Cloudinary
+      uploadResult = await this.cloudinaryService.uploadDesignImage(
+        file.buffer,
+        `upload_${Date.now()}`,
+        userId
+      );
+
+      if (!uploadResult || !uploadResult.secure_url) {
+        throw new BadRequestException('Failed to upload image to cloud storage');
+      }
+
+    } catch (error) {
+      const errorMessage = error.message || 'Image upload failed';
+      throw new BadRequestException(`Upload failed: ${errorMessage}`);
+    }
+
+    try {
+      // Create NFT record for minting preparation
+      const nft = this.nftRepository.create({
+        name: description.substring(0, 100) || 'Untitled Design', // Use first 100 chars of description as name
+        description,
+        category: 'fashion',
+        price: 0,
+        quantity: 1,
+        imageUrl: uploadResult.secure_url,
+        creatorId: userId,
+        status: 'draft' as any,
+      });
+
+      savedNFT = await this.nftRepository.save(nft);
+
+    } catch (error) {
+      // Cleanup: Delete uploaded image from Cloudinary if DB save fails
+      try {
+        if (uploadResult?.public_id) {
+          await this.cloudinaryService.deleteImage(uploadResult.public_id);
+        }
+      } catch (cleanupError) {
+        // Log cleanup error but don't throw
+        console.error('Failed to cleanup uploaded image:', cleanupError);
+      }
+
+      throw new BadRequestException('Failed to save design record. Please try again.');
+    }
+
+    return {
+      status: true,
+      message: 'Design uploaded successfully. You can now proceed to mint.',
+      data: {
+        designId: savedNFT.id,
+        imageUrl: uploadResult.secure_url,
+        description,
+        variants: this.cloudinaryService.getImageVariants(uploadResult.public_id),
+        nextStep: 'Use the /web3/nft/mint endpoint to mint this design',
+      }
     };
   }
 

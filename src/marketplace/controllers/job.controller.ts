@@ -1,16 +1,21 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
-  Delete, 
-  Body, 
-  Param, 
-  Query, 
-  UseGuards, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
   Request,
-  ParseUUIDPipe 
+  ParseUUIDPipe,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RoleGuard } from '../../auth/guards/role.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -21,6 +26,7 @@ import { MarketplaceService } from '../services/marketplace.service';
 import { JobApplicationDto } from '../dto/job-application.dto';
 import { CreateJobDto, UpdateJobDto, JobFilterDto } from '../dto/job.dto';
 import { MarketplaceFilterDto } from '../dto/marketplace-filter.dto';
+import { UploadDesignDto } from '../dto/upload-design.dto';
 import { UserType } from '../../users/entities/user.entity';
 @Controller('marketplace')
 @UseGuards(JwtAuthGuard)
@@ -180,6 +186,47 @@ export class JobController {
   @Post('jobs/from-chat/:chatId')
   async createJobFromChat(@Param('chatId', ParseUUIDPipe) chatId: string, @Request() req) {
     return this.workflowService.createJobFromChat(chatId, req.user.id);
+  }
+
+  @Post('design/upload')
+  @Throttle({ default: { limit: 5, ttl: 3600000 } }) // 5 uploads per hour
+  @UseInterceptors(FileInterceptor('image'))
+  async uploadDesignDirectly(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() uploadDesignDto: UploadDesignDto,
+    @Request() req
+  ) {
+    if (!file) {
+      throw new BadRequestException('Design image is required');
+    }
+
+    // Validate file exists and has content
+    if (!file.buffer || file.buffer.length === 0) {
+      throw new BadRequestException('Uploaded file is empty');
+    }
+
+    const allowedMimeTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException('Only PNG, JPG, and JPEG images are allowed');
+    }
+
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      throw new BadRequestException('Image size cannot exceed 10MB');
+    }
+
+    // Validate minimum file size (1KB to avoid corrupt files)
+    const minSize = 1024; // 1KB
+    if (file.size < minSize) {
+      throw new BadRequestException('Image file is too small or corrupt');
+    }
+
+    // Validate description is not empty or just whitespace
+    if (!uploadDesignDto.description || uploadDesignDto.description.trim().length === 0) {
+      throw new BadRequestException('Design description cannot be empty');
+    }
+
+    return this.jobService.uploadDesignForMinting(file, uploadDesignDto.description.trim(), req.user.id);
   }
   // NFT Marketplace Endpoints
   @Public()
