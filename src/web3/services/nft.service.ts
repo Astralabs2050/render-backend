@@ -290,6 +290,9 @@ export class NFTService {
       // Store normalized payment transaction hash
       nft.transactionHash = validationResult.normalizedHash;
 
+      // Save the updated name and transaction hash before minting
+      await this.nftRepository.save(nft);
+
       // Mint the NFT
       const mintedNFT = await this.mintNFT({ nftId: nft.id });
 
