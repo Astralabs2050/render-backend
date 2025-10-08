@@ -50,7 +50,7 @@ export class JobService {
     const queryBuilder = this.jobRepository.createQueryBuilder('job')
       .leftJoinAndSelect('job.creator', 'creator')
       .leftJoinAndSelect('job.maker', 'maker')
-      .leftJoin('web3_nft', 'nft', 'nft.id = job.designId')
+      .leftJoin('nfts', 'nft', 'nft.id = job.designId')
       .addSelect([
         'nft.id as designId',
         'nft.name as designName',
