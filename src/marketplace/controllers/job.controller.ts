@@ -179,12 +179,12 @@ export class JobController {
     if (req.user.userType !== UserType.MAKER) {
       throw new Error('Only makers can access this endpoint');
     }
-    
-    const validFilters = ['applications', 'ongoing', 'completed'];
+
+    const validFilters = ['applications', 'ongoing', 'completed', 'available'];
     if (filter && !validFilters.includes(filter)) {
       throw new Error(`Invalid filter. Valid options: ${validFilters.join(', ')}`);
     }
-    
+
     return this.jobService.getMakerJobs(req.user.id, filter);
   }
   @Post('jobs/from-design')

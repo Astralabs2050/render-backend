@@ -568,22 +568,39 @@ export class JobService {
   }
 
   async getMakerJobs(makerId: string, filter?: string): Promise<any[]> {
+    // Get jobs the maker has applied to
     const applications = await this.applicationRepository.find({
       where: { makerId },
       relations: ['job', 'job.creator'],
       order: { createdAt: 'DESC' }
     });
 
+    // Get jobs the maker is assigned to
     const assignedJobs = await this.jobRepository.find({
       where: { makerId },
       relations: ['creator'],
       order: { createdAt: 'DESC' }
     });
 
+    // Get all available open jobs from creators (not applied to yet)
+    const appliedJobIds = applications.map(app => app.jobId);
+    const assignedJobIds = assignedJobs.map(job => job.id);
+    const excludedJobIds = [...appliedJobIds, ...assignedJobIds];
+
+    const availableJobs = await this.jobRepository
+      .createQueryBuilder('job')
+      .leftJoinAndSelect('job.creator', 'creator')
+      .where('job.status = :status', { status: JobStatus.OPEN })
+      .andWhere('job.creatorId != :makerId', { makerId }) // Don't show maker's own jobs
+      .andWhere(excludedJobIds.length > 0 ? 'job.id NOT IN (:...excludedJobIds)' : '1=1', { excludedJobIds })
+      .orderBy('job.createdAt', 'DESC')
+      .getMany();
+
     // Collect all designIds and batch-load NFTs to avoid N+1 queries
     const designIdsSet = new Set<string>();
     applications.forEach(app => { if (app.job?.designId) designIdsSet.add(app.job.designId); });
     assignedJobs.forEach(job => { if (job.designId) designIdsSet.add(job.designId); });
+    availableJobs.forEach(job => { if (job.designId) designIdsSet.add(job.designId); });
     const designIds = Array.from(designIdsSet);
     const nfts = designIds.length
       ? await this.nftRepository.find({ where: { id: In(designIds) } })
@@ -669,14 +686,36 @@ export class JobService {
       });
     }
 
-    const allJobs = [...applications.map(app => ({ ...app.job, appliedAt: app.createdAt })), ...assignedJobs];
+    if (filter === 'available') {
+      // Return all open jobs that the maker hasn't applied to yet
+      return availableJobs.map(job => ({
+        id: job.id,
+        brandName: job.creator?.brandName || job.creator?.fullName || 'Unknown',
+        jobDescription: job.description,
+        datePosted: job.createdAt,
+        deadline: job.deadline,
+        budget: job.budget,
+        status: 'available',
+        ...toDesignFields(job)
+      }));
+    }
+
+    // Default: return all jobs (applied, assigned, and available)
+    const allJobs = [
+      ...applications.map(app => ({ ...app.job, appliedAt: app.createdAt, jobSource: 'applied' })),
+      ...assignedJobs.map(job => ({ ...job, jobSource: 'assigned' })),
+      ...availableJobs.map(job => ({ ...job, jobSource: 'available' }))
+    ];
     const uniqueJobs = allJobs.filter((job, index, self) => index === self.findIndex(j => j.id === job.id));
-    
+
     return uniqueJobs.map(job => ({
       id: job.id,
       brandName: job.creator?.brandName || job.creator?.fullName || 'Unknown',
       jobDescription: job.description,
       dateTimeApplied: (job as any).appliedAt || job.acceptedAt,
+      datePosted: job.createdAt,
+      deadline: job.deadline,
+      budget: job.budget,
       status: job.status,
       ...toDesignFields(job as Job)
     }));
