@@ -288,7 +288,7 @@ export class JobService {
     // Get all jobs for this creator
     const jobs = await this.jobRepository.find({
       where: { creatorId },
-      relations: ['creator'],
+      relations: ['creator', 'maker'],
     });
 
     if (!jobs.length) {
@@ -310,6 +310,8 @@ export class JobService {
       jobId: app.jobId,
       jobTitle: app.job.title,
       jobBudget: app.job.budget,
+      jobStatus: app.job.status,
+      jobDeadline: app.job.deadline,
       maker: {
         id: app.maker.id,
         fullName: app.maker.fullName,
@@ -330,6 +332,92 @@ export class JobService {
       status: app.status,
       createdAt: app.createdAt,
       respondedAt: app.respondedAt,
+    }));
+  }
+
+  async getCreatorJobsWithApplications(creatorId: string): Promise<any[]> {
+    // Get all jobs for this creator with maker relation
+    const jobs = await this.jobRepository.find({
+      where: { creatorId },
+      relations: ['creator', 'maker'],
+      order: { createdAt: 'DESC' },
+    });
+
+    if (!jobs.length) {
+      return [];
+    }
+
+    // Get applications for all jobs
+    const jobIds = jobs.map(job => job.id);
+    const applications = await this.applicationRepository.find({
+      where: { jobId: In(jobIds) },
+      relations: ['maker'],
+      order: { createdAt: 'DESC' },
+    });
+
+    // Group applications by jobId
+    const applicationsByJob = applications.reduce((acc, app) => {
+      if (!acc[app.jobId]) {
+        acc[app.jobId] = [];
+      }
+      acc[app.jobId].push({
+        id: app.id,
+        maker: {
+          id: app.maker.id,
+          fullName: app.maker.fullName,
+          email: app.maker.email,
+          profilePicture: app.maker.profilePicture,
+          bio: app.maker.bio,
+          skills: app.maker.skills,
+          brandName: app.maker.brandName,
+          location: app.maker.location,
+        },
+        proposedBudget: app.proposedBudget,
+        estimatedDays: app.estimatedDays,
+        proposedTimeline: app.proposedTimeline,
+        proposal: app.proposal,
+        coverLetter: app.coverLetter,
+        portfolioUrl: app.portfolioUrl,
+        selectedProjects: app.selectedProjects,
+        status: app.status,
+        createdAt: app.createdAt,
+        respondedAt: app.respondedAt,
+      });
+      return acc;
+    }, {});
+
+    // Format response with jobs and their applications
+    return jobs.map(job => ({
+      id: job.id,
+      title: job.title,
+      description: job.description,
+      requirements: job.requirements,
+      budget: job.budget,
+      currency: job.currency,
+      status: job.status,
+      priority: job.priority,
+      deadline: job.deadline,
+      tags: job.tags,
+      referenceImages: job.referenceImages,
+      designId: job.designId,
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt,
+      acceptedAt: job.acceptedAt,
+      completedAt: job.completedAt,
+      hiredMaker: job.maker ? {
+        id: job.maker.id,
+        fullName: job.maker.fullName,
+        email: job.maker.email,
+        profilePicture: job.maker.profilePicture,
+        bio: job.maker.bio,
+        skills: job.maker.skills,
+        brandName: job.maker.brandName,
+        location: job.maker.location,
+      } : null,
+      applications: applicationsByJob[job.id] || [],
+      applicationsCount: (applicationsByJob[job.id] || []).length,
+      pendingApplicationsCount: (applicationsByJob[job.id] || []).filter((a: any) => a.status === ApplicationStatus.PENDING).length,
+      acceptedApplicationsCount: (applicationsByJob[job.id] || []).filter((a: any) => a.status === ApplicationStatus.ACCEPTED).length,
     }));
   }
 

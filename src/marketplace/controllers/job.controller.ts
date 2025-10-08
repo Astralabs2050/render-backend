@@ -139,6 +139,14 @@ export class JobController {
     return this.jobService.getCreatorApplications(req.user.id);
   }
 
+  @Get('creator/jobs-with-applications')
+  async getCreatorJobsWithApplications(@Request() req) {
+    if (req.user.userType !== UserType.CREATOR) {
+      throw new Error('Only creators can view jobs with applications');
+    }
+    return this.jobService.getCreatorJobsWithApplications(req.user.id);
+  }
+
   @Get('applications/:id/maker-profile')
   async getMakerApplicationProfile(
     @Param('id', ParseUUIDPipe) applicationId: string,
