@@ -28,7 +28,7 @@ import { ConfigService } from '@nestjs/config';
         return {
           ...config,
           entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-          synchronize: process.env.NODE_ENV !== 'production',
+          synchronize: true, // Temporarily enabled to fix designId UUID migration
           logging: false,
           maxQueryExecutionTime: 1000,
           cache: false,
