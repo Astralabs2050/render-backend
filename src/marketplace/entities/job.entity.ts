@@ -38,8 +38,8 @@ export class Job extends BaseEntity {
   referenceImages: string[];
   @Column({ nullable: true })
   chatId: string;
-  
-  @Column({ nullable: true })
+
+  @Column({ type: 'uuid', nullable: true })
   designId: string; // Link to the NFT design this job is for 
   @ManyToOne(() => User, { eager: true })
   @JoinColumn({ name: 'creatorId' })
