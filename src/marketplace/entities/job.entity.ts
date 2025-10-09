@@ -65,7 +65,4 @@ export class Job extends BaseEntity {
   rating: number;
   @Column('text', { nullable: true })
   aiPrompt: string; // Summarized AI prompt used to create the design
-
-  @Column({ default: false })
-  isTest: boolean; // Flag to mark test/dummy data for easy cleanup
 }

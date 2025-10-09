@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, IsEnum, IsOptional, IsArray, IsDateString, IsBoolean, Min, Max } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsEnum, IsOptional, IsArray, IsDateString, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { JobPriority, JobStatus } from '../entities/job.entity';
 export class CreateJobDto {
@@ -34,9 +34,6 @@ export class CreateJobDto {
   @IsString()
   @IsOptional()
   chatId?: string;
-  @IsBoolean()
-  @IsOptional()
-  isTest?: boolean = false; // Mark as test/dummy data
 }
 export class UpdateJobDto {
   @IsString()
