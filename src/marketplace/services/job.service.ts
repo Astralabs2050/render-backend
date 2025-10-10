@@ -9,7 +9,7 @@ import { CreateJobDto, UpdateJobDto, JobFilterDto } from '../dto/job.dto';
 import { JobApplicationDto } from '../dto/job-application.dto';
 import { NotificationService } from './notification.service';
 import { ChatService } from './chat.service';
-import { NFT } from '../../web3/entities/nft.entity';
+import { NFT, NFTStatus } from '../../web3/entities/nft.entity';
 import { CloudinaryService } from '../../common/services/cloudinary.service';
 @Injectable()
 export class JobService {
@@ -257,6 +257,15 @@ export class JobService {
       { status: ApplicationStatus.REJECTED, respondedAt: new Date() }
     );
     const updatedJob = await this.jobRepository.save(application.job);
+
+    // Update NFT status to HIRED if there's an associated design
+    if (application.job.designId) {
+      await this.nftRepository.update(
+        { id: application.job.designId },
+        { status: NFTStatus.HIRED }
+      );
+    }
+
     await this.chatService.createChat(application.jobId, application.job.creatorId, application.makerId);
     await this.notificationService.notifyMakerOfAcceptance(application);
     return updatedJob;
