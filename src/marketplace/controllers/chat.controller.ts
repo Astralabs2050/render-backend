@@ -88,10 +88,16 @@ export class ChatController {
   @Post(':chatId/escrow/create')
   async createEscrow(
     @Param('chatId') chatId: string,
-    @Body() body: { amount: number },
+    @Body() body: { amount: number; tokenId?: string; contractAddress?: string },
     @Req() req
   ) {
-    const chat = await this.chatService.createEscrow(chatId, body.amount, req.user.id);
+    const chat = await this.chatService.createEscrow(
+      chatId,
+      body.amount,
+      req.user.id,
+      body.tokenId,
+      body.contractAddress
+    );
     return {
       status: true,
       message: 'Escrow created successfully',
@@ -116,6 +122,16 @@ export class ChatController {
       status: true,
       message: 'Escrow released successfully',
       data: chat,
+    };
+  }
+
+  @Get('escrow/token/:tokenId')
+  async getEscrowByTokenId(@Param('tokenId') tokenId: string, @Req() req) {
+    const escrowDetails = await this.chatService.getEscrowByTokenId(tokenId, req.user.id);
+    return {
+      status: true,
+      message: 'Escrow details retrieved successfully',
+      data: escrowDetails,
     };
   }
 

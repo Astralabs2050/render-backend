@@ -227,20 +227,34 @@ export class ChatService {
     });
   }
 
-  async createEscrow(chatId: string, amount: number, userId: string): Promise<Chat> {
-    const chat = await this.chatRepository.findOne({ 
+  async createEscrow(
+    chatId: string,
+    amount: number,
+    userId: string,
+    tokenId?: string,
+    contractAddress?: string
+  ): Promise<Chat> {
+    const chat = await this.chatRepository.findOne({
       where: { id: chatId },
       relations: ['job']
     });
     if (!chat) throw new NotFoundException('Chat not found');
-    
+
     if (chat.creatorId !== userId) {
       throw new ForbiddenException('Only job creator can create escrow');
     }
 
     chat.escrowAmount = amount;
     chat.escrowStatus = 'pending';
-    
+
+    // Store tokenId and contract address if provided (from blockchain transaction)
+    if (tokenId) {
+      chat.escrowTokenId = tokenId;
+    }
+    if (contractAddress) {
+      chat.escrowContractAddress = contractAddress;
+    }
+
     return this.chatRepository.save(chat);
   }
 
@@ -266,6 +280,46 @@ export class ChatService {
 
     chat.escrowStatus = 'completed';
     return this.chatRepository.save(chat);
+  }
+
+  async getEscrowByTokenId(tokenId: string, userId: string): Promise<any> {
+    const chat = await this.chatRepository.findOne({
+      where: { escrowTokenId: tokenId },
+      relations: ['job', 'creator', 'maker']
+    });
+
+    if (!chat) {
+      throw new NotFoundException('Escrow not found with this tokenId');
+    }
+
+    // Verify the user has access to view this escrow (must be creator or maker)
+    if (chat.creatorId !== userId && chat.makerId !== userId) {
+      throw new ForbiddenException('Not authorized to view this escrow');
+    }
+
+    return {
+      chatId: chat.id,
+      jobId: chat.jobId,
+      jobTitle: chat.job?.title || 'Untitled Job',
+      escrowTokenId: chat.escrowTokenId,
+      escrowContractAddress: chat.escrowContractAddress,
+      escrowStatus: chat.escrowStatus,
+      escrowAmount: chat.escrowAmount,
+      creator: {
+        id: chat.creator.id,
+        fullName: chat.creator.fullName,
+        email: chat.creator.email,
+        profilePicture: chat.creator.profilePicture || null,
+      },
+      maker: {
+        id: chat.maker.id,
+        fullName: chat.maker.fullName,
+        email: chat.maker.email,
+        profilePicture: chat.maker.profilePicture || null,
+      },
+      createdAt: chat.createdAt,
+      updatedAt: chat.updatedAt,
+    };
   }
 
   async markMessagesAsRead(chatId: string, userId: string): Promise<void> {
