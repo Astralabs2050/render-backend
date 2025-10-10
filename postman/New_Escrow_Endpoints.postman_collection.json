@@ -1,0 +1,197 @@
+{
+  "info": {
+    "_postman_id": "escrow-token-collection",
+    "name": "New Escrow Token Endpoints",
+    "description": "New endpoints added for escrow tokenId support and fetching escrow by tokenId",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Create Escrow with TokenId",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 500,\n  \"tokenId\": \"23\",\n  \"contractAddress\": \"0x1234567890abcdef1234567890abcdef12345678\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/marketplace/chat/:chatId/escrow/create",
+          "host": ["{{base_url}}"],
+          "path": ["marketplace", "chat", ":chatId", "escrow", "create"],
+          "variable": [
+            {
+              "key": "chatId",
+              "value": "72c19c47-2241-4baf-b55b-43f40e23f7f2",
+              "description": "The chat ID for the job"
+            }
+          ]
+        },
+        "description": "Creates an escrow record in the database with the tokenId from Thirdweb blockchain transaction. The tokenId and contractAddress parameters are now optional and can be provided after the blockchain transaction succeeds."
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 500,\n  \"tokenId\": \"23\",\n  \"contractAddress\": \"0x1234567890abcdef1234567890abcdef12345678\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/marketplace/chat/72c19c47-2241-4baf-b55b-43f40e23f7f2/escrow/create",
+              "host": ["{{base_url}}"],
+              "path": ["marketplace", "chat", "72c19c47-2241-4baf-b55b-43f40e23f7f2", "escrow", "create"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": true,\n  \"message\": \"Escrow created successfully\",\n  \"data\": {\n    \"id\": \"72c19c47-2241-4baf-b55b-43f40e23f7f2\",\n    \"jobId\": \"b2a20013-ff2d-4193-b1f5-9e149eacda95\",\n    \"creatorId\": \"8663ac8f-4d33-4730-9615-bb9603ab5bdb\",\n    \"makerId\": \"6ff62179-9e80-4939-a33f-9e265a044e58\",\n    \"escrowAmount\": 500,\n    \"escrowStatus\": \"pending\",\n    \"escrowTokenId\": \"23\",\n    \"escrowContractAddress\": \"0x1234567890abcdef1234567890abcdef12345678\",\n    \"lastMessageAt\": \"2024-01-10T10:00:00.000Z\",\n    \"isActive\": true,\n    \"createdAt\": \"2024-01-10T10:00:00.000Z\",\n    \"updatedAt\": \"2024-01-10T10:00:00.000Z\"\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "Get Escrow by TokenId",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/marketplace/chat/escrow/token/:tokenId",
+          "host": ["{{base_url}}"],
+          "path": ["marketplace", "chat", "escrow", "token", ":tokenId"],
+          "variable": [
+            {
+              "key": "tokenId",
+              "value": "23",
+              "description": "The Thirdweb-generated tokenId for the escrow"
+            }
+          ]
+        },
+        "description": "Fetches escrow details using the Thirdweb tokenId. Returns escrow information including blockchain details. Only the creator or maker involved in the escrow can access this endpoint."
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/marketplace/chat/escrow/token/23",
+              "host": ["{{base_url}}"],
+              "path": ["marketplace", "chat", "escrow", "token", "23"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": true,\n  \"message\": \"Escrow fetched successfully\",\n  \"data\": {\n    \"id\": \"aed4ed68-0d06-43c2-b243-e5edb9229c72\",\n    \"chatId\": \"72c19c47-2241-4baf-b55b-43f40e23f7f2\",\n    \"jobId\": \"b2a20013-ff2d-4193-b1f5-9e149eacda95\",\n    \"escrowAmount\": 500,\n    \"escrowStatus\": \"pending\",\n    \"tokenId\": 23,\n    \"creatorId\": \"8663ac8f-4d33-4730-9615-bb9603ab5bdb\",\n    \"makerId\": \"6ff62179-9e80-4939-a33f-9e265a044e58\",\n    \"blockchainDetails\": {\n      \"shopper\": \"0x93f3afd4201677F98120AE74E9dc1410537365E6\",\n      \"maker\": \"0x032a2E7a380E266b1338ACB2cCE54094d92E0A2C\",\n      \"remainingBalance\": 450,\n      \"milestonesCompleted\": 1,\n      \"milestoneCount\": 4\n    }\n  }\n}"
+        },
+        {
+          "name": "Not Found",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/marketplace/chat/escrow/token/999",
+              "host": ["{{base_url}}"],
+              "path": ["marketplace", "chat", "escrow", "token", "999"]
+            }
+          },
+          "status": "Not Found",
+          "code": 404,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": false,\n  \"message\": \"Escrow not found with this tokenId\",\n  \"error\": \"Not Found\"\n}"
+        },
+        {
+          "name": "Unauthorized",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/marketplace/chat/escrow/token/23",
+              "host": ["{{base_url}}"],
+              "path": ["marketplace", "chat", "escrow", "token", "23"]
+            }
+          },
+          "status": "Forbidden",
+          "code": 403,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": false,\n  \"message\": \"Not authorized to view this escrow\",\n  \"error\": \"Forbidden\"\n}"
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string",
+      "description": "JWT authentication token"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Pre-request script to ensure authentication token is set",
+          "if (!pm.variables.get('auth_token')) {",
+          "    console.log('Please set the auth_token variable');",
+          "}"
+        ]
+      }
+    }
+  ]
+}
