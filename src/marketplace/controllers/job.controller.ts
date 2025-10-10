@@ -134,7 +134,7 @@ export class JobController {
   @Get('creator/applications')
   async getCreatorApplications(@Request() req) {
     if (req.user.userType !== UserType.CREATOR) {
-      throw new Error('Only creators can view applications');
+      throw new BadRequestException('Only creators can view applications');
     }
     return this.jobService.getCreatorApplications(req.user.id);
   }
@@ -142,7 +142,7 @@ export class JobController {
   @Get('creator/jobs-with-applications')
   async getCreatorJobsWithApplications(@Request() req) {
     if (req.user.userType !== UserType.CREATOR) {
-      throw new Error('Only creators can view jobs with applications');
+      throw new BadRequestException('Only creators can view jobs with applications');
     }
     return this.jobService.getCreatorJobsWithApplications(req.user.id);
   }
@@ -169,7 +169,7 @@ export class JobController {
   @Get('my-applications')
   async getMyApplications(@Request() req) {
     if (req.user.userType !== UserType.MAKER) {
-      throw new Error('Only makers can view applications');
+      throw new BadRequestException('Only makers can view applications');
     }
     return this.jobService.getMyApplications(req.user.id);
   }
@@ -177,12 +177,12 @@ export class JobController {
   @Get('maker/jobs')
   async getMakerJobs(@Query('filter') filter: string, @Request() req) {
     if (req.user.userType !== UserType.MAKER) {
-      throw new Error('Only makers can access this endpoint');
+      throw new BadRequestException('Only makers can access this endpoint');
     }
 
     const validFilters = ['applications', 'ongoing', 'completed', 'available'];
     if (filter && !validFilters.includes(filter)) {
-      throw new Error(`Invalid filter. Valid options: ${validFilters.join(', ')}`);
+      throw new BadRequestException(`Invalid filter. Valid options: ${validFilters.join(', ')}`);
     }
 
     return this.jobService.getMakerJobs(req.user.id, filter);
@@ -248,7 +248,7 @@ export class JobController {
   async getMarketplaceItem(@Param('id', ParseUUIDPipe) id: string) {
     const item = await this.marketplaceService.getMarketplaceItem(id);
     if (!item) {
-      throw new Error('Marketplace item not found');
+      throw new BadRequestException('Marketplace item not found');
     }
     return {
       status: true,
