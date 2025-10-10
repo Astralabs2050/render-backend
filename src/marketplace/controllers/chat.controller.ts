@@ -130,7 +130,7 @@ export class ChatController {
     const escrowDetails = await this.chatService.getEscrowByTokenId(tokenId, req.user.id);
     return {
       status: true,
-      message: 'Escrow details retrieved successfully',
+      message: 'Escrow fetched successfully',
       data: escrowDetails,
     };
   }

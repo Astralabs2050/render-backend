@@ -297,28 +297,27 @@ export class ChatService {
       throw new ForbiddenException('Not authorized to view this escrow');
     }
 
+    // TODO: Fetch actual blockchain details from Thirdweb SDK
+    // For now, returning mock blockchain details structure
+    // In production, this should call Thirdweb SDK to get real-time blockchain data
+    const blockchainDetails = {
+      shopper: chat.creator?.walletAddress || '0x93f3afd4201677F98120AE74E9dc1410537365E6', // Creator's wallet
+      maker: chat.maker?.walletAddress || '0x032a2E7a380E266b1338ACB2cCE54094d92E0A2C', // Maker's wallet
+      remainingBalance: Number(chat.escrowAmount) * 0.9, // Mock: 90% remaining
+      milestonesCompleted: 1, // Mock value - should come from blockchain
+      milestoneCount: 4, // Mock value - should come from blockchain
+    };
+
     return {
+      id: chat.escrowId || chat.id, // Use escrowId if available, otherwise chat.id
       chatId: chat.id,
       jobId: chat.jobId,
-      jobTitle: chat.job?.title || 'Untitled Job',
-      escrowTokenId: chat.escrowTokenId,
-      escrowContractAddress: chat.escrowContractAddress,
+      escrowAmount: Number(chat.escrowAmount),
       escrowStatus: chat.escrowStatus,
-      escrowAmount: chat.escrowAmount,
-      creator: {
-        id: chat.creator.id,
-        fullName: chat.creator.fullName,
-        email: chat.creator.email,
-        profilePicture: chat.creator.profilePicture || null,
-      },
-      maker: {
-        id: chat.maker.id,
-        fullName: chat.maker.fullName,
-        email: chat.maker.email,
-        profilePicture: chat.maker.profilePicture || null,
-      },
-      createdAt: chat.createdAt,
-      updatedAt: chat.updatedAt,
+      tokenId: parseInt(chat.escrowTokenId) || 0, // Convert to number as per requirement
+      creatorId: chat.creatorId,
+      makerId: chat.makerId,
+      blockchainDetails,
     };
   }
 
