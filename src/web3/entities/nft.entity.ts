@@ -8,6 +8,7 @@ export enum NFTStatus {
   MINTED = 'minted',
   PUBLISHED = 'published', // New status for approved designs
   LISTED = 'listed',
+  HIRED = 'hired', // Status when a maker is hired for this design
   SOLD = 'sold',
 }
 @Entity('nfts')

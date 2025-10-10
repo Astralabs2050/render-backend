@@ -227,20 +227,34 @@ export class ChatService {
     });
   }
 
-  async createEscrow(chatId: string, amount: number, userId: string): Promise<Chat> {
-    const chat = await this.chatRepository.findOne({ 
+  async createEscrow(
+    chatId: string,
+    amount: number,
+    userId: string,
+    tokenId?: string,
+    contractAddress?: string
+  ): Promise<Chat> {
+    const chat = await this.chatRepository.findOne({
       where: { id: chatId },
       relations: ['job']
     });
     if (!chat) throw new NotFoundException('Chat not found');
-    
+
     if (chat.creatorId !== userId) {
       throw new ForbiddenException('Only job creator can create escrow');
     }
 
     chat.escrowAmount = amount;
     chat.escrowStatus = 'pending';
-    
+
+    // Store tokenId and contract address if provided (from blockchain transaction)
+    if (tokenId) {
+      chat.escrowTokenId = tokenId;
+    }
+    if (contractAddress) {
+      chat.escrowContractAddress = contractAddress;
+    }
+
     return this.chatRepository.save(chat);
   }
 
@@ -266,6 +280,45 @@ export class ChatService {
 
     chat.escrowStatus = 'completed';
     return this.chatRepository.save(chat);
+  }
+
+  async getEscrowByTokenId(tokenId: string, userId: string): Promise<any> {
+    const chat = await this.chatRepository.findOne({
+      where: { escrowTokenId: tokenId },
+      relations: ['job', 'creator', 'maker']
+    });
+
+    if (!chat) {
+      throw new NotFoundException('Escrow not found with this tokenId');
+    }
+
+    // Verify the user has access to view this escrow (must be creator or maker)
+    if (chat.creatorId !== userId && chat.makerId !== userId) {
+      throw new ForbiddenException('Not authorized to view this escrow');
+    }
+
+    // TODO: Fetch actual blockchain details from Thirdweb SDK
+    // For now, returning mock blockchain details structure
+    // In production, this should call Thirdweb SDK to get real-time blockchain data
+    const blockchainDetails = {
+      shopper: chat.creator?.walletAddress || '0x93f3afd4201677F98120AE74E9dc1410537365E6', // Creator's wallet
+      maker: chat.maker?.walletAddress || '0x032a2E7a380E266b1338ACB2cCE54094d92E0A2C', // Maker's wallet
+      remainingBalance: Number(chat.escrowAmount) * 0.9, // Mock: 90% remaining
+      milestonesCompleted: 1, // Mock value - should come from blockchain
+      milestoneCount: 4, // Mock value - should come from blockchain
+    };
+
+    return {
+      id: chat.escrowId || chat.id, // Use escrowId if available, otherwise chat.id
+      chatId: chat.id,
+      jobId: chat.jobId,
+      escrowAmount: Number(chat.escrowAmount),
+      escrowStatus: chat.escrowStatus,
+      tokenId: parseInt(chat.escrowTokenId) || 0, // Convert to number as per requirement
+      creatorId: chat.creatorId,
+      makerId: chat.makerId,
+      blockchainDetails,
+    };
   }
 
   async markMessagesAsRead(chatId: string, userId: string): Promise<void> {

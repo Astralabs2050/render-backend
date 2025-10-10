@@ -40,6 +40,9 @@ export class Chat extends BaseEntity {
   @Column({ nullable: true })
   escrowContractAddress: string;
 
+  @Column({ nullable: true })
+  escrowTokenId: string; // Thirdweb-generated tokenId for the escrow
+
   @Column({ type: 'enum', enum: ['none', 'pending', 'funded', 'completed', 'disputed'], default: 'none' })
   escrowStatus: string;
 
