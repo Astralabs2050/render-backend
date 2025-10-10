@@ -50,7 +50,7 @@ export class JobService {
     const queryBuilder = this.jobRepository.createQueryBuilder('job')
       .leftJoinAndSelect('job.creator', 'creator')
       .leftJoinAndSelect('job.maker', 'maker')
-      .leftJoin('nfts', 'nft', 'nft.id::text = job.designId')
+      .leftJoin('nfts', 'nft', 'nft.id = job."designId"')
       .addSelect([
         'nft.id as designId',
         'nft.name as designName',
@@ -232,10 +232,15 @@ export class JobService {
     });
   }
   async acceptApplication(applicationId: string, creatorId: string): Promise<Job> {
-    const application = await this.applicationRepository.findOne({
-      where: { id: applicationId },
-      relations: ['job', 'maker'],
-    });
+    // Use query builder to ensure all fields are properly loaded
+    const application = await this.applicationRepository
+      .createQueryBuilder('application')
+      .leftJoinAndSelect('application.job', 'job')
+      .leftJoinAndSelect('application.maker', 'maker')
+      .leftJoinAndSelect('job.creator', 'jobCreator')
+      .where('application.id = :applicationId', { applicationId })
+      .getOne();
+
     if (!application) {
       throw new NotFoundException('Application not found');
     }
@@ -245,17 +250,24 @@ export class JobService {
     if (application.job.status !== JobStatus.OPEN) {
       throw new BadRequestException('Job is not open for applications');
     }
+
+    // Update application status
     application.status = ApplicationStatus.ACCEPTED;
     application.respondedAt = new Date();
     await this.applicationRepository.save(application);
+
+    // Update job status
     application.job.status = JobStatus.IN_PROGRESS;
     application.job.makerId = application.makerId;
     application.job.maker = application.maker;
     application.job.acceptedAt = new Date();
+
+    // Reject all other applications for this job
     await this.applicationRepository.update(
       { jobId: application.jobId, id: { $ne: applicationId } as any },
       { status: ApplicationStatus.REJECTED, respondedAt: new Date() }
     );
+
     const updatedJob = await this.jobRepository.save(application.job);
 
     // Update NFT status to HIRED if there's an associated design
@@ -456,11 +468,13 @@ export class JobService {
     });
   }
   async getMyApplications(makerId: string): Promise<JobApplication[]> {
-    return this.applicationRepository.find({
-      where: { makerId },
-      relations: ['job', 'job.creator'],
-      order: { createdAt: 'DESC' },
-    });
+    return this.applicationRepository
+      .createQueryBuilder('application')
+      .leftJoinAndSelect('application.job', 'job')
+      .leftJoinAndSelect('job.creator', 'creator')
+      .where('application.makerId = :makerId', { makerId })
+      .orderBy('application.createdAt', 'DESC')
+      .getMany();
   }
 
   async getListedJobs(): Promise<any[]> {
@@ -578,11 +592,13 @@ export class JobService {
 
   async getMakerJobs(makerId: string, filter?: string): Promise<any[]> {
     // Get jobs the maker has applied to
-    const applications = await this.applicationRepository.find({
-      where: { makerId },
-      relations: ['job', 'job.creator'],
-      order: { createdAt: 'DESC' }
-    });
+    const applications = await this.applicationRepository
+      .createQueryBuilder('application')
+      .leftJoinAndSelect('application.job', 'job')
+      .leftJoinAndSelect('job.creator', 'creator')
+      .where('application.makerId = :makerId', { makerId })
+      .orderBy('application.createdAt', 'DESC')
+      .getMany();
 
     // Get jobs the maker is assigned to
     const assignedJobs = await this.jobRepository.find({

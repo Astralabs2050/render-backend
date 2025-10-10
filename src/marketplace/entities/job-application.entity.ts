@@ -10,12 +10,12 @@ export enum ApplicationStatus {
 }
 @Entity('job_applications')
 export class JobApplication extends BaseEntity {
-  @ManyToOne(() => Job, { eager: true })
+  @ManyToOne(() => Job)
   @JoinColumn({ name: 'job_id' })
   job: Job;
   @Column({ name: 'job_id' })
   jobId: string;
-  @ManyToOne(() => User, { eager: true })
+  @ManyToOne(() => User)
   @JoinColumn({ name: 'maker_id' })
   maker: User;
   @Column({ name: 'maker_id' })

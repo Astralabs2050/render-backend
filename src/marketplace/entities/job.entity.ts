@@ -41,12 +41,12 @@ export class Job extends BaseEntity {
 
   @Column({ type: 'uuid', nullable: true })
   designId: string; // Link to the NFT design this job is for 
-  @ManyToOne(() => User, { eager: true })
+  @ManyToOne(() => User)
   @JoinColumn({ name: 'creatorId' })
   creator: User;
   @Column()
   creatorId: string;
-  @ManyToOne(() => User, { nullable: true, eager: true })
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'makerId' })
   maker: User;
   @Column({ nullable: true })
