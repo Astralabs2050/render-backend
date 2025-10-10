@@ -119,6 +119,11 @@ Skills: ${hireMakerDto.skillKeywords.join(', ')}`,
     // Create the job using the existing marketplace system
     const job = await this.jobService.createJob(createJobDto, req.user.id);
 
+    // Update NFT status to HIRED since the creator is actively hiring a maker
+    await this.nftService.updateNFT(design.id, {
+      status: NFTStatus.HIRED
+    });
+
     return {
       status: true,
       message: 'Maker hiring request created successfully',

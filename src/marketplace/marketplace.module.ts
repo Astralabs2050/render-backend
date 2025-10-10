@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Job } from './entities/job.entity';
 import { JobApplication } from './entities/job-application.entity';
 import { SavedJob } from './entities/saved-job.entity';
@@ -26,9 +27,13 @@ import { JwtModule } from '@nestjs/jwt';
     TypeOrmModule.forFeature([Job, JobApplication, SavedJob, Chat, Message, DeliveryDetails, Measurements, User, NFT]),
     forwardRef(() => UsersModule),
     Web3Module,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '1h' },
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: configService.get<string>('JWT_EXPIRATION', '7d') },
+      }),
+      inject: [ConfigService],
     }),
   ],
   controllers: [JobController, ChatController],
