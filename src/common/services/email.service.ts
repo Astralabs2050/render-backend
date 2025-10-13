@@ -30,6 +30,9 @@ export class EmailService {
       return true;
     } catch (error) {
       this.logger.error(`Failed to send OTP email to ${email}: ${error.message}`);
+      if (this.configService.get('NODE_ENV') === 'development') {
+        this.logger.warn(`DEV MODE: Email failed, but OTP is logged above`);
+      }
       return false;
     }
   }

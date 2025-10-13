@@ -810,7 +810,7 @@ Respond ONLY one word: CONFIRM or HOLD.`;
     await this.chatRepository.save(chat);
     return storedDesign;
   }
-  async processPaymentForChat(userId: string, chatId: string): Promise<any> {
+  async processPaymentForChat(userId: string, chatId: string, paystackReference?: string): Promise<any> {
     const chat = await this.chatRepository.findOne({
       where: [
         { id: chatId, userId: userId },
@@ -822,12 +822,25 @@ Respond ONLY one word: CONFIRM or HOLD.`;
       throw new NotFoundException('Chat not found');
     }
     
-    if (chat.state !== ChatState.PAYMENT_REQUIRED) {
-      throw new BadRequestException(`Payment not required. Current state: ${chat.state}`);
+    if (!chat.designPreviews?.length) {
+      throw new BadRequestException('No design available to mint');
     }
     
-    await this.processPaymentAndList(chat);
-    return { success: true, chatId };
+    // Store payment reference for NFT minting
+    chat.metadata = { 
+      ...chat.metadata, 
+      paystackReference,
+      paymentCompleted: true,
+      paidAt: new Date().toISOString()
+    };
+    await this.chatRepository.save(chat);
+    
+    return { 
+      success: true, 
+      chatId, 
+      paystackReference,
+      message: 'Payment recorded. Design will be minted and available in My Designs.'
+    };
   }
 
   private async createMilestones(chat: Chat): Promise<void> {
