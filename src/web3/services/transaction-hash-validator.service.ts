@@ -96,9 +96,15 @@ export class TransactionHashValidatorService {
 
     const trimmedHash = hash.trim();
 
-    // Check prefix
+    // Skip validation for Paystack references (they don't start with 0x)
     if (!trimmedHash.startsWith('0x')) {
-      errors.push('Transaction hash must start with "0x"');
+      // Assume it's a Paystack reference or other payment provider reference
+      this.logger.log(`Non-blockchain payment reference detected: ${trimmedHash.substring(0, 10)}...`);
+      return {
+        isValid: true,
+        errors: [],
+        normalizedHash: trimmedHash,
+      };
     }
 
     // Check length - accept both 66 (full) and 42 (system generated) character formats
@@ -289,9 +295,13 @@ export class TransactionHashValidatorService {
   /**
    * Detects the format type of a transaction hash
    */
-  detectHashFormat(hash: string): 'full' | 'system' | 'invalid' {
-    if (!hash || !hash.startsWith('0x')) {
+  detectHashFormat(hash: string): 'full' | 'system' | 'payment_reference' | 'invalid' {
+    if (!hash) {
       return 'invalid';
+    }
+    
+    if (!hash.startsWith('0x')) {
+      return 'payment_reference';
     }
 
     const trimmedHash = hash.trim();

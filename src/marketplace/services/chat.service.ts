@@ -247,7 +247,6 @@ export class ChatService {
     chat.escrowAmount = amount;
     chat.escrowStatus = 'pending';
 
-    // Store tokenId and contract address if provided (from blockchain transaction)
     if (tokenId) {
       chat.escrowTokenId = tokenId;
     }
