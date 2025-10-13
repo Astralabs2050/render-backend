@@ -80,9 +80,9 @@ export class ChatController {
   }
 
   @Post('process-payment')
-  async processPayment(@Req() req, @Body() dto: { chatId: string }) {
+  async processPayment(@Req() req, @Body() dto: { chatId: string; paystackReference?: string }) {
     const userId = req.user.id;
-    const result = await this.chatService.processPaymentForChat(userId, dto.chatId);
+    const result = await this.chatService.processPaymentForChat(userId, dto.chatId, dto.paystackReference);
     return {
       status: true,
       message: 'Payment processed successfully',
