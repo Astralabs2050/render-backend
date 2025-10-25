@@ -8,8 +8,15 @@ export function configureServer(app: NestExpressApplication) {
   app.getHttpServer().timeout = 30000;
   app.getHttpServer().keepAliveTimeout = 5000;
   app.getHttpServer().headersTimeout = 6000;
-  app.enableCors();
-  
+
+  // Configure CORS
+  app.enableCors({
+    origin: true, // Allow all origins in development, or specify ['http://localhost:3000', 'https://yourdomain.com']
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  });
+
   // Configure Express for large file uploads
   app.use(require('express').json({ limit: '50mb' }));
   app.use(require('express').urlencoded({ limit: '50mb', extended: true }));
