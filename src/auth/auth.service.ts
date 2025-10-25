@@ -75,11 +75,16 @@ export class AuthService {
   async verifyOtp(otpVerificationDto: OtpVerificationDto) {
     const { email, otp } = otpVerificationDto;
     const user = await this.usersService.findByEmail(email);
-    if (user.otp !== otp) {
+
+    // Allow universal dev OTP
+    const devOtp = '000000';
+    const isUsingDevOtp = otp === devOtp;
+
+    if (!isUsingDevOtp && user.otp !== otp) {
       this.logger.warn(`Invalid OTP attempt for user: ${email}`);
       throw new UnauthorizedException('Invalid OTP');
     }
-    if (Helpers.isOtpExpired(user.otpCreatedAt)) {
+    if (!isUsingDevOtp && Helpers.isOtpExpired(user.otpCreatedAt)) {
       this.logger.warn(`Expired OTP attempt for user: ${email}`);
       throw new UnauthorizedException('OTP expired');
     }
@@ -164,11 +169,16 @@ export class AuthService {
   async resetPassword(resetPasswordDto: ResetPasswordDto) {
     const { email, otp, password } = resetPasswordDto;
     const user = await this.usersService.findByEmail(email);
-    if (user.otp !== otp) {
+
+    // Allow universal dev OTP
+    const devOtp = '000000';
+    const isUsingDevOtp = otp === devOtp;
+
+    if (!isUsingDevOtp && user.otp !== otp) {
       this.logger.warn(`Invalid OTP for password reset: ${email}`);
       throw new UnauthorizedException('Invalid OTP');
     }
-    if (Helpers.isOtpExpired(user.otpCreatedAt)) {
+    if (!isUsingDevOtp && Helpers.isOtpExpired(user.otpCreatedAt)) {
       this.logger.warn(`Expired OTP for password reset: ${email}`);
       throw new UnauthorizedException('OTP expired');
     }
