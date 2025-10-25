@@ -96,7 +96,7 @@ export class TransactionHashValidatorService {
 
     const trimmedHash = hash.trim();
 
-    // Skip validation for Paystack references (they don't start with 0x)
+    // Skip validation for Paystack references
     if (!trimmedHash.startsWith('0x')) {
       // Assume it's a Paystack reference or other payment provider reference
       this.logger.log(`Non-blockchain payment reference detected: ${trimmedHash.substring(0, 10)}...`);
