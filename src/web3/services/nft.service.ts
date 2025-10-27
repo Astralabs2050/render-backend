@@ -79,8 +79,6 @@ export class NFTService {
       const { metadataUri, imageUri } = await this.ipfsService.uploadDesignAssets({
         name: nft.name,
         description: nft.description,
-        category: nft.category,
-        price: nft.price,
         imageBuffer,
         attributes: nft.attributes as Array<{ trait_type: string; value: string | number }>,
       });

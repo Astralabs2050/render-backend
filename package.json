@@ -36,7 +36,6 @@
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/typeorm": "^10.0.0",
     "@nestjs/websockets": "^10.4.20",
-    "@pinata/sdk": "^2.1.0",
     "@sendgrid/mail": "^8.1.5",
     "@thirdweb-dev/sdk": "^4.0.99",
     "@thirdweb-dev/wallets": "^2.5.39",
