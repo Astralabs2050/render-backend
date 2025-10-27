@@ -7,7 +7,7 @@ import { BrandDetailsDto } from './dto/brand-details.dto';
 import { CreateDesignDto } from './dto/create-collection.dto';
 import { CollectionPaymentDto } from './dto/collection-payment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-suimport { Helpers } from '../common/utils/helpers';
+import { Helpers } from '../common/utils/helpers';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
