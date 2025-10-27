@@ -1,17 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { uploadBase64, uploadJson } from 'pinata';
+import axios from 'axios';
 
 @Injectable()
 export class IPFSService {
   private readonly logger = new Logger(IPFSService.name);
-  private config: { pinataJwt: string } | null = null;
+  private jwt: string | null = null;
 
   constructor(private configService: ConfigService) {
-    const jwt = this.configService.get('PINATA_JWT_TOKEN');
-    if (jwt) {
-      this.config = { pinataJwt: jwt };
-    }
+    this.jwt = this.configService.get('PINATA_JWT_TOKEN');
   }
 
   async uploadDesignAssets(params: {
@@ -20,7 +17,7 @@ export class IPFSService {
     imageBuffer: Buffer;
     attributes: Array<{ trait_type: string; value: string | number }>;
   }): Promise<{ metadataUri: string; imageUri: string }> {
-    if (!this.config) {
+    if (!this.jwt) {
       this.logger.warn('Pinata not configured, using mock IPFS');
       return {
         imageUri: `ipfs://QmMockImageHash${Date.now()}`,
@@ -29,9 +26,17 @@ export class IPFSService {
     }
 
     try {
-      const base64Image = params.imageBuffer.toString('base64');
-      const imageUpload = await uploadBase64(this.config, base64Image, 'public');
-      const imageUri = `ipfs://${imageUpload.cid}`;
+      const FormData = require('form-data');
+      const form = new FormData();
+      form.append('file', params.imageBuffer, { filename: `${params.name}.png` });
+
+      const imageRes = await axios.post('https://api.pinata.cloud/pinning/pinFileToIPFS', form, {
+        headers: {
+          ...form.getHeaders(),
+          Authorization: `Bearer ${this.jwt}`,
+        },
+      });
+      const imageUri = `ipfs://${imageRes.data.IpfsHash}`;
 
       const metadata = {
         name: params.name,
@@ -40,8 +45,13 @@ export class IPFSService {
         attributes: params.attributes,
       };
 
-      const metadataUpload = await uploadJson(this.config, metadata, 'public');
-      const metadataUri = `ipfs://${metadataUpload.cid}`;
+      const metadataRes = await axios.post('https://api.pinata.cloud/pinning/pinJSONToIPFS', metadata, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.jwt}`,
+        },
+      });
+      const metadataUri = `ipfs://${metadataRes.data.IpfsHash}`;
 
       this.logger.log(`IPFS upload successful for: ${params.name}`);
 
