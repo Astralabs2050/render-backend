@@ -17,8 +17,6 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../../auth/guards/role.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
 import { Public } from '../../auth/decorators/public.decorator';
 import { JobService } from '../services/job.service';
 import { WorkflowService, DesignRequirements } from '../services/workflow.service';
@@ -105,15 +103,11 @@ export class JobController {
   }
 
   @Post('jobs/:id/save')
-  @UseGuards(RoleGuard)
-  @Roles(UserType.MAKER)
   async saveJob(@Param('id', ParseUUIDPipe) jobId: string, @Request() req) {
     return this.jobService.saveJobForMaker(jobId, req.user.id);
   }
 
   @Get('maker/saved-jobs')
-  @UseGuards(RoleGuard)
-  @Roles(UserType.MAKER)
   async getSavedJobs(@Request() req) {
     return this.jobService.getSavedJobs(req.user.id);
   }
