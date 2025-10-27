@@ -1,28 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import pinataSDK from '@pinata/sdk';
+import { uploadBase64, uploadJson } from 'pinata';
 
 @Injectable()
 export class IPFSService {
   private readonly logger = new Logger(IPFSService.name);
-  private pinata: any;
+  private config: { pinataJwt: string } | null = null;
 
   constructor(private configService: ConfigService) {
     const jwt = this.configService.get('PINATA_JWT_TOKEN');
     if (jwt) {
-      this.pinata = new pinataSDK({ pinataJWTKey: jwt });
+      this.config = { pinataJwt: jwt };
     }
   }
 
   async uploadDesignAssets(params: {
     name: string;
     description: string;
-    category: string;
-    price: number;
     imageBuffer: Buffer;
     attributes: Array<{ trait_type: string; value: string | number }>;
   }): Promise<{ metadataUri: string; imageUri: string }> {
-    if (!this.pinata) {
+    if (!this.config) {
       this.logger.warn('Pinata not configured, using mock IPFS');
       return {
         imageUri: `ipfs://QmMockImageHash${Date.now()}`,
@@ -31,10 +29,9 @@ export class IPFSService {
     }
 
     try {
-      const imageResult = await this.pinata.pinFileToIPFS(params.imageBuffer, {
-        pinataMetadata: { name: `${params.name}.png` },
-      });
-      const imageUri = `ipfs://${imageResult.IpfsHash}`;
+      const base64Image = params.imageBuffer.toString('base64');
+      const imageUpload = await uploadBase64(this.config, base64Image, 'public');
+      const imageUri = `ipfs://${imageUpload.cid}`;
 
       const metadata = {
         name: params.name,
@@ -43,10 +40,8 @@ export class IPFSService {
         attributes: params.attributes,
       };
 
-      const metadataResult = await this.pinata.pinJSONToIPFS(metadata, {
-        pinataMetadata: { name: `${params.name}-metadata.json` },
-      });
-      const metadataUri = `ipfs://${metadataResult.IpfsHash}`;
+      const metadataUpload = await uploadJson(this.config, metadata, 'public');
+      const metadataUri = `ipfs://${metadataUpload.cid}`;
 
       this.logger.log(`IPFS upload successful for: ${params.name}`);
 
