@@ -7,9 +7,6 @@ import { BrandDetailsDto } from './dto/brand-details.dto';
 import { CreateDesignDto } from './dto/create-collection.dto';
 import { CollectionPaymentDto } from './dto/collection-payment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../auth/guards/role.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { UserType } from './entities/user.entity';
 import { Helpers } from '../common/utils/helpers';
 @Controller('users')
 export class UsersController {
@@ -61,8 +58,7 @@ export class UsersController {
   }
 
   @Post('brand-details')
-  @UseGuards(JwtAuthGuard, RoleGuard)
-  @Roles(UserType.CREATOR)
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('brandLogo', {
     fileFilter: (req, file, cb) => {
       if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg') {
@@ -86,8 +82,7 @@ export class UsersController {
   }
 
   @Post('designs')
-  @UseGuards(JwtAuthGuard, RoleGuard)
-  @Roles(UserType.CREATOR)
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(FilesInterceptor('designImages', 4, {
     fileFilter: (req, file, cb) => {
       if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg') {
@@ -111,8 +106,7 @@ export class UsersController {
   }
 
   @Post('collections/:id/payment')
-  @UseGuards(JwtAuthGuard, RoleGuard)
-  @Roles(UserType.CREATOR)
+  @UseGuards(JwtAuthGuard)
   async processCollectionPayment(
     @Req() req,
     @Param('id') collectionId: string,
@@ -127,8 +121,7 @@ export class UsersController {
   }
 
   @Get('maker/earnings')
-  @UseGuards(JwtAuthGuard, RoleGuard)
-  @Roles(UserType.MAKER)
+  @UseGuards(JwtAuthGuard)
   async getMakerEarnings(@Req() req) {
     const earnings = await this.usersService.getMakerEarnings(req.user.id);
     return {

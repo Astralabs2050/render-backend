@@ -1,8 +1,5 @@
 import { Controller, Get, Post, UseGuards, Req, Body, Inject, forwardRef, Param, ParseUUIDPipe, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../../auth/guards/role.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { UserType } from '../entities/user.entity';
 import { DesignService } from '../services/design.service';
 import { JobService } from '../../marketplace/services/job.service';
 import { HireMakerDto } from '../dto/hire-maker.dto';
@@ -12,8 +9,7 @@ import { NFTService } from '../../web3/services/nft.service';
 import { NFTStatus } from '../../web3/entities/nft.entity';
 
 @Controller('creator')
-@UseGuards(JwtAuthGuard, RoleGuard)
-@Roles(UserType.CREATOR)
+@UseGuards(JwtAuthGuard)
 export class CreatorController {
   constructor(
     private readonly designService: DesignService,
