@@ -6,6 +6,7 @@ import { QRService, CreateQRDto } from '../services/qr.service';
 import { WebhookService, DHLWebhookPayload } from '../services/webhook.service';
 import { ThirdwebService } from '../services/thirdweb.service';
 import { TransactionHashValidatorService } from '../services/transaction-hash-validator.service';
+import { HederaNFTService } from '../services/hedera-nft.service';
 import { MintNFTRequestDto } from '../dto/mint-nft-request.dto';
 @Controller('web3')
 export class Web3Controller {
@@ -16,6 +17,7 @@ export class Web3Controller {
         private readonly webhookService: WebhookService,
         private readonly thirdwebService: ThirdwebService,
         private readonly transactionHashValidator: TransactionHashValidatorService,
+        private readonly hederaNFTService: HederaNFTService,
     ) { }
     @Post('nft/create')
     @UseGuards(JwtAuthGuard)
@@ -84,7 +86,8 @@ export class Web3Controller {
                     req.user.id,
                     body.designId!,
                     body.paymentTransactionHash,
-                    body.name
+                    body.name,
+                    body.quantity
                 );
             } else {
                 // Mint from AI-generated chat design
@@ -93,7 +96,8 @@ export class Web3Controller {
                     body.chatId!,
                     body.selectedVariation!,
                     body.paymentTransactionHash,
-                    body.name
+                    body.name,
+                    body.quantity
                 );
             }
 
@@ -382,6 +386,60 @@ export class Web3Controller {
             status: true,
             message: 'Contract events retrieved successfully',
             data: events,
+        };
+    }
+    @Post('hedera/mint')
+    @UseGuards(JwtAuthGuard)
+    async mintHederaCollectible(@Req() req, @Body() body: MintNFTRequestDto) {
+        // Get NFT details from database
+        const nft = body.designId 
+            ? await this.nftService.findById(body.designId)
+            : await this.nftService.findByChat(body.chatId!);
+        
+        if (!nft || (Array.isArray(nft) && nft.length === 0)) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: 'Design not found',
+                    path: '/web3/hedera/mint',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.NOT_FOUND
+            );
+        }
+
+        const design = Array.isArray(nft) ? nft[0] : nft;
+        const quantity = body.quantity || 1;
+
+        const result = await this.hederaNFTService.mintCollectibles({
+            recipientAddress: req.user.walletAddress,
+            designId: design.id,
+            designName: body.name || design.name,
+            fabricType: design.category || 'Cotton',
+            designImage: design.imageUrl,
+            prompt: design.description || '',
+            count: quantity,
+        });
+
+        if (!result.success) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: result.error,
+                    path: '/web3/hedera/mint',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+
+        return {
+            status: true,
+            message: 'Hedera collectibles minted successfully',
+            data: {
+                tokenIds: result.tokenIds,
+                txHash: result.txHash,
+            },
         };
     }
 }

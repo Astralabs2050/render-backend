@@ -207,7 +207,7 @@ export class NFTService {
       throw error;
     }
   }
-  async mintFromUploadedDesign(userId: string, designId: string, paymentTransactionHash: string, customName?: string): Promise<NFT> {
+  async mintFromUploadedDesign(userId: string, designId: string, paymentTransactionHash: string, customName?: string, quantity?: number): Promise<NFT> {
     try {
       this.logger.log(`Minting uploaded design: ${designId}, userId: ${userId}`);
 
@@ -282,15 +282,18 @@ export class NFTService {
         throw new Error('This design was created from AI chat. Please use chatId and selectedVariation to mint it.');
       }
 
-      // Update name if provided
+      // Update name and quantity if provided
       if (customName) {
         nft.name = customName;
+      }
+      if (quantity && quantity > 0) {
+        nft.quantity = quantity;
       }
 
       // Store normalized payment transaction hash
       nft.transactionHash = validationResult.normalizedHash;
 
-      // Save the updated name and transaction hash before minting
+      // Save the updated name, quantity and transaction hash before minting
       await this.nftRepository.save(nft);
 
       // Mint the NFT
@@ -305,7 +308,7 @@ export class NFTService {
     }
   }
 
-  async mintFromChatDesign(userId: string, chatId: string, selectedVariation: string, paymentTransactionHash: string, customName?: string): Promise<NFT> {
+  async mintFromChatDesign(userId: string, chatId: string, selectedVariation: string, paymentTransactionHash: string, customName?: string, quantity?: number): Promise<NFT> {
     try {
       this.logger.log(`Minting design from chat: ${chatId}, variation: ${selectedVariation}, userId: ${userId}`);
       
@@ -437,7 +440,7 @@ export class NFTService {
         description: `Custom fashion design created through AI chat`,
         category: 'AI Generated Design',
         price: 0, // Will be set in publish to marketplace
-        quantity: 0, // Will be set in hire maker flow
+        quantity: quantity && quantity > 0 ? quantity : 0, // Use provided quantity or set in hire maker flow
         imageUrl: selectedImageUrl,
         creatorId: userId,
         chatId: chatId,
