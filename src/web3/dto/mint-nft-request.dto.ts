@@ -22,4 +22,8 @@ export class MintNFTRequestDto {
   @IsOptional()
   @IsString()
   name?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value, 10))
+  quantity?: number;
 }
