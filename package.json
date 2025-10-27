@@ -24,6 +24,7 @@
     "env:health": "ts-node scripts/env-check.ts check --verbose"
   },
   "dependencies": {
+    "@hashgraph/sdk": "^2.75.0",
     "@nestjs/cache-manager": "^3.0.1",
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^3.1.1",
@@ -35,6 +36,7 @@
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/typeorm": "^10.0.0",
     "@nestjs/websockets": "^10.4.20",
+    "@pinata/sdk": "^2.1.0",
     "@sendgrid/mail": "^8.1.5",
     "@thirdweb-dev/sdk": "^4.0.99",
     "@thirdweb-dev/wallets": "^2.5.39",
@@ -55,6 +57,7 @@
     "passport-jwt": "^4.0.1",
     "passport-twitter": "^1.0.4",
     "pg": "^8.16.3",
+    "pinata": "^2.5.1",
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
