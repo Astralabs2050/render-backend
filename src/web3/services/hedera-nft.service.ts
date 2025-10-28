@@ -28,8 +28,8 @@ export class HederaNFTService {
         'function mintNFTs(address to, string memory designId, string memory designName, string memory fabricType, string memory designImage, string memory prompt, uint256 count) external',
         'function getBaseMintFee() external view returns (uint256)',
         'function isDesignIdUsed(string memory designId) external view returns (bool)',
-        'function totalSupply() external view returns (uint256)',
-        'function MAX_SUPPLY() external view returns (uint256)',
+        // 'function totalSupply() external view returns (uint256)',
+        // 'function MAX_SUPPLY() external view returns (uint256)',
         'function MAX_PER_MINT() external view returns (uint256)',
         'function setBaseURI(string memory _baseTokenURI) external',
         'function tokenURI(uint256 tokenId) external view returns (string)',
@@ -62,13 +62,13 @@ export class HederaNFTService {
         return { success: false, error: 'Design ID already exists' };
       }
 
-      const maxSupply = await this.astraNFTContract.MAX_SUPPLY();
+      // const maxSupply = await this.astraNFTContract.MAX_SUPPLY();
       const maxPerMint = await this.astraNFTContract.MAX_PER_MINT();
-      const totalSupply = await this.astraNFTContract.totalSupply();
+      // const totalSupply = await this.astraNFTContract.totalSupply();
 
-      if (totalSupply + BigInt(data.count) > maxSupply) {
-        return { success: false, error: `Exceeds max supply. Available: ${maxSupply - totalSupply}` };
-      }
+      // if (totalSupply + BigInt(data.count) > maxSupply) {
+      //   return { success: false, error: `Exceeds max supply. Available: ${maxSupply - totalSupply}` };
+      // }
 
       if (data.count > Number(maxPerMint)) {
         return { success: false, error: `Exceeds max per mint. Max: ${maxPerMint}` };
