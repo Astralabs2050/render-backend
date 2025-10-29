@@ -7,6 +7,7 @@ import { WebhookService, DHLWebhookPayload } from '../services/webhook.service';
 import { ThirdwebService } from '../services/thirdweb.service';
 import { TransactionHashValidatorService } from '../services/transaction-hash-validator.service';
 import { HederaNFTService } from '../services/hedera-nft.service';
+import { HederaEscrowService } from '../services/hedera-escrow.service';
 import { MintNFTRequestDto } from '../dto/mint-nft-request.dto';
 @Controller('web3')
 export class Web3Controller {
@@ -18,6 +19,7 @@ export class Web3Controller {
         private readonly thirdwebService: ThirdwebService,
         private readonly transactionHashValidator: TransactionHashValidatorService,
         private readonly hederaNFTService: HederaNFTService,
+        private readonly hederaEscrowService: HederaEscrowService,
     ) { }
     @Post('nft/create')
     @UseGuards(JwtAuthGuard)
@@ -415,7 +417,6 @@ export class Web3Controller {
             recipientAddress: req.user.walletAddress,
             designId: design.id,
             designName: body.name || design.name,
-            fabricType: design.category || 'Cotton',
             designImage: design.imageUrl,
             prompt: design.description || '',
             count: quantity,
@@ -440,6 +441,127 @@ export class Web3Controller {
                 tokenIds: result.tokenIds,
                 txHash: result.txHash,
             },
+        };
+    }
+
+    @Post('hedera/escrows')
+    @UseGuards(JwtAuthGuard)
+    async createHederaEscrow(
+        @Req() req,
+        @Body() body: { shopper: string; maker: string; creator: string; amount: string; nftTokenId: number }
+    ) {
+        const result = await this.hederaEscrowService.createEscrowByAgent({
+            shopper: body.shopper,
+            maker: body.maker,
+            creator: body.creator,
+            amount: BigInt(body.amount),
+            nftTokenId: body.nftTokenId,
+        });
+
+        if (!result.success) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: result.error,
+                    path: '/web3/hedera/escrows',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+
+        return {
+            status: true,
+            message: 'Hedera escrow created successfully',
+            data: {
+                escrowId: result.escrowId,
+                txHash: result.txHash,
+            },
+        };
+    }
+
+    @Get('hedera/escrows')
+    @UseGuards(JwtAuthGuard)
+    async getAllHederaEscrows() {
+        const escrows = await this.hederaEscrowService.getAllEscrows();
+        return {
+            status: true,
+            message: 'Hedera escrows retrieved successfully',
+            data: escrows,
+        };
+    }
+
+    @Post('hedera/nfts/:tokenId/listings')
+    @UseGuards(JwtAuthGuard)
+    async listHederaNFT(@Param('tokenId') tokenId: string, @Body() body: { price: string }) {
+        const result = await this.hederaNFTService.listNFT(Number(tokenId), BigInt(body.price));
+        if (!result.success) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: result.error,
+                    path: '/web3/hedera/nfts/:tokenId/listings',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+        return {
+            status: true,
+            message: 'NFT listed successfully',
+            data: { txHash: result.txHash },
+        };
+    }
+
+    @Post('hedera/nfts/listings/batch')
+    @UseGuards(JwtAuthGuard)
+    async listHederaNFTsByQuantity(@Body() body: { quantity: number; price: string }) {
+        const result = await this.hederaNFTService.listOwnedNFTsByQuantity(body.quantity, BigInt(body.price));
+        if (!result.success) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: result.error,
+                    path: '/web3/hedera/nfts/listings/batch',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+        return {
+            status: true,
+            message: 'NFTs listed successfully',
+            data: { txHash: result.txHash },
+        };
+    }
+
+    @Get('hedera/nfts/:tokenId/listings')
+    async getHederaNFTListing(@Param('tokenId') tokenId: string) {
+        const listing = await this.hederaNFTService.getListing(Number(tokenId));
+        return {
+            status: true,
+            message: 'NFT listing details retrieved',
+            data: listing,
+        };
+    }
+
+    @Get('hedera/nfts/listings/sellers/:address')
+    async getHederaSellerListings(@Param('address') address: string) {
+        const tokenIds = await this.hederaNFTService.getSellerListings(address);
+        return {
+            status: true,
+            message: 'Seller listings retrieved',
+            data: { tokenIds },
+        };
+    }
+
+    @Get('hedera/nfts/listings')
+    async getHederaActiveListings() {
+        const tokenIds = await this.hederaNFTService.getActiveListings();
+        return {
+            status: true,
+            message: 'Active listings retrieved',
+            data: { tokenIds },
         };
     }
 }

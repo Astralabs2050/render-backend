@@ -25,7 +25,7 @@ export class HederaNFTService {
     this.astraNFTContract = new ethers.Contract(
       this.configService.get('ASTRA_NFT_COLLECTIBLE_CONTRACT_ADDRESS'),
       [
-        'function mintNFTs(address to, string memory designId, string memory designName, string memory fabricType, string memory designImage, string memory prompt, uint256 count) external',
+        'function mintNFTs(address to, string memory designId, string memory designName, string memory designImage, string memory prompt, uint256 count) external',
         'function getBaseMintFee() external view returns (uint256)',
         'function isDesignIdUsed(string memory designId) external view returns (bool)',
         // 'function totalSupply() external view returns (uint256)',
@@ -33,6 +33,12 @@ export class HederaNFTService {
         'function MAX_PER_MINT() external view returns (uint256)',
         'function setBaseURI(string memory _baseTokenURI) external',
         'function tokenURI(uint256 tokenId) external view returns (string)',
+        'function listNFT(uint256 tokenId, uint256 price) external',
+        'function listOwnedNFTsByQuantity(uint256 quantity, uint256 price) external',
+        'function isNFTListed(uint256 tokenId) external view returns (bool)',
+        'function getSellerListings(address seller) external view returns (uint256[] memory)',
+        'function getActiveListings() external view returns (uint256[] memory)',
+        'function getListing(uint256 tokenId) external view returns (tuple(uint256 tokenId, address seller, uint256 price, bool isActive, uint256 listingTime))',
       ],
       this.wallet
     );
@@ -48,7 +54,6 @@ export class HederaNFTService {
     recipientAddress: string;
     designId: string;
     designName: string;
-    fabricType: string;
     designImage: string;
     prompt: string;
     count: number;
@@ -83,7 +88,6 @@ export class HederaNFTService {
         data.recipientAddress,
         data.designId,
         data.designName,
-        data.fabricType,
         data.designImage,
         data.prompt,
         data.count
@@ -112,6 +116,54 @@ export class HederaNFTService {
 
   async getTokenURI(tokenId: number): Promise<string> {
     return await this.astraNFTContract.tokenURI(tokenId);
+  }
+
+  async listNFT(tokenId: number, price: bigint): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    if (!this.astraNFTContract) {
+      return { success: false, error: 'Hedera service not configured' };
+    }
+    try {
+      const tx = await this.astraNFTContract.listNFT(tokenId, price);
+      const receipt = await tx.wait();
+      return { success: receipt.status === 1, txHash: receipt.hash };
+    } catch (error) {
+      this.logger.error('Listing NFT failed:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async listOwnedNFTsByQuantity(quantity: number, price: bigint): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    if (!this.astraNFTContract) {
+      return { success: false, error: 'Hedera service not configured' };
+    }
+    try {
+      const tx = await this.astraNFTContract.listOwnedNFTsByQuantity(quantity, price);
+      const receipt = await tx.wait();
+      return { success: receipt.status === 1, txHash: receipt.hash };
+    } catch (error) {
+      this.logger.error('Listing NFTs by quantity failed:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async isNFTListed(tokenId: number): Promise<boolean> {
+    if (!this.astraNFTContract) return false;
+    return await this.astraNFTContract.isNFTListed(tokenId);
+  }
+
+  async getSellerListings(seller: string): Promise<bigint[]> {
+    if (!this.astraNFTContract) return [];
+    return await this.astraNFTContract.getSellerListings(seller);
+  }
+
+  async getActiveListings(): Promise<bigint[]> {
+    if (!this.astraNFTContract) return [];
+    return await this.astraNFTContract.getActiveListings();
+  }
+
+  async getListing(tokenId: number): Promise<any> {
+    if (!this.astraNFTContract) return null;
+    return await this.astraNFTContract.getListing(tokenId);
   }
 
   private async approveUSDC(spender: string, amount: bigint): Promise<void> {
