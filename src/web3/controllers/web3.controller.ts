@@ -412,9 +412,22 @@ export class Web3Controller {
 
         const design = Array.isArray(nft) ? nft[0] : nft;
         const quantity = body.quantity || 1;
+        const recipientAddress = req.user?.walletAddress;
+
+        if (!recipientAddress) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: 'Wallet address not found. Please connect your wallet.',
+                    path: '/web3/hedera/mint',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
 
         const result = await this.hederaNFTService.mintCollectibles({
-            recipientAddress: req.user.walletAddress,
+            recipientAddress,
             designId: design.id,
             designName: body.name || design.name,
             designImage: design.imageUrl,
