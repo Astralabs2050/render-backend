@@ -35,6 +35,8 @@ export class Design {
   @Column({ type: 'jsonb', nullable: true })
   blockchainMetadata: {
     transactionHash?: string;
+    tokenIds?: string[];
+    quantity?: number;
     blockNumber?: number;
     gasUsed?: string;
     gasPrice?: string;
