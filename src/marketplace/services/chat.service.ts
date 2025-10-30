@@ -24,8 +24,10 @@ export class ChatService {
   ) {}
 
   async createChat(jobId: string, creatorId: string, makerId: string): Promise<Chat> {
-    const job = await this.jobRepository.findOne({ where: { id: jobId } });
-    if (!job) throw new NotFoundException('Job not found');
+    if (jobId) {
+      const job = await this.jobRepository.findOne({ where: { id: jobId } });
+      if (!job) throw new NotFoundException('Job not found');
+    }
 
     const existingChat = await this.chatRepository.findOne({
       where: { jobId, creatorId, makerId }
@@ -36,6 +38,23 @@ export class ChatService {
       jobId,
       creatorId,
       makerId,
+      lastMessageAt: new Date(),
+    });
+    return this.chatRepository.save(chat);
+  }
+
+  async createDirectChat(userId: string, recipientId: string): Promise<Chat> {
+    const existingChat = await this.chatRepository.findOne({
+      where: [
+        { creatorId: userId, makerId: recipientId, jobId: null },
+        { creatorId: recipientId, makerId: userId, jobId: null }
+      ]
+    });
+    if (existingChat) return existingChat;
+
+    const chat = this.chatRepository.create({
+      creatorId: userId,
+      makerId: recipientId,
       lastMessageAt: new Date(),
     });
     return this.chatRepository.save(chat);
@@ -185,6 +204,7 @@ export class ChatService {
 
       return chats.map(chat => ({
         ...chat,
+        job: chat.job || null,
         creator: {
           id: chat.creator.id,
           fullName: chat.creator.fullName,
@@ -241,7 +261,7 @@ export class ChatService {
     if (!chat) throw new NotFoundException('Chat not found');
 
     if (chat.creatorId !== userId) {
-      throw new ForbiddenException('Only job creator can create escrow');
+      throw new ForbiddenException('Only the chat initiator can create escrow');
     }
 
     chat.escrowAmount = amount;
@@ -262,7 +282,7 @@ export class ChatService {
     if (!chat) throw new NotFoundException('Chat not found');
     
     if (chat.creatorId !== userId) {
-      throw new ForbiddenException('Only job creator can fund escrow');
+      throw new ForbiddenException('Only the chat initiator can fund escrow');
     }
 
     chat.escrowStatus = 'funded';
@@ -274,7 +294,7 @@ export class ChatService {
     if (!chat) throw new NotFoundException('Chat not found');
     
     if (chat.creatorId !== userId) {
-      throw new ForbiddenException('Only job creator can release escrow');
+      throw new ForbiddenException('Only the chat initiator can release escrow');
     }
 
     chat.escrowStatus = 'completed';
@@ -360,6 +380,10 @@ export class ChatService {
   async markJobCompleted(chatId: string, userId: string): Promise<Message> {
     const chat = await this.validateChatAccess(chatId, userId);
     if (!chat) throw new ForbiddenException('Not authorized to access this chat');
+
+    if (!chat.jobId) {
+      throw new BadRequestException('This is a direct chat without a job');
+    }
 
     if (chat.creatorId !== userId) {
       throw new ForbiddenException('Only the job creator can mark job as completed');

@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Req, Query, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, Req, Query, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { NFTService, CreateNFTDto, MintNFTDto } from '../services/nft.service';
 import { EscrowService, CreateEscrowDto, FundEscrowDto, ReleaseMilestoneDto } from '../services/escrow.service';
@@ -9,8 +9,10 @@ import { TransactionHashValidatorService } from '../services/transaction-hash-va
 import { HederaNFTService } from '../services/hedera-nft.service';
 import { HederaEscrowService } from '../services/hedera-escrow.service';
 import { MintNFTRequestDto } from '../dto/mint-nft-request.dto';
+import { UsersService } from '../../users/users.service';
 @Controller('web3')
 export class Web3Controller {
+    private readonly logger = new Logger(Web3Controller.name);
     constructor(
         private readonly nftService: NFTService,
         private readonly escrowService: EscrowService,
@@ -20,6 +22,7 @@ export class Web3Controller {
         private readonly transactionHashValidator: TransactionHashValidatorService,
         private readonly hederaNFTService: HederaNFTService,
         private readonly hederaEscrowService: HederaEscrowService,
+        private readonly usersService: UsersService,
     ) { }
     @Post('nft/create')
     @UseGuards(JwtAuthGuard)
@@ -412,19 +415,10 @@ export class Web3Controller {
 
         const design = Array.isArray(nft) ? nft[0] : nft;
         const quantity = body.quantity || 1;
-        const recipientAddress = req.user?.walletAddress;
+        
+        const recipientAddress = body.recipientAddress || (await this.usersService.ensureUserHasWallet(req.user.id));
 
-        if (!recipientAddress) {
-            throw new HttpException(
-                {
-                    status: false,
-                    message: 'Wallet address not found. Please connect your wallet.',
-                    path: '/web3/hedera/mint',
-                    timestamp: new Date().toISOString(),
-                },
-                HttpStatus.BAD_REQUEST
-            );
-        }
+        this.logger.log(`Minting for address: ${recipientAddress}`);
 
         const result = await this.hederaNFTService.mintCollectibles({
             recipientAddress,

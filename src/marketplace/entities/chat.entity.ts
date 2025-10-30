@@ -7,10 +7,10 @@ import { Measurements } from './measurements.entity';
 
 @Entity('chats')
 export class Chat extends BaseEntity {
-  @Column()
+  @Column({ nullable: true })
   jobId: string;
 
-  @ManyToOne(() => Job)
+  @ManyToOne(() => Job, { nullable: true })
   @JoinColumn({ name: 'jobId' })
   job: Job;
 
