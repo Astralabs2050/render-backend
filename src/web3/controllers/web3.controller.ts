@@ -550,13 +550,34 @@ export class Web3Controller {
         };
     }
 
-    @Get('hedera/nfts/:tokenId/listings')
-    async getHederaNFTListing(@Param('tokenId') tokenId: string) {
-        const listing = await this.hederaNFTService.getListing(Number(tokenId));
+    @Get('hedera/nfts/:designId/listings')
+    async getHederaNFTListing(@Param('designId') designId: string) {
+        const design = await this.designRepository.findOne({
+            where: { id: designId }
+        });
+
+        if (!design || !design.blockchainMetadata?.transactionHash) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: 'Design not minted or not found',
+                    path: '/web3/hedera/nfts/:designId/listings',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.NOT_FOUND
+            );
+        }
+
         return {
             status: true,
-            message: 'NFT listing details retrieved',
-            data: listing,
+            message: 'Design listing details retrieved',
+            data: {
+                designId: design.id,
+                name: design.name,
+                status: design.status,
+                transactionHash: design.blockchainMetadata.transactionHash,
+                amountOfPieces: design.amountOfPieces,
+            },
         };
     }
 
