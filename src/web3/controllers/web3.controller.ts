@@ -10,6 +10,9 @@ import { HederaNFTService } from '../services/hedera-nft.service';
 import { HederaEscrowService } from '../services/hedera-escrow.service';
 import { MintNFTRequestDto } from '../dto/mint-nft-request.dto';
 import { UsersService } from '../../users/users.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Design } from '../../users/entities/collection.entity';
 @Controller('web3')
 export class Web3Controller {
     constructor(
@@ -22,6 +25,8 @@ export class Web3Controller {
         private readonly hederaNFTService: HederaNFTService,
         private readonly hederaEscrowService: HederaEscrowService,
         private readonly usersService: UsersService,
+        @InjectRepository(Design)
+        private readonly designRepository: Repository<Design>,
     ) { }
     @Post('nft/create')
     @UseGuards(JwtAuthGuard)
@@ -395,12 +400,11 @@ export class Web3Controller {
     @Post('hedera/mint')
     @UseGuards(JwtAuthGuard)
     async mintHederaCollectible(@Req() req, @Body() body: MintNFTRequestDto) {
-        // Get NFT details from database
-        const nft = body.designId 
-            ? await this.nftService.findById(body.designId)
-            : await this.nftService.findByChat(body.chatId!);
-        
-        if (!nft || (Array.isArray(nft) && nft.length === 0)) {
+        const design = await this.designRepository.findOne({
+            where: { id: body.designId, creatorId: req.user.id }
+        });
+
+        if (!design) {
             throw new HttpException(
                 {
                     status: false,
@@ -412,8 +416,7 @@ export class Web3Controller {
             );
         }
 
-        const design = Array.isArray(nft) ? nft[0] : nft;
-        const quantity = body.quantity || 1;
+        const quantity = body.quantity || design.amountOfPieces || 1;
         
         const recipientAddress = body.recipientAddress || (await this.usersService.ensureUserHasWallet(req.user.id));
 
@@ -421,8 +424,8 @@ export class Web3Controller {
             recipientAddress,
             designId: design.id,
             designName: body.name || design.name || 'Untitled Design',
-            designImage: design.imageUrl || '',
-            prompt: design.description || '',
+            designImage: design.designImages?.[0] || '',
+            prompt: `Design for ${design.name}`,
             count: quantity,
         });
 
@@ -437,6 +440,15 @@ export class Web3Controller {
                 HttpStatus.BAD_REQUEST
             );
         }
+
+        await this.designRepository.update(design.id, {
+            status: 'PUBLISHED',
+            paymentTransactionHash: result.txHash,
+            blockchainMetadata: {
+                transactionHash: result.txHash,
+                timestamp: new Date().toISOString(),
+            },
+        });
 
         return {
             status: true,
