@@ -9,7 +9,6 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { BrandDetailsDto } from './dto/brand-details.dto';
 import { CreateDesignDto } from './dto/create-collection.dto';
-import { CollectionPaymentDto } from './dto/collection-payment.dto';
 import { Helpers } from '../common/utils/helpers';
 import { ThirdwebService } from '../web3/services/thirdweb.service';
 import { CloudinaryService } from '../common/services/cloudinary.service';
@@ -217,7 +216,7 @@ export class UsersService {
     return savedCollection;
   }
 
-  async processCollectionPayment(userId: string, collectionId: string, paymentDto: CollectionPaymentDto): Promise<any> {
+  async processCollectionPayment(userId: string, collectionId: string): Promise<any> {
     if (!userId || !collectionId) {
       throw new BadRequestException('Invalid user ID or collection ID');
     }

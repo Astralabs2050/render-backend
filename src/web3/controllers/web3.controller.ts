@@ -1,6 +1,6 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Req, Query, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, Req, Query, HttpException, HttpStatus } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { NFTService, CreateNFTDto, MintNFTDto } from '../services/nft.service';
+import { NFTService, CreateNFTDto } from '../services/nft.service';
 import { EscrowService, CreateEscrowDto, FundEscrowDto, ReleaseMilestoneDto } from '../services/escrow.service';
 import { QRService, CreateQRDto } from '../services/qr.service';
 import { WebhookService, DHLWebhookPayload } from '../services/webhook.service';
@@ -12,7 +12,6 @@ import { MintNFTRequestDto } from '../dto/mint-nft-request.dto';
 import { UsersService } from '../../users/users.service';
 @Controller('web3')
 export class Web3Controller {
-    private readonly logger = new Logger(Web3Controller.name);
     constructor(
         private readonly nftService: NFTService,
         private readonly escrowService: EscrowService,
@@ -452,7 +451,6 @@ export class Web3Controller {
     @Post('hedera/escrows')
     @UseGuards(JwtAuthGuard)
     async createHederaEscrow(
-        @Req() req,
         @Body() body: { shopper: string; maker: string; creator: string; amount: string; nftTokenId: number }
     ) {
         const result = await this.hederaEscrowService.createEscrowByAgent({

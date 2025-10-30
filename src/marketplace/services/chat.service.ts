@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Chat } from '../entities/chat.entity';
 import { Message, MessageType } from '../entities/message.entity';
 import { Job } from '../entities/job.entity';
@@ -316,9 +316,6 @@ export class ChatService {
       throw new ForbiddenException('Not authorized to view this escrow');
     }
 
-    // TODO: Fetch actual blockchain details from Thirdweb SDK
-    // For now, returning mock blockchain details structure
-    // In production, this should call Thirdweb SDK to get real-time blockchain data
     const blockchainDetails = {
       shopper: chat.creator?.walletAddress || '0x93f3afd4201677F98120AE74E9dc1410537365E6', // Creator's wallet
       maker: chat.maker?.walletAddress || '0x032a2E7a380E266b1338ACB2cCE54094d92E0A2C', // Maker's wallet

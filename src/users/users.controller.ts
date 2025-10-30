@@ -5,7 +5,6 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { BrandDetailsDto } from './dto/brand-details.dto';
 import { CreateDesignDto } from './dto/create-collection.dto';
-import { CollectionPaymentDto } from './dto/collection-payment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Helpers } from '../common/utils/helpers';
 @Controller('users')
@@ -109,10 +108,9 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async processCollectionPayment(
     @Req() req,
-    @Param('id') collectionId: string,
-    @Body() paymentDto: CollectionPaymentDto
+    @Param('id') collectionId: string
   ) {
-    const payment = await this.usersService.processCollectionPayment(req.user.id, collectionId, paymentDto);
+    const payment = await this.usersService.processCollectionPayment(req.user.id, collectionId);
     return {
       status: true,
       message: 'Payment processed successfully',

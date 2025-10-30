@@ -2,7 +2,6 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NFT, NFTStatus } from '../entities/nft.entity';
-import { User } from '../../users/entities/user.entity';
 import { ThirdwebService } from './thirdweb.service';
 import { IPFSService } from './ipfs.service';
 import { QRService } from './qr.service';
