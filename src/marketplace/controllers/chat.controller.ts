@@ -15,11 +15,21 @@ export class ChatController {
   ) {}
 
   @Post('create')
-  async createChat(@Body() body: { jobId: string; makerId: string }, @Req() req) {
+  async createChat(@Body() body: { jobId?: string; makerId: string }, @Req() req) {
     const chat = await this.chatService.createChat(body.jobId, req.user.id, body.makerId);
     return {
       status: true,
       message: 'Chat created successfully',
+      data: chat,
+    };
+  }
+
+  @Post('direct')
+  async createDirectChat(@Body() body: { recipientId: string }, @Req() req) {
+    const chat = await this.chatService.createDirectChat(req.user.id, body.recipientId);
+    return {
+      status: true,
+      message: 'Direct chat created successfully',
       data: chat,
     };
   }

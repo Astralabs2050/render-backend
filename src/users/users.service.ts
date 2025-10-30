@@ -522,6 +522,21 @@ export class UsersService {
     };
   }
 
+  async ensureUserHasWallet(userId: string): Promise<string> {
+    const user = await this.findOne(userId);
+    if (user.walletAddress) {
+      return user.walletAddress;
+    }
+    const wallet = await this.thirdwebService.generateWallet();
+    const encryptedPrivateKey = Helpers.encryptPrivateKey(wallet.privateKey);
+    await this.update(userId, {
+      walletAddress: wallet.address,
+      walletPrivateKey: encryptedPrivateKey,
+    });
+    this.logger.log(`Auto-created wallet for user ${userId}: ${wallet.address}`);
+    return wallet.address;
+  }
+
   async remove(id: string): Promise<void> {
     const result = await this.usersRepository.delete(id);
     if (result.affected === 0) {

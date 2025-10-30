@@ -62,6 +62,9 @@ export class HederaNFTService {
       return { success: false, error: 'Hedera service not configured. Please set HEDERA_PRIVATE_KEY and HEDERA_TESTNET_RPC_URL' };
     }
     try {
+      if (!data.recipientAddress || !ethers.utils.isAddress(data.recipientAddress)) {
+        return { success: false, error: `Invalid recipient address: ${data.recipientAddress}` };
+      }
       const isUsed = await this.astraNFTContract.isDesignIdUsed(data.designId);
       if (isUsed) {
         return { success: false, error: 'Design ID already exists' };
