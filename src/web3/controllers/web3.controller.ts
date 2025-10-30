@@ -418,13 +418,11 @@ export class Web3Controller {
         
         const recipientAddress = body.recipientAddress || (await this.usersService.ensureUserHasWallet(req.user.id));
 
-        this.logger.log(`Minting for address: ${recipientAddress}`);
-
         const result = await this.hederaNFTService.mintCollectibles({
             recipientAddress,
             designId: design.id,
-            designName: body.name || design.name,
-            designImage: design.imageUrl,
+            designName: body.name || design.name || 'Untitled Design',
+            designImage: design.imageUrl || '',
             prompt: design.description || '',
             count: quantity,
         });
