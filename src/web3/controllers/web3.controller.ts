@@ -439,6 +439,52 @@ export class Web3Controller {
             this.logger.log(`Found NFT - id: ${nft.id}, name: ${nft.name}, status: ${nft.status}`);
         }
 
+        // Check if already minted
+        if (isNFT) {
+            if (nft!.status === 'published' || nft!.status === 'minted' || nft!.transactionHash || nft!.mintedAt) {
+                this.logger.warn(`NFT already minted - id: ${nft!.id}, status: ${nft!.status}, txHash: ${nft!.transactionHash}`);
+
+                // Extract existing token IDs from metadata if available
+                const existingTokenIds = nft!.metadata?.hederaMint?.tokenIds || [];
+
+                throw new HttpException(
+                    {
+                        status: false,
+                        message: 'This design has already been minted to the blockchain',
+                        data: {
+                            alreadyMinted: true,
+                            transactionHash: nft!.transactionHash,
+                            tokenIds: existingTokenIds,
+                            mintedAt: nft!.mintedAt,
+                            status: nft!.status,
+                        },
+                        path: '/web3/hedera/mint',
+                        timestamp: new Date().toISOString(),
+                    },
+                    HttpStatus.CONFLICT
+                );
+            }
+        } else {
+            if (design!.status === 'PUBLISHED' || design!.paymentTransactionHash) {
+                this.logger.warn(`Design already minted - id: ${design!.id}, status: ${design!.status}, txHash: ${design!.paymentTransactionHash}`);
+
+                throw new HttpException(
+                    {
+                        status: false,
+                        message: 'This design has already been minted to the blockchain',
+                        data: {
+                            alreadyMinted: true,
+                            transactionHash: design!.paymentTransactionHash,
+                            status: design!.status,
+                        },
+                        path: '/web3/hedera/mint',
+                        timestamp: new Date().toISOString(),
+                    },
+                    HttpStatus.CONFLICT
+                );
+            }
+        }
+
         // Extract design data from either source
         const designId = isNFT ? nft!.id : design!.id;
         const designName = body.name || (isNFT ? nft!.name : design!.name) || 'Untitled Design';
@@ -477,6 +523,7 @@ export class Web3Controller {
                 hederaMint: {
                     transactionHash: result.txHash,
                     tokenIds: result.tokenIds.map(id => id.toString()),
+                    quantity: quantity,
                     timestamp: new Date().toISOString(),
                 }
             };
@@ -485,19 +532,23 @@ export class Web3Controller {
                 status: 'published' as any,
                 transactionHash: result.txHash,
                 mintedAt: new Date(),
+                quantity: quantity,
                 metadata: updatedMetadata as any
             });
-            this.logger.log(`Updated NFT status to published - id: ${nft!.id}`);
+            this.logger.log(`Updated NFT status to published with quantity ${quantity} - id: ${nft!.id}`);
         } else {
             await this.designRepository.update(design!.id, {
                 status: 'PUBLISHED',
                 paymentTransactionHash: result.txHash,
+                amountOfPieces: quantity,
                 blockchainMetadata: {
                     transactionHash: result.txHash,
+                    tokenIds: result.tokenIds.map(id => id.toString()),
+                    quantity: quantity,
                     timestamp: new Date().toISOString(),
                 },
             });
-            this.logger.log(`Updated design status to PUBLISHED - id: ${design!.id}`);
+            this.logger.log(`Updated design status to PUBLISHED with quantity ${quantity} - id: ${design!.id}`);
         }
 
         return {
