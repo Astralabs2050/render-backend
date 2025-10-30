@@ -85,7 +85,7 @@ export class HederaNFTService {
       const baseMintFee = await this.astraNFTContract.getBaseMintFee();
       const totalFee = BigInt(baseMintFee) * BigInt(data.count);
 
-      await this.approveUSDC(this.astraNFTContract.target as string, totalFee);
+      await this.approveUSDC(this.astraNFTContract.address, totalFee);
 
       const mintTx = await this.astraNFTContract.mintNFTs(
         data.recipientAddress,
