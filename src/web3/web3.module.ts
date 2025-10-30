@@ -16,9 +16,12 @@ import { EscrowContract } from './entities/escrow.entity';
 import { QRCode } from './entities/qr.entity';
 import { EscrowMilestone } from './entities/escrow.entity';
 import { Chat } from '../ai-chat/entities/chat.entity';
+import { UsersModule } from '../users/users.module';
+import { forwardRef } from '@nestjs/common';
 @Module({
   imports: [
     TypeOrmModule.forFeature([NFT, EscrowContract, EscrowMilestone, QRCode, Chat]),
+    forwardRef(() => UsersModule),
   ],
   controllers: [Web3Controller],
   providers: [
