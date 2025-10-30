@@ -13,6 +13,7 @@ import { UsersService } from '../../users/users.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Design } from '../../users/entities/collection.entity';
+import { NFT } from '../entities/nft.entity';
 @Controller('web3')
 export class Web3Controller {
     private readonly logger = new Logger(Web3Controller.name);
@@ -29,6 +30,8 @@ export class Web3Controller {
         private readonly usersService: UsersService,
         @InjectRepository(Design)
         private readonly designRepository: Repository<Design>,
+        @InjectRepository(NFT)
+        private readonly nftRepository: Repository<NFT>,
     ) { }
     @Post('nft/create')
     @UseGuards(JwtAuthGuard)
@@ -404,33 +407,54 @@ export class Web3Controller {
     async mintHederaCollectible(@Req() req, @Body() body: MintNFTRequestDto) {
         this.logger.log(`Minting request - designId: ${body.designId}, userId: ${req.user.id}`);
 
-        const design = await this.designRepository.findOne({
+        // Check designs table first (manual uploads)
+        let design = await this.designRepository.findOne({
             where: { id: body.designId, creatorId: req.user.id }
         });
 
+        let isNFT = false;
+        let nft: NFT | null = null;
+
+        // If not found in designs table, check NFTs table (AI-generated designs)
         if (!design) {
-            this.logger.error(`Design not found - designId: ${body.designId}, userId: ${req.user.id}`);
-            throw new HttpException(
-                {
-                    status: false,
-                    message: 'Design not found',
-                    path: '/web3/hedera/mint',
-                    timestamp: new Date().toISOString(),
-                },
-                HttpStatus.NOT_FOUND
-            );
+            this.logger.log(`Design not found in designs table, checking NFTs table - designId: ${body.designId}`);
+            nft = await this.nftRepository.findOne({
+                where: { id: body.designId, creatorId: req.user.id }
+            });
+
+            if (!nft) {
+                this.logger.error(`Design not found in either table - designId: ${body.designId}, userId: ${req.user.id}`);
+                throw new HttpException(
+                    {
+                        status: false,
+                        message: 'Design not found',
+                        path: '/web3/hedera/mint',
+                        timestamp: new Date().toISOString(),
+                    },
+                    HttpStatus.NOT_FOUND
+                );
+            }
+
+            isNFT = true;
+            this.logger.log(`Found NFT - id: ${nft.id}, name: ${nft.name}, status: ${nft.status}`);
         }
 
-        const quantity = body.quantity || design.amountOfPieces || 1;
-        
+        // Extract design data from either source
+        const designId = isNFT ? nft!.id : design!.id;
+        const designName = body.name || (isNFT ? nft!.name : design!.name) || 'Untitled Design';
+        const designImage = isNFT ? nft!.imageUrl : design!.designImages?.[0] || '';
+        const quantity = body.quantity || (isNFT ? nft!.quantity : design!.amountOfPieces) || 1;
+
         const recipientAddress = body.recipientAddress || (await this.usersService.ensureUserHasWallet(req.user.id));
+
+        this.logger.log(`Preparing to mint - name: ${designName}, image: ${designImage}, quantity: ${quantity}`);
 
         const result = await this.hederaNFTService.mintCollectibles({
             recipientAddress,
-            designId: design.id,
-            designName: body.name || design.name || 'Untitled Design',
-            designImage: design.designImages?.[0] || '',
-            prompt: `Design for ${design.name}`,
+            designId,
+            designName,
+            designImage,
+            prompt: `Design for ${designName}`,
             count: quantity,
         });
 
@@ -446,14 +470,35 @@ export class Web3Controller {
             );
         }
 
-        await this.designRepository.update(design.id, {
-            status: 'PUBLISHED',
-            paymentTransactionHash: result.txHash,
-            blockchainMetadata: {
+        // Update the appropriate table based on source
+        if (isNFT) {
+            const updatedMetadata = {
+                ...(nft!.metadata || {}),
+                hederaMint: {
+                    transactionHash: result.txHash,
+                    tokenIds: result.tokenIds.map(id => id.toString()),
+                    timestamp: new Date().toISOString(),
+                }
+            };
+
+            await this.nftRepository.update(nft!.id, {
+                status: 'published' as any,
                 transactionHash: result.txHash,
-                timestamp: new Date().toISOString(),
-            },
-        });
+                mintedAt: new Date(),
+                metadata: updatedMetadata as any
+            });
+            this.logger.log(`Updated NFT status to published - id: ${nft!.id}`);
+        } else {
+            await this.designRepository.update(design!.id, {
+                status: 'PUBLISHED',
+                paymentTransactionHash: result.txHash,
+                blockchainMetadata: {
+                    transactionHash: result.txHash,
+                    timestamp: new Date().toISOString(),
+                },
+            });
+            this.logger.log(`Updated design status to PUBLISHED - id: ${design!.id}`);
+        }
 
         return {
             status: true,
@@ -461,6 +506,7 @@ export class Web3Controller {
             data: {
                 tokenIds: result.tokenIds,
                 txHash: result.txHash,
+                source: isNFT ? 'nft' : 'design',
             },
         };
     }

@@ -25,6 +25,7 @@ export class HederaNFTService {
     this.astraNFTContract = new ethers.Contract(
       this.configService.get('ASTRA_NFT_COLLECTIBLE_CONTRACT_ADDRESS'),
       [
+        // Functions
         'function mintNFTs(address to, string memory designId, string memory designName, string memory designImage, string memory prompt, uint256 count) external',
         'function getBaseMintFee() external view returns (uint256)',
         'function isDesignIdUsed(string memory designId) external view returns (bool)',
@@ -37,6 +38,11 @@ export class HederaNFTService {
         'function getSellerListings(address seller) external view returns (uint256[] memory)',
         'function getActiveListings() external view returns (uint256[] memory)',
         'function getListing(uint256 tokenId) external view returns (tuple(uint256 tokenId, address seller, uint256 price, bool isActive, uint256 listingTime))',
+
+        // Events
+        'event NFTMinted(address indexed to, uint256 indexed tokenId, string designId, string designName)',
+        'event TokenMinted(address indexed to, uint256 indexed tokenId, string designId)',
+        'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
       ],
       this.wallet
     );
@@ -279,14 +285,35 @@ export class HederaNFTService {
 
   private extractTokenIds(receipt: any, expectedCount: number): bigint[] {
     const tokenIds: bigint[] = [];
+
+    this.logger.log(`Extracting token IDs from ${receipt.logs.length} logs`);
+
     for (const log of receipt.logs) {
       try {
         const parsed = this.astraNFTContract.interface.parseLog(log);
-        if (parsed && parsed.name === 'NFTMinted') {
-          tokenIds.push(parsed.args.tokenId);
+
+        if (parsed) {
+          this.logger.log(`Found event: ${parsed.name}`);
+
+          // Handle different event types
+          if (parsed.name === 'NFTMinted' || parsed.name === 'TokenMinted') {
+            tokenIds.push(parsed.args.tokenId);
+            this.logger.log(`Extracted tokenId: ${parsed.args.tokenId.toString()}`);
+          } else if (parsed.name === 'Transfer') {
+            // For Transfer events, only count mints 
+            if (parsed.args.from === ethers.constants.AddressZero) {
+              tokenIds.push(parsed.args.tokenId);
+              this.logger.log(`Extracted tokenId from Transfer: ${parsed.args.tokenId.toString()}`);
+            }
+          }
         }
-      } catch (e) {}
+      } catch (e) {
+        // Log belongs to a different contract or unknown event
+        // this.logger.debug(`Could not parse log: ${e.message}`);
+      }
     }
+
+    this.logger.log(`Total token IDs extracted: ${tokenIds.length}, expected: ${expectedCount}`);
     return tokenIds.slice(0, expectedCount);
   }
 }

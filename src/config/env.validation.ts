@@ -34,6 +34,18 @@ export const envSchema = z.object({
   OPENAI_MODEL: z.string().default('gpt-4o'),
   FRONTEND_URL: z.string().default('http://localhost:3001'),
   APP_BASE_URL: z.string().default('http://localhost:3000'),
+
+  // Hedera Configuration
+  HEDERA_TESTNET_RPC_URL: z.string().url('Invalid Hedera RPC URL').optional(),
+  HEDERA_PRIVATE_KEY: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid Hedera private key format').optional(),
+  HEDERA_ACCOUNT_ID: z.string().optional(),
+  HEDERA_USDC_TOKEN_ID: z.string().optional(),
+  ASTRA_NFT_COLLECTIBLE_CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid NFT contract address').optional(),
+  ESCROW_CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid escrow contract address').optional(),
+  HEDERA_TOKEN_SERVICE_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid token service address').optional(),
+  HEDERA_USDC_TOKEN_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid USDC token address').optional(),
+  PINATA_JWT_TOKEN: z.string().optional(),
+  THIRDWEB_PRIVATE_KEY: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid Thirdweb private key format').optional(),
 });
 export type EnvConfig = z.infer<typeof envSchema>;
 export function validateEnv(env: Record<string, string | undefined> = process.env): EnvConfig {
