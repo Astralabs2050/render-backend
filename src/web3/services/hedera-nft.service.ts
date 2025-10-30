@@ -8,7 +8,7 @@ export class HederaNFTService {
   private provider: ethers.providers.JsonRpcProvider;
   private wallet: ethers.Wallet;
   private astraNFTContract: ethers.Contract;
-  private hederaTokenServiceContract: ethers.Contract;
+  private usdcTokenContract: ethers.Contract;
 
   constructor(private configService: ConfigService) {
     const privateKey = this.configService.get('HEDERA_PRIVATE_KEY');
@@ -28,8 +28,6 @@ export class HederaNFTService {
         'function mintNFTs(address to, string memory designId, string memory designName, string memory designImage, string memory prompt, uint256 count) external',
         'function getBaseMintFee() external view returns (uint256)',
         'function isDesignIdUsed(string memory designId) external view returns (bool)',
-        // 'function totalSupply() external view returns (uint256)',
-        // 'function MAX_SUPPLY() external view returns (uint256)',
         'function MAX_PER_MINT() external view returns (uint256)',
         'function setBaseURI(string memory _baseTokenURI) external',
         'function tokenURI(uint256 tokenId) external view returns (string)',
@@ -43,9 +41,14 @@ export class HederaNFTService {
       this.wallet
     );
 
-    this.hederaTokenServiceContract = new ethers.Contract(
-      this.configService.get('HEDERA_TOKEN_SERVICE_ADDRESS'),
-      ['function approve(address token, address spender, uint256 amount) external returns (int64 responseCode)'],
+    this.usdcTokenContract = new ethers.Contract(
+      this.configService.get('HEDERA_USDC_TOKEN_ADDRESS'),
+      [
+        'function balanceOf(address account) external view returns (uint256)',
+        'function allowance(address owner, address spender) external view returns (uint256)',
+        'function approve(address spender, uint256 amount) external returns (bool)',
+        'function associate() external returns (int64 responseCode)',
+      ],
       this.wallet
     );
   }
@@ -65,18 +68,15 @@ export class HederaNFTService {
       if (!data.recipientAddress || !ethers.utils.isAddress(data.recipientAddress)) {
         return { success: false, error: `Invalid recipient address: ${data.recipientAddress}` };
       }
+
+      this.logger.log(`Starting minting process for ${data.count} NFTs to ${data.recipientAddress}`);
+
       const isUsed = await this.astraNFTContract.isDesignIdUsed(data.designId);
       if (isUsed) {
         return { success: false, error: 'Design ID already exists' };
       }
 
-      // const maxSupply = await this.astraNFTContract.MAX_SUPPLY();
       const maxPerMint = await this.astraNFTContract.MAX_PER_MINT();
-      // const totalSupply = await this.astraNFTContract.totalSupply();
-
-      // if (totalSupply + BigInt(data.count) > maxSupply) {
-      //   return { success: false, error: `Exceeds max supply. Available: ${maxSupply - totalSupply}` };
-      // }
 
       if (data.count > Number(maxPerMint)) {
         return { success: false, error: `Exceeds max per mint. Max: ${maxPerMint}` };
@@ -85,8 +85,47 @@ export class HederaNFTService {
       const baseMintFee = await this.astraNFTContract.getBaseMintFee();
       const totalFee = BigInt(baseMintFee) * BigInt(data.count);
 
-      await this.approveUSDC(this.astraNFTContract.address, totalFee);
+      this.logger.log(`Mint fee: ${totalFee.toString()} (${ethers.utils.formatUnits(totalFee, 6)} USDC)`);
 
+      let balance: any;
+      try {
+        balance = await this.usdcTokenContract.balanceOf(this.wallet.address);
+        this.logger.log(`Wallet USDC balance: ${balance.toString()} (${ethers.utils.formatUnits(balance, 6)} USDC)`);
+      } catch (balanceError) {
+        this.logger.log('Failed to get USDC balance. Attempting automatic token association...');
+        const associationResult = await this.associateUSDCToken();
+
+        if (!associationResult.success) {
+          return {
+            success: false,
+            error: `USDC token not associated and auto-association failed: ${associationResult.error}`
+          };
+        }
+
+        this.logger.log('Auto-association successful. Rechecking balance...');
+        balance = await this.usdcTokenContract.balanceOf(this.wallet.address);
+        this.logger.log(`Wallet USDC balance: ${balance.toString()} (${ethers.utils.formatUnits(balance, 6)} USDC)`);
+      }
+
+      if (BigInt(balance.toString()) < totalFee) {
+        return {
+          success: false,
+          error: `Insufficient USDC balance. Required: ${ethers.utils.formatUnits(totalFee, 6)} USDC, Available: ${ethers.utils.formatUnits(balance, 6)} USDC`
+        };
+      }
+
+      const currentAllowance = await this.usdcTokenContract.allowance(this.wallet.address, this.astraNFTContract.address);
+      this.logger.log(`Current USDC allowance: ${currentAllowance.toString()} (${ethers.utils.formatUnits(currentAllowance, 6)} USDC)`);
+
+      if (BigInt(currentAllowance.toString()) < totalFee) {
+        this.logger.log(`Approving ${ethers.utils.formatUnits(totalFee, 6)} USDC for minting`);
+        await this.approveUSDC(this.astraNFTContract.address, totalFee);
+        this.logger.log('USDC approval successful');
+      } else {
+        this.logger.log('Sufficient allowance already exists, skipping approval');
+      }
+
+      this.logger.log('Calling mintNFTs on contract...');
       const mintTx = await this.astraNFTContract.mintNFTs(
         data.recipientAddress,
         data.designId,
@@ -96,17 +135,27 @@ export class HederaNFTService {
         data.count
       );
 
+      this.logger.log(`Mint transaction submitted: ${mintTx.hash}. Waiting for confirmation...`);
       const receipt = await mintTx.wait();
 
       if (receipt.status === 1) {
         const tokenIds = this.extractTokenIds(receipt, data.count);
+        this.logger.log(`Minting successful! Token IDs: ${tokenIds.join(', ')}`);
         return { success: true, tokenIds, txHash: receipt.hash };
       }
 
       return { success: false, error: 'Transaction failed' };
     } catch (error) {
-      this.logger.error('Minting failed:', error);
-      return { success: false, error: error.message };
+      this.logger.error('Minting failed:');
+      this.logger.error(error);
+
+      let errorMessage = error.message;
+      if (error.error?.code === 3 && error.error?.data) {
+        const errorCode = error.error.data;
+        errorMessage = `Hedera error: ${errorCode}. This may indicate token association or balance issues.`;
+      }
+
+      return { success: false, error: errorMessage };
     }
   }
 
@@ -170,12 +219,62 @@ export class HederaNFTService {
   }
 
   private async approveUSDC(spender: string, amount: bigint): Promise<void> {
-    const tx = await this.hederaTokenServiceContract.approve(
-      this.configService.get('HEDERA_USDC_TOKEN_ADDRESS'),
-      spender,
-      amount
-    );
-    await tx.wait();
+    try {
+      this.logger.log(`Approving ${spender} to spend ${amount.toString()} USDC tokens`);
+
+      const tx = await this.usdcTokenContract.approve(spender, amount);
+
+      this.logger.log(`Approval transaction submitted: ${tx.hash}`);
+      const receipt = await tx.wait();
+
+      if (receipt.status !== 1) {
+        throw new Error('USDC approval transaction failed');
+      }
+
+      this.logger.log('USDC approval transaction confirmed');
+    } catch (error) {
+      this.logger.error('USDC approval failed:', error);
+      throw new Error(`Failed to approve USDC: ${error.message}`);
+    }
+  }
+
+  async associateUSDCToken(): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    try {
+      this.logger.log('Checking if USDC token association is needed...');
+
+      try {
+        const balance = await this.usdcTokenContract.balanceOf(this.wallet.address);
+        this.logger.log(`USDC token already associated. Balance: ${ethers.utils.formatUnits(balance, 6)} USDC`);
+        return { success: true };
+      } catch (balanceError) {
+        this.logger.log('Token not associated. Proceeding with association...');
+      }
+
+      this.logger.log('Calling associate() on USDC token contract...');
+      const tx = await this.usdcTokenContract.associate();
+
+      this.logger.log(`Association transaction submitted: ${tx.hash}`);
+      const receipt = await tx.wait();
+
+      if (receipt.status === 1) {
+        this.logger.log('USDC token association successful!');
+        return { success: true, txHash: receipt.hash };
+      }
+
+      return { success: false, error: 'Token association transaction failed' };
+    } catch (error) {
+      this.logger.error('Token association failed:', error);
+
+      let errorMessage = error.message;
+      if (error.message.includes('insufficient funds')) {
+        errorMessage = 'Insufficient HBAR for gas fees. Please fund your wallet with HBAR.';
+      } else if (error.message.includes('already associated')) {
+        this.logger.log('Token already associated (caught in error handler)');
+        return { success: true };
+      }
+
+      return { success: false, error: errorMessage };
+    }
   }
 
   private extractTokenIds(receipt: any, expectedCount: number): bigint[] {

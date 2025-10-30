@@ -569,4 +569,26 @@ export class Web3Controller {
             data: { tokenIds },
         };
     }
+
+    @Post('hedera/associate-usdc')
+    @UseGuards(JwtAuthGuard)
+    async associateUSDC() {
+        const result = await this.hederaNFTService.associateUSDCToken();
+        if (!result.success) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: result.error || 'Failed to associate USDC token',
+                    path: '/web3/hedera/associate-usdc',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+        return {
+            status: true,
+            message: 'USDC token association successful. You can now mint NFTs.',
+            data: result,
+        };
+    }
 }
