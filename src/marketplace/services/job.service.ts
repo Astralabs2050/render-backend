@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, Between, In } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Job, JobStatus } from '../entities/job.entity';
 import { JobApplication, ApplicationStatus } from '../entities/job-application.entity';
 import { SavedJob } from '../entities/saved-job.entity';
@@ -797,8 +797,8 @@ export class JobService {
   }
 
   async saveJobForMaker(jobId: string, makerId: string): Promise<any> {
-    const job = await this.findJobById(jobId);
-    
+    await this.findJobById(jobId);
+
     // Verify maker exists
     const maker = await this.userRepository.findOne({
       where: { id: makerId, userType: UserType.MAKER }

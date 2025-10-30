@@ -452,9 +452,8 @@ Reply ONLY YES or NO.`;
       
       // Process payment using existing system
       const paymentResult = await this.usersService.processCollectionPayment(
-        chat.userId, 
-        design.id, 
-        { paymentMethod: 'wallet' }
+        chat.userId,
+        design.id
       );
       
       if (paymentResult.paymentStatus === 'completed') {

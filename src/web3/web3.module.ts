@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Design } from '../users/entities/collection.entity';
 import { ThirdwebService } from './services/thirdweb.service';
 import { IPFSService } from './services/ipfs.service';
 import { NFTService } from './services/nft.service';
@@ -20,7 +21,7 @@ import { UsersModule } from '../users/users.module';
 import { forwardRef } from '@nestjs/common';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NFT, EscrowContract, EscrowMilestone, QRCode, Chat]),
+    TypeOrmModule.forFeature([NFT, EscrowContract, EscrowMilestone, QRCode, Chat, Design]),
     forwardRef(() => UsersModule),
   ],
   controllers: [Web3Controller],

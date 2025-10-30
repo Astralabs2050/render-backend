@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { RegisterDto, LoginDto, OtpVerificationDto, ResendOtpDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
-import { User, UserType } from '../users/entities/user.entity';
+import { User } from '../users/entities/user.entity';
 import { Helpers } from '../common/utils/helpers';
 import { EmailService } from '../common/services/email.service';
 import { ThirdwebService } from '../web3/services/thirdweb.service';
