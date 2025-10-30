@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Req, Query, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, Req, Query, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { NFTService, CreateNFTDto } from '../services/nft.service';
 import { EscrowService, CreateEscrowDto, FundEscrowDto, ReleaseMilestoneDto } from '../services/escrow.service';
@@ -15,6 +15,8 @@ import { Repository } from 'typeorm';
 import { Design } from '../../users/entities/collection.entity';
 @Controller('web3')
 export class Web3Controller {
+    private readonly logger = new Logger(Web3Controller.name);
+
     constructor(
         private readonly nftService: NFTService,
         private readonly escrowService: EscrowService,
@@ -400,11 +402,14 @@ export class Web3Controller {
     @Post('hedera/mint')
     @UseGuards(JwtAuthGuard)
     async mintHederaCollectible(@Req() req, @Body() body: MintNFTRequestDto) {
+        this.logger.log(`Minting request - designId: ${body.designId}, userId: ${req.user.id}`);
+
         const design = await this.designRepository.findOne({
             where: { id: body.designId, creatorId: req.user.id }
         });
 
         if (!design) {
+            this.logger.error(`Design not found - designId: ${body.designId}, userId: ${req.user.id}`);
             throw new HttpException(
                 {
                     status: false,
