@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ChatService } from '../services/chat.service';
 import { MessageType } from '../entities/message.entity';
 import { SendMessageWithDetailsDto } from '../dto/delivery-measurements.dto';
+import { CreateChatDto } from '../dto/create-chat.dto';
 import { CloudinaryService } from '../../common/services/cloudinary.service';
 
 @Controller('marketplace/chat')
@@ -15,8 +16,8 @@ export class ChatController {
   ) {}
 
   @Post('create')
-  async createChat(@Body() body: { jobId?: string; recipientId: string }, @Req() req) {
-    const chat = await this.chatService.createChat(body.jobId, req.user.id, body.recipientId);
+  async createChat(@Body() body: CreateChatDto, @Req() req) {
+    const chat = await this.chatService.createChat(body.jobId, req.user.id, body.recipientId, body.designId);
     return {
       status: true,
       message: 'Chat created successfully',
