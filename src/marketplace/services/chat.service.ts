@@ -23,14 +23,14 @@ export class ChatService {
     private measurementsRepository: Repository<Measurements>,
   ) {}
 
-  async createChat(jobId: string, creatorId: string, makerId: string): Promise<Chat> {
+  async createChat(jobId: string | undefined, creatorId: string, makerId: string, designId?: string): Promise<Chat> {
     if (jobId) {
       const job = await this.jobRepository.findOne({ where: { id: jobId } });
       if (!job) throw new NotFoundException('Job not found');
     }
 
     const existingChat = await this.chatRepository.findOne({
-      where: { jobId, creatorId, makerId }
+      where: { jobId: jobId || null, creatorId, makerId }
     });
     if (existingChat) return existingChat;
 
@@ -38,6 +38,7 @@ export class ChatService {
       jobId,
       creatorId,
       makerId,
+      designId,
       lastMessageAt: new Date(),
     });
     return this.chatRepository.save(chat);

@@ -29,6 +29,9 @@ export class Chat extends BaseEntity {
   maker: User;
 
   @Column({ nullable: true })
+  designId: string;
+
+  @Column({ nullable: true })
   lastMessageAt: Date;
 
   @Column({ default: true })
