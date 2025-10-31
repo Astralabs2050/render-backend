@@ -159,7 +159,7 @@ Skills: ${hireMakerDto.skillKeywords.join(', ')}`,
     }
 
     // Update the NFT with marketplace information
-    const updatedNFT = await this.nftService.updateNFT(design.id, {
+    await this.nftService.updateNFT(design.id, {
       price: publishDto.pricePerOutfit,
       quantity: publishDto.quantityAvailable,
       status: NFTStatus.LISTED,

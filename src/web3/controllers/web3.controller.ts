@@ -441,7 +441,8 @@ export class Web3Controller {
 
         // Check if already minted
         if (isNFT) {
-            if (nft!.status === 'published' || nft!.status === 'minted' || nft!.transactionHash || nft!.mintedAt) {
+            // Check if NFT has already been minted (status is minted/listed/hired/sold or has transaction hash)
+            if (['minted', 'listed', 'hired', 'sold'].includes(nft!.status) || nft!.transactionHash || nft!.mintedAt) {
                 this.logger.warn(`NFT already minted - id: ${nft!.id}, status: ${nft!.status}, txHash: ${nft!.transactionHash}`);
 
                 // Extract existing token IDs from metadata if available
@@ -529,13 +530,13 @@ export class Web3Controller {
             };
 
             await this.nftRepository.update(nft!.id, {
-                status: 'published' as any,
+                status: 'minted' as any,
                 transactionHash: result.txHash,
                 mintedAt: new Date(),
                 quantity: quantity,
                 metadata: updatedMetadata as any
             });
-            this.logger.log(`Updated NFT status to published with quantity ${quantity} - id: ${nft!.id}`);
+            this.logger.log(`Updated NFT status to minted with quantity ${quantity} - id: ${nft!.id}`);
         } else {
             await this.designRepository.update(design!.id, {
                 status: 'PUBLISHED',
