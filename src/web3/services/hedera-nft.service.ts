@@ -144,10 +144,25 @@ export class HederaNFTService {
       this.logger.log(`Mint transaction submitted: ${mintTx.hash}. Waiting for confirmation...`);
       const receipt = await mintTx.wait();
 
+      this.logger.log(`Transaction confirmed. Receipt status: ${receipt.status}`);
+      this.logger.log(`Transaction hash: ${mintTx.hash}`);
+      this.logger.log(`Receipt object keys: ${Object.keys(receipt).join(', ')}`);
+
       if (receipt.status === 1) {
         const tokenIds = this.extractTokenIds(receipt, data.count);
         this.logger.log(`Minting successful! Token IDs: ${tokenIds.join(', ')}`);
-        return { success: true, tokenIds, txHash: receipt.hash };
+
+        // Use mintTx.hash (not receipt.hash) - receipt doesn't have hash property
+        const txHash = receipt.transactionHash || mintTx.hash;
+
+        if (!txHash) {
+          this.logger.error('CRITICAL: Transaction succeeded but no hash available!');
+          this.logger.error(`mintTx.hash: ${mintTx.hash}, receipt.transactionHash: ${receipt.transactionHash}`);
+          throw new Error('Transaction hash missing from both mintTx and receipt');
+        }
+
+        this.logger.log(`Returning txHash: ${txHash}`);
+        return { success: true, tokenIds, txHash };
       }
 
       return { success: false, error: 'Transaction failed' };
