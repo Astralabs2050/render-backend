@@ -223,12 +223,22 @@ export class JobController {
       throw new BadRequestException('Image file is too small or corrupt');
     }
 
+    // Validate name is not empty or just whitespace
+    if (!uploadDesignDto.name || uploadDesignDto.name.trim().length === 0) {
+      throw new BadRequestException('Design name cannot be empty');
+    }
+
     // Validate description is not empty or just whitespace
     if (!uploadDesignDto.description || uploadDesignDto.description.trim().length === 0) {
       throw new BadRequestException('Design description cannot be empty');
     }
 
-    return this.jobService.uploadDesignForMinting(file, uploadDesignDto.description.trim(), req.user.id);
+    return this.jobService.uploadDesignForMinting(
+      file,
+      uploadDesignDto.name.trim(),
+      uploadDesignDto.description.trim(),
+      req.user.id
+    );
   }
   // NFT Marketplace Endpoints
   @Public()

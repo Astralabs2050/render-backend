@@ -77,9 +77,12 @@ export class ChatController {
       body.deliveryDetails,
       body.measurements,
       body.actionType,
-      body.attachments,
+      body.type === MessageType.DESIGN_INQUIRY ? undefined : body.attachments,
       body.applicationData,
-      body.amount
+      body.amount,
+      body.designId,
+      body.price,
+      body.title
     );
     return {
       status: true,

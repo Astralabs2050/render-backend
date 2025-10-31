@@ -917,7 +917,7 @@ export class JobService {
     };
   }
 
-  async uploadDesignForMinting(file: Express.Multer.File, description: string, userId: string): Promise<any> {
+  async uploadDesignForMinting(file: Express.Multer.File, name: string, description: string, userId: string): Promise<any> {
     // Verify user exists and is a creator
     const user = await this.userRepository.findOne({
       where: { id: userId, userType: UserType.CREATOR }
@@ -950,7 +950,7 @@ export class JobService {
     try {
       // Create NFT record for minting preparation
       const nft = this.nftRepository.create({
-        name: 'Untitled Design',
+        name,
         description,
         category: 'fashion',
         price: 0,
