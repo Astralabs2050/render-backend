@@ -33,7 +33,7 @@ export class ChatService {
       if (!job) throw new NotFoundException('Job not found');
     }
 
-    // Validate design exists and is available if designId provided
+    // Validate design exists if designId provided
     if (designId) {
       const design = await this.nftRepository.findOne({
         where: { id: designId },
@@ -41,18 +41,6 @@ export class ChatService {
 
       if (!design) {
         throw new NotFoundException('Design not found');
-      }
-
-      // Check if design is listed (available for purchase)
-      if (design.status !== NFTStatus.LISTED) {
-        throw new BadRequestException(
-          `Design is not available for purchase. Current status: ${design.status}. Only designs with status 'listed' can be chatted about.`
-        );
-      }
-
-      // Check if design has stock available
-      if (design.quantity <= 0) {
-        throw new BadRequestException('Design is out of stock');
       }
     }
 
