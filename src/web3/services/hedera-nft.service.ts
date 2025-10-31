@@ -151,8 +151,16 @@ export class HederaNFTService {
       if (receipt.status === 1) {
         const tokenIds = this.extractTokenIds(receipt, data.count);
         this.logger.log(`Minting successful! Token IDs: ${tokenIds.join(', ')}`);
+
         // Use mintTx.hash (not receipt.hash) - receipt doesn't have hash property
         const txHash = receipt.transactionHash || mintTx.hash;
+
+        if (!txHash) {
+          this.logger.error('CRITICAL: Transaction succeeded but no hash available!');
+          this.logger.error(`mintTx.hash: ${mintTx.hash}, receipt.transactionHash: ${receipt.transactionHash}`);
+          throw new Error('Transaction hash missing from both mintTx and receipt');
+        }
+
         this.logger.log(`Returning txHash: ${txHash}`);
         return { success: true, tokenIds, txHash };
       }
