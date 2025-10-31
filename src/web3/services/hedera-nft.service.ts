@@ -144,10 +144,17 @@ export class HederaNFTService {
       this.logger.log(`Mint transaction submitted: ${mintTx.hash}. Waiting for confirmation...`);
       const receipt = await mintTx.wait();
 
+      this.logger.log(`Transaction confirmed. Receipt status: ${receipt.status}`);
+      this.logger.log(`Transaction hash: ${mintTx.hash}`);
+      this.logger.log(`Receipt object keys: ${Object.keys(receipt).join(', ')}`);
+
       if (receipt.status === 1) {
         const tokenIds = this.extractTokenIds(receipt, data.count);
         this.logger.log(`Minting successful! Token IDs: ${tokenIds.join(', ')}`);
-        return { success: true, tokenIds, txHash: receipt.hash };
+        // Use mintTx.hash (not receipt.hash) - receipt doesn't have hash property
+        const txHash = receipt.transactionHash || mintTx.hash;
+        this.logger.log(`Returning txHash: ${txHash}`);
+        return { success: true, tokenIds, txHash };
       }
 
       return { success: false, error: 'Transaction failed' };
@@ -300,7 +307,7 @@ export class HederaNFTService {
             tokenIds.push(parsed.args.tokenId);
             this.logger.log(`Extracted tokenId: ${parsed.args.tokenId.toString()}`);
           } else if (parsed.name === 'Transfer') {
-            // For Transfer events, only count mints 
+            // For Transfer events, only count mints t
             if (parsed.args.from === ethers.constants.AddressZero) {
               tokenIds.push(parsed.args.tokenId);
               this.logger.log(`Extracted tokenId from Transfer: ${parsed.args.tokenId.toString()}`);
