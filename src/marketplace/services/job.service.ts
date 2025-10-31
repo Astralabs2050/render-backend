@@ -950,7 +950,7 @@ export class JobService {
     try {
       // Create NFT record for minting preparation
       const nft = this.nftRepository.create({
-        name: description.substring(0, 100) || 'Untitled Design', // Use first 100 chars of description as name
+        name: 'Untitled Design',
         description,
         category: 'fashion',
         price: 0,
