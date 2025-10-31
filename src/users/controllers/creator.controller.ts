@@ -143,8 +143,31 @@ Skills: ${hireMakerDto.skillKeywords.join(', ')}`,
       throw new NotFoundException('Design not found or does not belong to you');
     }
 
-    // Check if design is in the right status for marketplace publishing
-    if (design.status !== NFTStatus.MINTED) {
+    console.log(`[DEBUG] Publishing design ${design.id} with status: ${design.status}, txHash: ${design.transactionHash}, mintedAt: ${design.mintedAt}`);
+
+    // Check if design was actually minted on blockchain (MUST have transaction hash as proof)
+    if (!design.transactionHash) {
+      return {
+        status: false,
+        message: 'Design must be minted on blockchain before publishing to marketplace',
+        data: {
+          designId: design.id,
+          currentStatus: design.status,
+          hasTransactionHash: !!design.transactionHash,
+          hasMintedAt: !!design.mintedAt,
+          action: 'mint_required',
+          web3Required: true,
+          message: 'This design does not have a valid blockchain transaction hash. Please mint it using the Hedera minting endpoint.',
+          hint: 'POST /web3/hedera/mint with designId: ' + design.id,
+          note: design.mintedAt ? 'Design has mintedAt timestamp but missing transaction hash - this indicates an incomplete mint.' : undefined
+        }
+      };
+    }
+
+    // Check if design is in a valid status for marketplace publishing
+    // Accept MINTED, PUBLISHED, or LISTED (in case of re-listing)
+    const validStatuses = [NFTStatus.MINTED, NFTStatus.PUBLISHED, NFTStatus.LISTED];
+    if (!validStatuses.includes(design.status)) {
       return {
         status: false,
         message: 'Design must be minted before publishing to marketplace',

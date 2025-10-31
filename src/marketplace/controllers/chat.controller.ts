@@ -15,8 +15,8 @@ export class ChatController {
   ) {}
 
   @Post('create')
-  async createChat(@Body() body: { jobId?: string; makerId: string }, @Req() req) {
-    const chat = await this.chatService.createChat(body.jobId, req.user.id, body.makerId);
+  async createChat(@Body() body: { jobId?: string; recipientId: string }, @Req() req) {
+    const chat = await this.chatService.createChat(body.jobId, req.user.id, body.recipientId);
     return {
       status: true,
       message: 'Chat created successfully',
@@ -49,7 +49,8 @@ export class ChatController {
       body.measurements,
       body.actionType,
       body.attachments,
-      body.applicationData
+      body.applicationData,
+      body.amount
     );
     return {
       status: true,

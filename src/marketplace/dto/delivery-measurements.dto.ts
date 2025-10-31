@@ -104,6 +104,11 @@ export class SendMessageWithDetailsDto {
   actionType?: string;
 
   @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  amount?: number;
+
+  @IsOptional()
   deliveryDetails?: DeliveryDetailsDto;
 
   @IsOptional()

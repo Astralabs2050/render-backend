@@ -134,8 +134,10 @@ export class NFTService {
   async listNFT(nftId: string): Promise<NFT> {
     try {
       const nft = await this.findById(nftId);
-      if (nft.status !== NFTStatus.MINTED) {
-        throw new Error('NFT must be minted before listing');
+      // Accept both MINTED and PUBLISHED for backward compatibility
+      const validStatuses = [NFTStatus.MINTED, NFTStatus.PUBLISHED];
+      if (!validStatuses.includes(nft.status)) {
+        throw new Error(`NFT must be minted before listing. Current status: ${nft.status}`);
       }
       nft.status = NFTStatus.LISTED;
       const listedNFT = await this.nftRepository.save(nft);
