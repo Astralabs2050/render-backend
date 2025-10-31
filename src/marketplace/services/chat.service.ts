@@ -7,6 +7,7 @@ import { Job } from '../entities/job.entity';
 import { DeliveryDetails } from '../entities/delivery-details.entity';
 import { Measurements } from '../entities/measurements.entity';
 import { DeliveryDetailsDto, MeasurementsDto, ApplicationAcceptedDto } from '../dto/delivery-measurements.dto';
+import { NFT, NFTStatus } from '../../web3/entities/nft.entity';
 
 @Injectable()
 export class ChatService {
@@ -21,19 +22,53 @@ export class ChatService {
     private deliveryDetailsRepository: Repository<DeliveryDetails>,
     @InjectRepository(Measurements)
     private measurementsRepository: Repository<Measurements>,
+    @InjectRepository(NFT)
+    private nftRepository: Repository<NFT>,
   ) {}
 
   async createChat(jobId: string | undefined, creatorId: string, makerId: string, designId?: string): Promise<Chat> {
+    // Validate job exists if jobId provided
     if (jobId) {
       const job = await this.jobRepository.findOne({ where: { id: jobId } });
       if (!job) throw new NotFoundException('Job not found');
     }
 
-    const existingChat = await this.chatRepository.findOne({
-      where: { jobId: jobId || null, creatorId, makerId }
-    });
+    // Validate design exists and is available if designId provided
+    if (designId) {
+      const design = await this.nftRepository.findOne({
+        where: { id: designId },
+      });
+
+      if (!design) {
+        throw new NotFoundException('Design not found');
+      }
+
+      // Check if design is listed (available for purchase)
+      if (design.status !== NFTStatus.LISTED) {
+        throw new BadRequestException(
+          `Design is not available for purchase. Current status: ${design.status}. Only designs with status 'listed' can be chatted about.`
+        );
+      }
+
+      // Check if design has stock available
+      if (design.quantity <= 0) {
+        throw new BadRequestException('Design is out of stock');
+      }
+    }
+
+    // Check for existing chat based on context (job or design)
+    const whereClause: any = { creatorId, makerId };
+    if (jobId) {
+      whereClause.jobId = jobId;
+    } else if (designId) {
+      whereClause.designId = designId;
+      whereClause.jobId = null; // Ensure it's a design chat, not job chat
+    }
+
+    const existingChat = await this.chatRepository.findOne({ where: whereClause });
     if (existingChat) return existingChat;
 
+    // Create new chat with proper context
     const chat = this.chatRepository.create({
       jobId,
       creatorId,
