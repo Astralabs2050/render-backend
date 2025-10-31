@@ -563,17 +563,19 @@ export class Web3Controller {
                 }
             };
 
-            // Build update object with only defined values to prevent NULL overwrites
-            const updateData: any = {
-                status: 'minted',
-                transactionHash: result.txHash,  // Already validated to exist
-                mintedAt: new Date(),
-                quantity: quantity,
-                metadata: updatedMetadata
-            };
+            // Update NFT with mint details - use save() for better error handling
+            nft!.status = 'minted' as any;
+            nft!.transactionHash = result.txHash;
+            nft!.mintedAt = new Date();
+            nft!.quantity = quantity;
+            nft!.metadata = updatedMetadata as any;
 
-            await this.nftRepository.update(nft!.id, updateData);
-            this.logger.log(`Updated NFT - id: ${nft!.id}, status: minted, txHash: ${result.txHash}, quantity: ${quantity}`);
+            const savedNFT = await this.nftRepository.save(nft!);
+            this.logger.log(`Saved NFT - id: ${savedNFT.id}, status: ${savedNFT.status}, txHash: ${savedNFT.transactionHash}, quantity: ${savedNFT.quantity}`);
+
+            // Verify the save by reading back
+            const verifyNFT = await this.nftRepository.findOne({ where: { id: nft!.id } });
+            this.logger.log(`Verified NFT from DB - txHash: ${verifyNFT?.transactionHash}, status: ${verifyNFT?.status}`);
         } else {
             await this.designRepository.update(design!.id, {
                 status: 'PUBLISHED',

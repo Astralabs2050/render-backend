@@ -100,7 +100,14 @@ export class DesignService {
           'name',
           'creatorId',
           'imageUrl',
-          'status'
+          'status',
+          'transactionHash',  // Required for marketplace publishing validation
+          'mintedAt',         // Required for marketplace publishing validation
+          'quantity',
+          'price',
+          'metadata',
+          'description',
+          'category'
         ]
       });
 
