@@ -405,7 +405,25 @@ export class Web3Controller {
     @Post('hedera/mint')
     @UseGuards(JwtAuthGuard)
     async mintHederaCollectible(@Req() req, @Body() body: MintNFTRequestDto) {
-        this.logger.log(`Minting request - designId: ${body.designId}, userId: ${req.user.id}`);
+        this.logger.log(`========== HEDERA MINT REQUEST START ==========`);
+        this.logger.log(`User ID: ${req.user.id}`);
+        this.logger.log(`Design ID from body: ${body.designId}`);
+        this.logger.log(`Full request body: ${JSON.stringify(body)}`);
+        this.logger.log(`===============================================`);
+
+        // Validate designId is provided
+        if (!body.designId) {
+            this.logger.error(`Missing designId in minting request - userId: ${req.user.id}`);
+            throw new HttpException(
+                {
+                    status: false,
+                    message: 'Design ID is required',
+                    path: '/web3/hedera/mint',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
 
         // Check designs table first (manual uploads)
         let design = await this.designRepository.findOne({
@@ -517,26 +535,45 @@ export class Web3Controller {
             );
         }
 
+        // Validate that we received a transaction hash
+        if (!result.txHash) {
+            this.logger.error(`Mint succeeded but no transaction hash received! Result: ${JSON.stringify(result)}`);
+            throw new HttpException(
+                {
+                    status: false,
+                    message: 'Minting succeeded but transaction hash is missing. This is a critical error.',
+                    path: '/web3/hedera/mint',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+
+        this.logger.log(`Mint successful! TxHash: ${result.txHash}, TokenIDs: ${result.tokenIds?.join(', ')}`);
+
         // Update the appropriate table based on source
         if (isNFT) {
             const updatedMetadata = {
                 ...(nft!.metadata || {}),
                 hederaMint: {
                     transactionHash: result.txHash,
-                    tokenIds: result.tokenIds.map(id => id.toString()),
+                    tokenIds: result.tokenIds?.map(id => id.toString()) || [],
                     quantity: quantity,
                     timestamp: new Date().toISOString(),
                 }
             };
 
-            await this.nftRepository.update(nft!.id, {
-                status: 'minted' as any,
-                transactionHash: result.txHash,
+            // Build update object with only defined values to prevent NULL overwrites
+            const updateData: any = {
+                status: 'minted',
+                transactionHash: result.txHash,  // Already validated to exist
                 mintedAt: new Date(),
                 quantity: quantity,
-                metadata: updatedMetadata as any
-            });
-            this.logger.log(`Updated NFT status to minted with quantity ${quantity} - id: ${nft!.id}`);
+                metadata: updatedMetadata
+            };
+
+            await this.nftRepository.update(nft!.id, updateData);
+            this.logger.log(`Updated NFT - id: ${nft!.id}, status: minted, txHash: ${result.txHash}, quantity: ${quantity}`);
         } else {
             await this.designRepository.update(design!.id, {
                 status: 'PUBLISHED',

@@ -11,13 +11,18 @@ export class MintNFTRequestDto {
   @IsString()
   selectedVariation?: string;
 
-  @IsOptional()
+  @Transform(({ obj }) => {
+    // Handle different field name variations from frontend
+    return obj.designId || obj.design_id || obj.nftId || obj.id;
+  })
+  @IsNotEmpty({ message: 'designId is required' })
   @IsUUID('4', { message: 'designId must be a valid UUID' })
-  designId?: string;
+  designId: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'paymentTransactionHash is required' })
-  paymentTransactionHash: string;
+  @IsNotEmpty({ message: 'paymentTransactionHash cannot be empty if provided' })
+  paymentTransactionHash?: string;
 
   @IsOptional()
   @IsString()

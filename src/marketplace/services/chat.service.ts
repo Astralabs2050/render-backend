@@ -69,7 +69,8 @@ export class ChatService {
     measurements?: MeasurementsDto,
     actionType?: string,
     attachments?: string[],
-    applicationData?: ApplicationAcceptedDto
+    applicationData?: ApplicationAcceptedDto,
+    amount?: number
   ): Promise<any> {
     try {
       const chat = await this.validateChatAccess(chatId, senderId);
@@ -87,7 +88,9 @@ export class ChatService {
         const message = manager.create(Message, {
           chatId,
           senderId,
-          content,
+          content: amount && actionType === 'payment_approved' 
+            ? `${content} - Amount: $${amount}` 
+            : content,
           type,
           actionType,
           attachments: attachments || [],
