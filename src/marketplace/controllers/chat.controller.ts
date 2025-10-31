@@ -17,11 +17,39 @@ export class ChatController {
 
   @Post('create')
   async createChat(@Body() body: CreateChatDto, @Req() req) {
+    // Validate mutual exclusion: cannot provide both jobId AND designId
+    if (body.jobId && body.designId) {
+      return {
+        status: false,
+        message: 'Provide either jobId OR designId, not both',
+        data: {
+          error: 'CONFLICTING_CONTEXT',
+          hint: 'A chat can be about a job OR a design, but not both simultaneously'
+        }
+      };
+    }
+
+    // Validate that at least one context (jobId or designId) is provided
+    if (!body.jobId && !body.designId) {
+      return {
+        status: false,
+        message: 'Either jobId or designId must be provided',
+        data: {
+          error: 'MISSING_CONTEXT',
+          hint: 'Provide jobId for maker hiring chats, or designId for marketplace design chats'
+        }
+      };
+    }
+
     const chat = await this.chatService.createChat(body.jobId, req.user.id, body.recipientId, body.designId);
+
     return {
       status: true,
-      message: 'Chat created successfully',
-      data: chat,
+      message: body.jobId ? 'Job chat created successfully' : 'Design chat created successfully',
+      data: {
+        ...chat,
+        chatType: body.jobId ? 'job' : 'design'
+      },
     };
   }
 
