@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsNumber, IsPositive, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsNumber, IsPositive, IsArray, ValidateNested, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 import { DeliveryStatus } from '../entities/delivery-details.entity';
 import { MessageType } from '../entities/message.entity';
@@ -87,8 +87,9 @@ export class ApplicationAcceptedDto {
 }
 
 export class SendMessageWithDetailsDto {
+  @IsOptional()
   @IsString()
-  content: string;
+  content?: string;
 
   @IsOptional()
   @IsEnum(MessageType)
@@ -109,6 +110,11 @@ export class SendMessageWithDetailsDto {
   amount?: number;
 
   @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  price?: number; 
+
+  @IsOptional()
   deliveryDetails?: DeliveryDetailsDto;
 
   @IsOptional()
@@ -118,5 +124,12 @@ export class SendMessageWithDetailsDto {
   @ValidateNested()
   @Type(() => ApplicationAcceptedDto)
   applicationData?: ApplicationAcceptedDto;
-}
+
+  @IsOptional()
+  @IsUUID()
+  designId?: string; 
+
+  @IsOptional()
+  @IsString()
+  title?: string; }
 

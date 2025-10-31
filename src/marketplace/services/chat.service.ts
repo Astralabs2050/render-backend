@@ -106,7 +106,10 @@ export class ChatService {
     actionType?: string,
     attachments?: string[],
     applicationData?: ApplicationAcceptedDto,
-    amount?: number
+    amount?: number,
+    designId?: string,
+    price?: number,
+    title?: string
   ): Promise<any> {
     try {
       const chat = await this.validateChatAccess(chatId, senderId);
@@ -124,13 +127,16 @@ export class ChatService {
         const message = manager.create(Message, {
           chatId,
           senderId,
-          content: amount && actionType === 'payment_approved' 
-            ? `${content} - Amount: $${amount}` 
+          content: amount && actionType === 'payment_approved'
+            ? `${content} - Amount: $${amount}`
             : content,
           type,
           actionType,
           attachments: attachments || [],
           applicationData: applicationData || null,
+          designId: designId || null,
+          price: price || null,
+          title: title || null,
         });
 
         const savedMessage = await manager.save(message);
