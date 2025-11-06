@@ -506,13 +506,17 @@ export class Web3Controller {
 
         // Extract design data from either source
         const designId = isNFT ? nft!.id : design!.id;
-        const designName = body.name || (isNFT ? nft!.name : design!.name) || 'Untitled Design';
+        const dbName = isNFT ? nft!.name : design!.name;
+        
+        this.logger.log(`Name resolution - body.name: ${body.name}, dbName: ${dbName}`);
+        
+        const designName = body.name || dbName || 'Untitled Design';
         const designImage = isNFT ? nft!.imageUrl : design!.designImages?.[0] || '';
         const quantity = body.quantity || (isNFT ? nft!.quantity : design!.amountOfPieces) || 1;
 
         const recipientAddress = body.recipientAddress || (await this.usersService.ensureUserHasWallet(req.user.id));
 
-        this.logger.log(`Preparing to mint - name: ${designName}, image: ${designImage}, quantity: ${quantity}`);
+        this.logger.log(`Final designName: ${designName}`);
 
         const result = await this.hederaNFTService.mintCollectibles({
             recipientAddress,
