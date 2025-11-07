@@ -229,7 +229,7 @@ export class JobController {
 
     return this.jobService.uploadDesignForMinting(
       file,
-      uploadDesignDto.description.trim(),
+      'Untitled Design',
       uploadDesignDto.description.trim(),
       req.user.id
     );
