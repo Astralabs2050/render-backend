@@ -568,6 +568,7 @@ export class Web3Controller {
             };
 
             // Update NFT with mint details - use save() for better error handling
+            nft!.name = body.name || nft!.name;
             nft!.status = 'minted' as any;
             nft!.transactionHash = result.txHash;
             nft!.mintedAt = new Date();
