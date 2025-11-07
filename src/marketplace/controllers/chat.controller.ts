@@ -6,6 +6,7 @@ import { MessageType } from '../entities/message.entity';
 import { SendMessageWithDetailsDto } from '../dto/delivery-measurements.dto';
 import { CreateChatDto } from '../dto/create-chat.dto';
 import { CloudinaryService } from '../../common/services/cloudinary.service';
+import { EscrowAmountDto, CreateEscrowDto } from '../dto/escrow.dto';
 
 @Controller('marketplace/chat')
 @UseGuards(JwtAuthGuard)
@@ -131,7 +132,7 @@ export class ChatController {
   @Post(':chatId/escrow/create')
   async createEscrow(
     @Param('chatId') chatId: string,
-    @Body() body: { amount: number; tokenId?: string; contractAddress?: string },
+    @Body() body: CreateEscrowDto,
     @Req() req
   ) {
     const chat = await this.chatService.createEscrow(
@@ -149,8 +150,12 @@ export class ChatController {
   }
 
   @Post(':chatId/escrow/fund')
-  async fundEscrow(@Param('chatId') chatId: string, @Req() req) {
-    const chat = await this.chatService.fundEscrow(chatId, req.user.id);
+  async fundEscrow(
+    @Param('chatId') chatId: string,
+    @Body() body: EscrowAmountDto,
+    @Req() req
+  ) {
+    const chat = await this.chatService.fundEscrow(chatId, req.user.id, body.amount);
     return {
       status: true,
       message: 'Escrow funded successfully',
@@ -159,8 +164,12 @@ export class ChatController {
   }
 
   @Post(':chatId/escrow/release')
-  async releaseEscrow(@Param('chatId') chatId: string, @Req() req) {
-    const chat = await this.chatService.releaseEscrow(chatId, req.user.id);
+  async releaseEscrow(
+    @Param('chatId') chatId: string,
+    @Body() body: EscrowAmountDto,
+    @Req() req
+  ) {
+    const chat = await this.chatService.releaseEscrow(chatId, req.user.id, body.amount);
     return {
       status: true,
       message: 'Escrow released successfully',

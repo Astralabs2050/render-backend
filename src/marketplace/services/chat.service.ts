@@ -310,7 +310,7 @@ export class ChatService {
     return this.chatRepository.save(chat);
   }
 
-  async fundEscrow(chatId: string, userId: string): Promise<Chat> {
+  async fundEscrow(chatId: string, userId: string, amount: number): Promise<Chat> {
     const chat = await this.chatRepository.findOne({ where: { id: chatId } });
     if (!chat) throw new NotFoundException('Chat not found');
     
@@ -318,16 +318,32 @@ export class ChatService {
       throw new ForbiddenException('Only the chat initiator can fund escrow');
     }
 
+    if (!chat.escrowAmount) {
+      throw new BadRequestException('Escrow must be created before funding');
+    }
+
+    if (amount !== chat.escrowAmount) {
+      throw new BadRequestException(`Amount must match escrow amount: ${chat.escrowAmount}`);
+    }
+
     chat.escrowStatus = 'funded';
     return this.chatRepository.save(chat);
   }
 
-  async releaseEscrow(chatId: string, userId: string): Promise<Chat> {
+  async releaseEscrow(chatId: string, userId: string, amount: number): Promise<Chat> {
     const chat = await this.chatRepository.findOne({ where: { id: chatId } });
     if (!chat) throw new NotFoundException('Chat not found');
     
     if (chat.creatorId !== userId) {
       throw new ForbiddenException('Only the chat initiator can release escrow');
+    }
+
+    if (chat.escrowStatus !== 'funded') {
+      throw new BadRequestException('Escrow must be funded before release');
+    }
+
+    if (amount !== chat.escrowAmount) {
+      throw new BadRequestException(`Amount must match escrow amount: ${chat.escrowAmount}`);
     }
 
     chat.escrowStatus = 'completed';
