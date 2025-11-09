@@ -47,6 +47,9 @@ export class Message extends BaseEntity {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   price: number; // For price negotiations or offers (e.g., "I'll pay $50 for this")
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  amount: number; // For escrow release amounts
+
   @Column('jsonb', { nullable: true })
   applicationData: {
     title?: string;
