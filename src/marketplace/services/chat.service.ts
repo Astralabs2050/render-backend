@@ -115,9 +115,7 @@ export class ChatService {
         const message = manager.create(Message, {
           chatId,
           senderId,
-          content: amount && actionType === 'payment_approved'
-            ? `${content} - Amount: $${amount}`
-            : content,
+          content,
           type,
           actionType,
           attachments: attachments || [],
@@ -125,6 +123,7 @@ export class ChatService {
           designId: designId || null,
           price: price || null,
           title: title || null,
+          amount: amount || null,
         });
 
         const savedMessage = await manager.save(message);
