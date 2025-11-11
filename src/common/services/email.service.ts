@@ -1,17 +1,36 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as sgMail from '@sendgrid/mail';
+import * as nodemailer from 'nodemailer';
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
+  private transporter: nodemailer.Transporter;
+
   constructor(private configService: ConfigService) {
-    sgMail.setApiKey(this.configService.get('SENDGRID_API_KEY'));
+    // Initialize SMTP transporter for Office365
+    const port = parseInt(this.configService.get('SMTP_PORT') || '587');
+    this.transporter = nodemailer.createTransport({
+      host: this.configService.get('SMTP_HOST'),
+      port: port,
+      secure: port === 465, // true for 465, false for other ports
+      requireTLS: port === 587, // Use STARTTLS for port 587
+      auth: {
+        user: this.configService.get('SMTP_USER'),
+        pass: this.configService.get('SMTP_PASSWORD'),
+      },
+      tls: {
+        ciphers: 'SSLv3',
+        rejectUnauthorized: false,
+      },
+    });
   }
+
   async sendOtpEmail(email: string, otp: string): Promise<boolean> {
     try {
-      const msg = {
+      const mailOptions = {
+        from: this.configService.get('SMTP_FROM_EMAIL') || this.configService.get('SMTP_USER'),
         to: email,
-        from: this.configService.get('SENDGRID_FROM_EMAIL'),
         subject: 'Your Verification Code',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -25,7 +44,8 @@ export class EmailService {
           </div>
         `,
       };
-      await sgMail.send(msg);
+
+      await this.transporter.sendMail(mailOptions);
       this.logger.log(`OTP email sent to ${email}`);
       return true;
     } catch (error) {

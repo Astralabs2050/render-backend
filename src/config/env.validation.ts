@@ -8,6 +8,12 @@ export const envSchema = z.object({
   JWT_EXPIRATION: z.string().default('7d'),
   SENDGRID_API_KEY: z.string().startsWith('SG.', 'SendGrid API key must start with SG.').optional(),
   SENDGRID_FROM_EMAIL: z.string().email('Invalid sender email').optional(),
+  // SMTP Configuration
+  SMTP_HOST: z.string().min(1, 'SMTP host is required').optional(),
+  SMTP_PORT: z.string().transform(Number).pipe(z.number().min(1).max(65535)).optional(),
+  SMTP_USER: z.string().email('Invalid SMTP user email').optional(),
+  SMTP_PASSWORD: z.string().min(1, 'SMTP password is required').optional(),
+  SMTP_FROM_EMAIL: z.string().email('Invalid SMTP from email').optional(),
   OPENAI_API_KEY: z.string().startsWith('sk-', 'OpenAI API key must start with sk-').optional(),
   STREAM_API_KEY: z.string().min(1, 'Stream Chat API key is required').optional(),
   STREAM_API_SECRET: z.string().min(1, 'Stream Chat secret is required').optional(),
