@@ -31,6 +31,7 @@ export class ZodConfigService {
       supabase: this.config.SUPABASE_URL ? 'Configured' : 'Missing',
       jwt: this.config.JWT_SECRET ? 'Configured' : 'Missing',
       openai: this.config.OPENAI_API_KEY ? 'Configured' : 'Missing',
+      gemini: this.config.GEMINI_API_KEY ? 'Configured' : 'Missing',
       sendgrid: this.config.SENDGRID_API_KEY ? 'Configured' : 'Missing',
       streamChat: this.config.STREAM_API_KEY ? 'Configured' : 'Missing',
       cloudinary: this.config.CLOUDINARY_CLOUD_NAME ? 'Configured' : 'Missing',
