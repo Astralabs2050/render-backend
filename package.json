@@ -25,6 +25,7 @@
     "env:health": "ts-node scripts/env-check.ts check --verbose"
   },
   "dependencies": {
+    "@google/genai": "^1.29.1",
     "@hashgraph/sdk": "^2.75.0",
     "@nestjs/cache-manager": "^3.0.1",
     "@nestjs/common": "^10.0.0",
