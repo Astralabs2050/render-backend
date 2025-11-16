@@ -15,6 +15,7 @@ export const envSchema = z.object({
   SMTP_PASSWORD: z.string().min(1, 'SMTP password is required').optional(),
   SMTP_FROM_EMAIL: z.string().email('Invalid SMTP from email').optional(),
   OPENAI_API_KEY: z.string().startsWith('sk-', 'OpenAI API key must start with sk-').optional(),
+  GEMINI_API_KEY: z.string().min(1, 'Gemini API key is required').optional(),
   STREAM_API_KEY: z.string().min(1, 'Stream Chat API key is required').optional(),
   STREAM_API_SECRET: z.string().min(1, 'Stream Chat secret is required').optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),

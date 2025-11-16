@@ -3,24 +3,30 @@ import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { CloudinaryService } from '../../common/services/cloudinary.service';
 import { PromptService } from './prompt.service';
+import { GoogleGenAI } from '@google/genai';
 @Injectable()
 export class OpenAIService {
   private readonly logger = new Logger(OpenAIService.name);
   private readonly apiKey: string;
   private readonly apiUrl = 'https://api.openai.com/v1/chat/completions';
   private readonly axiosInstance: AxiosInstance;
+  private readonly geminiClient: GoogleGenAI;
+  private readonly geminiApiKey: string;
   constructor(
     private configService: ConfigService,
     private promptService: PromptService,
     private cloudinaryService: CloudinaryService,
   ) {
     this.apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    this.geminiApiKey = this.configService.get<string>('GEMINI_API_KEY');
     this.axiosInstance = axios.create({
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.apiKey}`,
       },
     });
+    // Initialize Gemini client for image generation
+    this.geminiClient = new GoogleGenAI({ apiKey: this.geminiApiKey });
   }
   async classifyIsFashionPrompt(prompt: string): Promise<boolean> {
     try {
@@ -227,31 +233,47 @@ export class OpenAIService {
   async generateDesignImage(prompt: string, referenceImageBase64?: string): Promise<string> {
     try {
       const enhancedPrompt = await this.enhanceDesignPrompt(prompt, referenceImageBase64);
-      const response = await this.axiosInstance.post(
-        'https://api.openai.com/v1/images/generations',
-        {
-          model: 'dall-e-3',
-          prompt: enhancedPrompt,
-          n: 1,
-          size: '1024x1024',
-          quality: 'hd',
-          style: 'natural'
+
+      // Use Gemini for image generation
+      const response: any = await this.geminiClient.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: enhancedPrompt,
+      });
+
+      // Gemini returns images as base64 in response.parts
+      if (response.parts && Array.isArray(response.parts)) {
+        for (const part of response.parts) {
+          if (part.inlineData && part.inlineData.data) {
+            // Convert base64 to buffer
+            const imageBuffer = Buffer.from(part.inlineData.data, 'base64');
+
+            // Upload to Cloudinary directly
+            const permanentImageUrl = await this.cloudinaryService.uploadImage(imageBuffer, {
+              folder: 'astra-fashion/ai-generated',
+              tags: ['ai-generated', 'gemini', 'design'],
+              context: {
+                source: 'gemini_2_5_flash',
+                prompt: prompt.substring(0, 100).replace(/[^a-zA-Z0-9\s]/g, '_'),
+                generated_at: new Date().toISOString().replace(/[^a-zA-Z0-9]/g, '_')
+              },
+              transformation: {
+                width: 1024,
+                height: 1024,
+                crop: 'fit',
+                quality: 'auto',
+                format: 'auto'
+              }
+            });
+
+            this.logger.log(`Generated and stored Gemini image: ${permanentImageUrl.secure_url}`);
+            return permanentImageUrl.secure_url;
+          }
         }
-      );
-      if (response.data.data && response.data.data.length > 0) {
-        const temporaryImageUrl = response.data.data[0].url;
-        this.logger.log(`Generated temporary image: ${temporaryImageUrl}`);
-        
-        // Download and store the image permanently in Cloudinary
-        const permanentImageUrl = await this.storeImagePermanently(temporaryImageUrl, prompt);
-        this.logger.log(`Stored permanent image: ${permanentImageUrl}`);
-        
-        return permanentImageUrl;
       }
-      throw new Error('No image generated from DALL-E');
+      throw new Error('No image generated from Gemini');
     } catch (error) {
-      this.logger.error(`DALL-E image generation error: ${error.response?.data?.error?.message || error.message}`);
-      throw error; 
+      this.logger.error(`Gemini image generation error: ${error.message}`);
+      throw error;
     }
   }
 
@@ -294,30 +316,48 @@ export class OpenAIService {
   async generateConsistentDesignImage(prompt: string, baseStylePrompt?: string, variationIndex: number = 0, referenceImageBase64?: string): Promise<string> {
     try {
       const enhancedPrompt = await this.enhanceConsistentDesignPrompt(prompt, baseStylePrompt, variationIndex, referenceImageBase64);
-      const response = await this.axiosInstance.post(
-        'https://api.openai.com/v1/images/generations',
-        {
-          model: 'dall-e-3',
-          prompt: enhancedPrompt,
-          n: 1,
-          size: '1024x1024',
-          quality: 'hd',
-          style: 'natural'
+
+      // Use Gemini for image generation
+      const response: any = await this.geminiClient.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: enhancedPrompt,
+      });
+
+      // Gemini returns images as base64 in response.parts
+      if (response.parts && Array.isArray(response.parts)) {
+        for (const part of response.parts) {
+          if (part.inlineData && part.inlineData.data) {
+            // Convert base64 to buffer
+            const imageBuffer = Buffer.from(part.inlineData.data, 'base64');
+
+            // Upload to Cloudinary directly
+            const permanentImageUrl = await this.cloudinaryService.uploadImage(imageBuffer, {
+              folder: 'astra-fashion/ai-generated',
+              tags: ['ai-generated', 'gemini', 'design', `variation-${variationIndex + 1}`],
+              context: {
+                source: 'gemini_2_5_flash',
+                prompt: prompt.substring(0, 100).replace(/[^a-zA-Z0-9\s]/g, '_'),
+                variation_index: variationIndex.toString(),
+                generated_at: new Date().toISOString().replace(/[^a-zA-Z0-9]/g, '_')
+              },
+              transformation: {
+                width: 1024,
+                height: 1024,
+                crop: 'fit',
+                quality: 'auto',
+                format: 'auto'
+              }
+            });
+
+            this.logger.log(`Generated consistent variation ${variationIndex + 1}: ${permanentImageUrl.secure_url}`);
+            return permanentImageUrl.secure_url;
+          }
         }
-      );
-      if (response.data.data && response.data.data.length > 0) {
-        const temporaryImageUrl = response.data.data[0].url;
-        this.logger.log(`Generated consistent variation ${variationIndex + 1}: ${temporaryImageUrl}`);
-        
-        const permanentImageUrl = await this.storeImagePermanently(temporaryImageUrl, prompt);
-        this.logger.log(`Stored permanent image: ${permanentImageUrl}`);
-        
-        return permanentImageUrl;
       }
-      throw new Error('No image generated from DALL-E');
+      throw new Error('No image generated from Gemini');
     } catch (error) {
-      this.logger.error(`DALL-E consistent image generation error: ${error.response?.data?.error?.message || error.message}`);
-      throw error; 
+      this.logger.error(`Gemini consistent image generation error: ${error.message}`);
+      throw error;
     }
   }
 
@@ -326,17 +366,17 @@ export class OpenAIService {
       const messages: any[] = [
         {
           role: 'system',
-          content: 'You are an expert fashion design prompt engineer. Transform user descriptions into detailed, professional DALL-E prompts for fashion design generation. Focus on technical fashion details, fabric textures, silhouettes, and professional fashion illustration style.'
+          content: 'You are an expert fashion design prompt engineer. Transform user descriptions into detailed, professional Gemini image generation prompts for fashion design. Focus on technical fashion details, fabric textures, silhouettes, and professional fashion illustration style.'
         },
         {
           role: 'user',
-          content: `Transform this fashion design request into a detailed DALL-E prompt: "${prompt}"`
+          content: `Transform this fashion design request into a detailed Gemini image generation prompt: "${prompt}"`
         }
       ];
       if (referenceImageBase64) {
         messages[1].content = {
           type: 'text',
-          text: `Transform this fashion design request into a detailed DALL-E prompt, considering the reference image provided: "${prompt}"`
+          text: `Transform this fashion design request into a detailed Gemini image generation prompt, considering the reference image provided: "${prompt}"`
         };
         messages.push({
           role: 'user',
@@ -382,7 +422,7 @@ export class OpenAIService {
       const messages: any[] = [
         {
           role: 'system',
-          content: `You are an expert fashion design prompt engineer. Create consistent DALL-E prompts that maintain the same artistic style across variations. ${consistencyInstructions}Focus on: same lighting style, same illustration technique, same color palette approach, same level of detail, same background style.`
+          content: `You are an expert fashion design prompt engineer. Create consistent Gemini image generation prompts that maintain the same artistic style across variations. ${consistencyInstructions}Focus on: same lighting style, same illustration technique, same color palette approach, same level of detail, same background style.`
         },
         {
           role: 'user',
