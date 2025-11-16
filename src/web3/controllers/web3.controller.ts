@@ -282,6 +282,17 @@ export class Web3Controller {
             data: escrows,
         };
     }
+
+    @Get('escrow/chat/:chatId/balance')
+    @UseGuards(JwtAuthGuard)
+    async getEscrowBalanceByChat(@Param('chatId') chatId: string) {
+        const balance = await this.escrowService.getEscrowBalanceByChat(chatId);
+        return {
+            status: true,
+            message: 'Escrow balance retrieved successfully',
+            data: balance,
+        };
+    }
     @Post('qr/generate')
     @UseGuards(JwtAuthGuard)
     async generateQR(@Req() req, @Body() dto: CreateQRDto) {
