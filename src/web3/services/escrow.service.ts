@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { EscrowContract, EscrowMilestone, EscrowStatus, MilestoneStatus } from '../entities/escrow.entity';
 import { ThirdwebService } from './thirdweb.service';
 import { ConfigService } from '@nestjs/config';
+import { Chat } from '../../marketplace/entities/chat.entity';
 export interface CreateEscrowDto {
   creatorId: string;
   makerId: string;
@@ -34,6 +35,8 @@ export class EscrowService {
     private escrowRepository: Repository<EscrowContract>,
     @InjectRepository(EscrowMilestone)
     private milestoneRepository: Repository<EscrowMilestone>,
+    @InjectRepository(Chat)
+    private chatRepository: Repository<Chat>,
     private thirdwebService: ThirdwebService,
     private configService: ConfigService,
   ) {
@@ -289,17 +292,18 @@ export class EscrowService {
   }
 
   async getEscrowBalanceByChat(chatId: string): Promise<{
+    escrowType: 'milestone' | 'simple';
     escrowId: string;
     chatId: string;
-    contractAddress: string;
+    contractAddress?: string;
     creatorId: string;
     makerId: string;
     totalAmount: number;
     releasedAmount: number;
     remainingBalance: number;
-    escrowStatus: EscrowStatus;
-    progressPercentage: number;
-    milestones: {
+    escrowStatus: string;
+    progressPercentage?: number;
+    milestones?: {
       total: number;
       completed: number;
       approved: number;
@@ -318,69 +322,108 @@ export class EscrowService {
         transactionHash: string | null;
       }>;
     };
-    fundingTransactionHash: string | null;
-    fundedAt: Date | null;
-    completedAt: Date | null;
+    fundingTransactionHash?: string | null;
+    fundedAt?: Date | null;
+    completedAt?: Date | null;
     createdAt: Date;
     updatedAt: Date;
   }> {
     try {
-      // Find all escrows for this chat
+      // First, try to find milestone-based escrow in escrow_contracts table
       const escrows = await this.findByChat(chatId);
 
-      if (!escrows || escrows.length === 0) {
+      if (escrows && escrows.length > 0) {
+        // Milestone-based escrow found - return detailed milestone information
+        const activeEscrow = escrows.find(e =>
+          e.status === EscrowStatus.FUNDED || e.status === EscrowStatus.IN_PROGRESS
+        ) || escrows[0];
+
+        // Get detailed stats for the escrow
+        const stats = await this.getEscrowStats(activeEscrow.id);
+
+        // Build comprehensive balance information for milestone-based escrow
+        const balanceInfo = {
+          escrowType: 'milestone' as const,
+          escrowId: activeEscrow.id,
+          chatId: activeEscrow.chatId,
+          contractAddress: activeEscrow.contractAddress,
+          creatorId: activeEscrow.creatorId,
+          makerId: activeEscrow.makerId,
+          totalAmount: Number(activeEscrow.totalAmount),
+          releasedAmount: stats.releasedAmount,
+          remainingBalance: stats.remainingAmount,
+          escrowStatus: activeEscrow.status,
+          progressPercentage: stats.progressPercentage,
+          milestones: {
+            total: stats.totalMilestones,
+            completed: stats.completedMilestones,
+            approved: stats.approvedMilestones,
+            pending: stats.totalMilestones - stats.completedMilestones,
+            details: activeEscrow.milestones.map(m => ({
+              id: m.id,
+              name: m.name,
+              description: m.description,
+              amount: Number(m.amount),
+              percentage: Number(m.percentage),
+              status: m.status,
+              order: m.order,
+              dueDate: m.dueDate,
+              completedAt: m.completedAt,
+              approvedAt: m.approvedAt,
+              transactionHash: m.transactionHash,
+            }))
+          },
+          fundingTransactionHash: activeEscrow.transactionHash,
+          fundedAt: activeEscrow.fundedAt,
+          completedAt: activeEscrow.completedAt,
+          createdAt: activeEscrow.createdAt,
+          updatedAt: activeEscrow.updatedAt,
+        };
+
+        this.logger.log(`Milestone escrow balance retrieved for chat ${chatId} - Escrow ID: ${activeEscrow.id}, Remaining: ${stats.remainingAmount}`);
+
+        return balanceInfo;
+      }
+
+      // No milestone-based escrow found, check for simple chat-level escrow
+      const chat = await this.chatRepository.findOne({
+        where: { id: chatId },
+        relations: ['creator', 'maker']
+      });
+
+      if (!chat) {
+        throw new NotFoundException(`Chat with ID ${chatId} not found`);
+      }
+
+      // Check if chat has simple escrow
+      if (!chat.escrowAmount || chat.escrowStatus === 'none') {
         throw new NotFoundException(`No escrow found for chat ID ${chatId}`);
       }
 
-      // Get the most recent active escrow (funded or in_progress), or fall back to the first one
-      const activeEscrow = escrows.find(e =>
-        e.status === EscrowStatus.FUNDED || e.status === EscrowStatus.IN_PROGRESS
-      ) || escrows[0];
+      // Calculate released and remaining amounts for simple escrow
+      const totalAmount = Number(chat.escrowAmount);
+      const releasedAmount = chat.escrowStatus === 'completed' ? totalAmount : 0;
+      const remainingBalance = totalAmount - releasedAmount;
 
-      // Get detailed stats for the escrow
-      const stats = await this.getEscrowStats(activeEscrow.id);
-
-      // Build comprehensive balance information
-      const balanceInfo = {
-        escrowId: activeEscrow.id,
-        chatId: activeEscrow.chatId,
-        contractAddress: activeEscrow.contractAddress,
-        creatorId: activeEscrow.creatorId,
-        makerId: activeEscrow.makerId,
-        totalAmount: Number(activeEscrow.totalAmount),
-        releasedAmount: stats.releasedAmount,
-        remainingBalance: stats.remainingAmount,
-        escrowStatus: activeEscrow.status,
-        progressPercentage: stats.progressPercentage,
-        milestones: {
-          total: stats.totalMilestones,
-          completed: stats.completedMilestones,
-          approved: stats.approvedMilestones,
-          pending: stats.totalMilestones - stats.completedMilestones,
-          details: activeEscrow.milestones.map(m => ({
-            id: m.id,
-            name: m.name,
-            description: m.description,
-            amount: Number(m.amount),
-            percentage: Number(m.percentage),
-            status: m.status,
-            order: m.order,
-            dueDate: m.dueDate,
-            completedAt: m.completedAt,
-            approvedAt: m.approvedAt,
-            transactionHash: m.transactionHash,
-          }))
-        },
-        fundingTransactionHash: activeEscrow.transactionHash,
-        fundedAt: activeEscrow.fundedAt,
-        completedAt: activeEscrow.completedAt,
-        createdAt: activeEscrow.createdAt,
-        updatedAt: activeEscrow.updatedAt,
+      // Return simple escrow balance information
+      const simpleBalanceInfo = {
+        escrowType: 'simple' as const,
+        escrowId: chat.escrowId || chatId,
+        chatId: chat.id,
+        contractAddress: chat.escrowContractAddress,
+        creatorId: chat.creatorId,
+        makerId: chat.makerId,
+        totalAmount,
+        releasedAmount,
+        remainingBalance,
+        escrowStatus: chat.escrowStatus,
+        createdAt: chat.createdAt,
+        updatedAt: chat.updatedAt,
       };
 
-      this.logger.log(`Escrow balance retrieved for chat ${chatId} - Escrow ID: ${activeEscrow.id}, Remaining: ${stats.remainingAmount}`);
+      this.logger.log(`Simple escrow balance retrieved for chat ${chatId} - Status: ${chat.escrowStatus}, Amount: ${totalAmount}`);
 
-      return balanceInfo;
+      return simpleBalanceInfo;
     } catch (error) {
       this.logger.error(`Failed to get escrow balance for chat ${chatId}: ${error.message}`);
       throw error;

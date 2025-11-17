@@ -16,12 +16,13 @@ import { NFT } from './entities/nft.entity';
 import { EscrowContract } from './entities/escrow.entity';
 import { QRCode } from './entities/qr.entity';
 import { EscrowMilestone } from './entities/escrow.entity';
-import { Chat } from '../ai-chat/entities/chat.entity';
+import { Chat as AiChat } from '../ai-chat/entities/chat.entity';
+import { Chat as MarketplaceChat } from '../marketplace/entities/chat.entity';
 import { UsersModule } from '../users/users.module';
 import { forwardRef } from '@nestjs/common';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NFT, EscrowContract, EscrowMilestone, QRCode, Chat, Design]),
+    TypeOrmModule.forFeature([NFT, EscrowContract, EscrowMilestone, QRCode, AiChat, MarketplaceChat, Design]),
     forwardRef(() => UsersModule),
   ],
   controllers: [Web3Controller],
