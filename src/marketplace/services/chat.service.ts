@@ -44,19 +44,28 @@ export class ChatService {
       }
     }
 
-    // Check for existing chat based on context (job or design)
-    const whereClause: any = { creatorId, makerId };
-    if (jobId) {
-      whereClause.jobId = jobId;
-    } else if (designId) {
-      whereClause.designId = designId;
-      whereClause.jobId = null; // Ensure it's a design chat, not job chat
+    // First, check if ANY chat exists between these two users (regardless of job/design)
+    // This prevents creating duplicate chats when users interact from different contexts
+    const existingGeneralChat = await this.chatRepository.findOne({
+      where: [
+        { creatorId, makerId },
+        { creatorId: makerId, makerId: creatorId } // Check reversed roles too
+      ]
+    });
+
+    if (existingGeneralChat) {
+      // Update the existing chat with the new context if needed
+      if (jobId && !existingGeneralChat.jobId) {
+        existingGeneralChat.jobId = jobId;
+      }
+      if (designId && !existingGeneralChat.designId) {
+        existingGeneralChat.designId = designId;
+      }
+      existingGeneralChat.lastMessageAt = new Date();
+      return this.chatRepository.save(existingGeneralChat);
     }
 
-    const existingChat = await this.chatRepository.findOne({ where: whereClause });
-    if (existingChat) return existingChat;
-
-    // Create new chat with proper context
+    // Create new chat only if no previous conversation exists
     const chat = this.chatRepository.create({
       jobId,
       creatorId,
