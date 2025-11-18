@@ -16,9 +16,9 @@ export class VrEmailController {
     };
   }
 
-  @Get(':email')
-  async getEmail(@Param('email') email: string) {
-    const result = await this.vrEmailService.getEmail(email);
+  @Get()
+  async getEmail() {
+    const result = await this.vrEmailService.getCurrentEmail();
     return {
       status: true,
       data: result,
