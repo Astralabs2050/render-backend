@@ -45,7 +45,9 @@ export class VrEmailService {
   }
 
   async getCurrentEmail(): Promise<VrEmail> {
-    const vrEmail = await this.vrEmailRepository.findOne({});
+    const vrEmail = await this.vrEmailRepository.findOne({
+      order: { createdAt: 'DESC' }
+    });
 
     if (!vrEmail) {
       throw new NotFoundException('No email found in database');
