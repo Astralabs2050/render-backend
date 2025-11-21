@@ -52,6 +52,9 @@ export class Chat extends BaseEntity {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   escrowAmount: number;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  releasedAmount: number;
+
   @OneToMany(() => DeliveryDetails, deliveryDetails => deliveryDetails.chat)
   deliveryDetails: DeliveryDetails[];
 

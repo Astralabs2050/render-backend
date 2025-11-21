@@ -341,7 +341,7 @@ export class ChatService {
   async releaseEscrow(chatId: string, userId: string, amount: number): Promise<Chat> {
     const chat = await this.chatRepository.findOne({ where: { id: chatId } });
     if (!chat) throw new NotFoundException('Chat not found');
-    
+
     if (chat.creatorId !== userId) {
       throw new ForbiddenException('Only the chat initiator can release escrow');
     }
@@ -350,11 +350,29 @@ export class ChatService {
       throw new BadRequestException('Escrow must be funded before release');
     }
 
-    if (amount !== chat.escrowAmount) {
-      throw new BadRequestException(`Amount must match escrow amount: ${chat.escrowAmount}`);
+    // Validate amount
+    if (amount <= 0) {
+      throw new BadRequestException('Amount must be greater than 0');
     }
 
-    chat.escrowStatus = 'completed';
+    const currentReleased = Number(chat.releasedAmount || 0);
+    const totalAmount = Number(chat.escrowAmount);
+    const remainingBalance = totalAmount - currentReleased;
+
+    if (amount > remainingBalance) {
+      throw new BadRequestException(
+        `Amount exceeds remaining balance. Remaining: ${remainingBalance}, Requested: ${amount}`
+      );
+    }
+
+    // Update released amount
+    chat.releasedAmount = currentReleased + amount;
+
+    // Mark as completed if full amount has been released
+    if (chat.releasedAmount >= totalAmount) {
+      chat.escrowStatus = 'completed';
+    }
+
     return this.chatRepository.save(chat);
   }
 
