@@ -402,7 +402,7 @@ export class EscrowService {
 
       // Calculate released and remaining amounts for simple escrow
       const totalAmount = Number(chat.escrowAmount);
-      const releasedAmount = chat.escrowStatus === 'completed' ? totalAmount : 0;
+      const releasedAmount = Number(chat.releasedAmount || 0);
       const remainingBalance = totalAmount - releasedAmount;
 
       // Return simple escrow balance information
