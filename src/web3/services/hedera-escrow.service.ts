@@ -22,7 +22,7 @@ export class HederaEscrowService {
     this.wallet = new ethers.Wallet(privateKey, this.provider);
 
     this.escrowContract = new ethers.Contract(
-      this.configService.get('ESCROW_CONTRACT_ADDRESS'),
+      this.configService.get('HEDERA_ESCROW_CONTRACT_ADDRESS'),
       [
         'function createEscrowByAgent(address shopper, address maker, address creator, uint256 amount, uint256 nftTokenId) external returns (uint256)',
         'function getAllEscrows() external view returns (tuple(address shopper, address maker, address creator, address agent, uint256 amount, uint256 nftTokenId, uint8 milestonesCompleted, bytes status, uint256 remainingBalance, bool hasCreator)[] memory)',

@@ -47,10 +47,18 @@ export const envSchema = z.object({
   HEDERA_PRIVATE_KEY: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid Hedera private key format').optional(),
   HEDERA_ACCOUNT_ID: z.string().optional(),
   HEDERA_USDC_TOKEN_ID: z.string().optional(),
-  ASTRA_NFT_COLLECTIBLE_CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid NFT contract address').optional(),
-  ESCROW_CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid escrow contract address').optional(),
+  HEDERA_ASTRA_NFT_COLLECTIBLE_CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid NFT contract address').optional(),
+  HEDERA_ESCROW_CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid escrow contract address').optional(),
   HEDERA_TOKEN_SERVICE_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid token service address').optional(),
   HEDERA_USDC_TOKEN_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid USDC token address').optional(),
+
+  // Polygon Amoy Configuration
+  POLYGON_AMOY_RPC_URL: z.string().url('Invalid Polygon Amoy RPC URL').optional(),
+  POLYGON_AMOY_PRIVATE_KEY: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid Polygon Amoy private key format').optional(),
+  POLYGON_AMOY_ASTRA_NFT_COLLECTIBLE_CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Polygon NFT contract address').optional(),
+  POLYGON_AMOY_USDC_TOKEN_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Polygon USDC token address').optional(),
+  POLYGON_AMOY_ESCROW_CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Polygon escrow contract address').optional(),
+
   PINATA_JWT_TOKEN: z.string().optional(),
   THIRDWEB_PRIVATE_KEY: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid Thirdweb private key format').optional(),
 });
