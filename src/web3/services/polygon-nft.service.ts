@@ -3,19 +3,19 @@ import { ConfigService } from '@nestjs/config';
 import { ethers } from 'ethers';
 
 @Injectable()
-export class HederaNFTService {
-  private readonly logger = new Logger(HederaNFTService.name);
+export class PolygonNFTService {
+  private readonly logger = new Logger(PolygonNFTService.name);
   private provider: ethers.providers.JsonRpcProvider;
   private wallet: ethers.Wallet;
   private astraNFTContract: ethers.Contract;
   private usdcTokenContract: ethers.Contract;
 
   constructor(private configService: ConfigService) {
-    const privateKey = this.configService.get('HEDERA_PRIVATE_KEY');
-    const rpcUrl = this.configService.get('HEDERA_TESTNET_RPC_URL');
+    const privateKey = this.configService.get('POLYGON_AMOY_PRIVATE_KEY');
+    const rpcUrl = this.configService.get('POLYGON_AMOY_RPC_URL');
 
     if (!privateKey || !rpcUrl) {
-      this.logger.warn('Hedera credentials not configured. Service will be unavailable.');
+      this.logger.warn('Polygon Amoy credentials not configured. Service will be unavailable.');
       return;
     }
 
@@ -23,7 +23,7 @@ export class HederaNFTService {
     this.wallet = new ethers.Wallet(privateKey, this.provider);
 
     this.astraNFTContract = new ethers.Contract(
-      this.configService.get('HEDERA_ASTRA_NFT_COLLECTIBLE_CONTRACT_ADDRESS'),
+      this.configService.get('POLYGON_AMOY_ASTRA_NFT_COLLECTIBLE_CONTRACT_ADDRESS'),
       [
         // Functions
         'function mintNFTs(address to, string memory designId, string memory designName, string memory designImage, string memory prompt, uint256 count) external',
@@ -48,12 +48,11 @@ export class HederaNFTService {
     );
 
     this.usdcTokenContract = new ethers.Contract(
-      this.configService.get('HEDERA_USDC_TOKEN_ADDRESS'),
+      this.configService.get('POLYGON_AMOY_USDC_TOKEN_ADDRESS'),
       [
         'function balanceOf(address account) external view returns (uint256)',
         'function allowance(address owner, address spender) external view returns (uint256)',
         'function approve(address spender, uint256 amount) external returns (bool)',
-        'function associate() external returns (int64 responseCode)',
       ],
       this.wallet
     );
@@ -68,14 +67,14 @@ export class HederaNFTService {
     count: number;
   }): Promise<{ success: boolean; tokenIds?: bigint[]; txHash?: string; error?: string }> {
     if (!this.astraNFTContract) {
-      return { success: false, error: 'Hedera service not configured. Please set HEDERA_PRIVATE_KEY and HEDERA_TESTNET_RPC_URL' };
+      return { success: false, error: 'Polygon Amoy service not configured. Please set POLYGON_AMOY_PRIVATE_KEY and POLYGON_AMOY_RPC_URL' };
     }
     try {
       if (!data.recipientAddress || !ethers.utils.isAddress(data.recipientAddress)) {
         return { success: false, error: `Invalid recipient address: ${data.recipientAddress}` };
       }
 
-      this.logger.log(`Starting minting process for ${data.count} NFTs to ${data.recipientAddress}`);
+      this.logger.log(`Starting minting process on Polygon Amoy for ${data.count} NFTs to ${data.recipientAddress}`);
 
       const isUsed = await this.astraNFTContract.isDesignIdUsed(data.designId);
       if (isUsed) {
@@ -93,25 +92,8 @@ export class HederaNFTService {
 
       this.logger.log(`Mint fee: ${totalFee.toString()} (${ethers.utils.formatUnits(totalFee, 6)} USDC)`);
 
-      let balance: any;
-      try {
-        balance = await this.usdcTokenContract.balanceOf(this.wallet.address);
-        this.logger.log(`Wallet USDC balance: ${balance.toString()} (${ethers.utils.formatUnits(balance, 6)} USDC)`);
-      } catch (balanceError) {
-        this.logger.log('Failed to get USDC balance. Attempting automatic token association...');
-        const associationResult = await this.associateUSDCToken();
-
-        if (!associationResult.success) {
-          return {
-            success: false,
-            error: `USDC token not associated and auto-association failed: ${associationResult.error}`
-          };
-        }
-
-        this.logger.log('Auto-association successful. Rechecking balance...');
-        balance = await this.usdcTokenContract.balanceOf(this.wallet.address);
-        this.logger.log(`Wallet USDC balance: ${balance.toString()} (${ethers.utils.formatUnits(balance, 6)} USDC)`);
-      }
+      const balance = await this.usdcTokenContract.balanceOf(this.wallet.address);
+      this.logger.log(`Wallet USDC balance: ${balance.toString()} (${ethers.utils.formatUnits(balance, 6)} USDC)`);
 
       if (BigInt(balance.toString()) < totalFee) {
         return {
@@ -152,7 +134,6 @@ export class HederaNFTService {
         const tokenIds = this.extractTokenIds(receipt, data.count);
         this.logger.log(`Minting successful! Token IDs: ${tokenIds.join(', ')}`);
 
-        // Use mintTx.hash (not receipt.hash) - receipt doesn't have hash property
         const txHash = receipt.transactionHash || mintTx.hash;
 
         if (!txHash) {
@@ -171,9 +152,9 @@ export class HederaNFTService {
       this.logger.error(error);
 
       let errorMessage = error.message;
-      if (error.error?.code === 3 && error.error?.data) {
+      if (error.error?.code && error.error?.data) {
         const errorCode = error.error.data;
-        errorMessage = `Hedera error: ${errorCode}. This may indicate token association or balance issues.`;
+        errorMessage = `Polygon error: ${errorCode}. This may indicate insufficient balance or gas issues.`;
       }
 
       return { success: false, error: errorMessage };
@@ -193,7 +174,7 @@ export class HederaNFTService {
 
   async listNFT(tokenId: number, price: bigint): Promise<{ success: boolean; txHash?: string; error?: string }> {
     if (!this.astraNFTContract) {
-      return { success: false, error: 'Hedera service not configured' };
+      return { success: false, error: 'Polygon Amoy service not configured' };
     }
     try {
       const tx = await this.astraNFTContract.listNFT(tokenId, price);
@@ -207,7 +188,7 @@ export class HederaNFTService {
 
   async listOwnedNFTsByQuantity(quantity: number, price: bigint): Promise<{ success: boolean; txHash?: string; error?: string }> {
     if (!this.astraNFTContract) {
-      return { success: false, error: 'Hedera service not configured' };
+      return { success: false, error: 'Polygon Amoy service not configured' };
     }
     try {
       const tx = await this.astraNFTContract.listOwnedNFTsByQuantity(quantity, price);
@@ -259,45 +240,6 @@ export class HederaNFTService {
     }
   }
 
-  async associateUSDCToken(): Promise<{ success: boolean; txHash?: string; error?: string }> {
-    try {
-      this.logger.log('Checking if USDC token association is needed...');
-
-      try {
-        const balance = await this.usdcTokenContract.balanceOf(this.wallet.address);
-        this.logger.log(`USDC token already associated. Balance: ${ethers.utils.formatUnits(balance, 6)} USDC`);
-        return { success: true };
-      } catch (balanceError) {
-        this.logger.log('Token not associated. Proceeding with association...');
-      }
-
-      this.logger.log('Calling associate() on USDC token contract...');
-      const tx = await this.usdcTokenContract.associate();
-
-      this.logger.log(`Association transaction submitted: ${tx.hash}`);
-      const receipt = await tx.wait();
-
-      if (receipt.status === 1) {
-        this.logger.log('USDC token association successful!');
-        return { success: true, txHash: receipt.hash };
-      }
-
-      return { success: false, error: 'Token association transaction failed' };
-    } catch (error) {
-      this.logger.error('Token association failed:', error);
-
-      let errorMessage = error.message;
-      if (error.message.includes('insufficient funds')) {
-        errorMessage = 'Insufficient HBAR for gas fees. Please fund your wallet with HBAR.';
-      } else if (error.message.includes('already associated')) {
-        this.logger.log('Token already associated (caught in error handler)');
-        return { success: true };
-      }
-
-      return { success: false, error: errorMessage };
-    }
-  }
-
   private extractTokenIds(receipt: any, expectedCount: number): bigint[] {
     const tokenIds: bigint[] = [];
 
@@ -315,7 +257,7 @@ export class HederaNFTService {
             tokenIds.push(parsed.args.tokenId);
             this.logger.log(`Extracted tokenId: ${parsed.args.tokenId.toString()}`);
           } else if (parsed.name === 'Transfer') {
-            // For Transfer events, only count mints t
+            // For Transfer events, only count mints
             if (parsed.args.from === ethers.constants.AddressZero) {
               tokenIds.push(parsed.args.tokenId);
               this.logger.log(`Extracted tokenId from Transfer: ${parsed.args.tokenId.toString()}`);
@@ -324,7 +266,6 @@ export class HederaNFTService {
         }
       } catch (e) {
         // Log belongs to a different contract or unknown event
-        // this.logger.debug(`Could not parse log: ${e.message}`);
       }
     }
 

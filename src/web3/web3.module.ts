@@ -11,6 +11,7 @@ import { TransactionHashValidatorService } from './services/transaction-hash-val
 import { ChatIdValidatorService } from './services/chat-id-validator.service';
 import { HederaNFTService } from './services/hedera-nft.service';
 import { HederaEscrowService } from './services/hedera-escrow.service';
+import { PolygonNFTService } from './services/polygon-nft.service';
 import { Web3Controller } from './controllers/web3.controller';
 import { NFT } from './entities/nft.entity';
 import { EscrowContract } from './entities/escrow.entity';
@@ -37,6 +38,7 @@ import { forwardRef } from '@nestjs/common';
     ChatIdValidatorService,
     HederaNFTService,
     HederaEscrowService,
+    PolygonNFTService,
   ],
   exports: [
     ThirdwebService,
@@ -49,6 +51,7 @@ import { forwardRef } from '@nestjs/common';
     ChatIdValidatorService,
     HederaNFTService,
     HederaEscrowService,
+    PolygonNFTService,
   ],
 })
 export class Web3Module { }

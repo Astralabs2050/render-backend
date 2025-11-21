@@ -8,6 +8,7 @@ import { ThirdwebService } from '../services/thirdweb.service';
 import { TransactionHashValidatorService } from '../services/transaction-hash-validator.service';
 import { HederaNFTService } from '../services/hedera-nft.service';
 import { HederaEscrowService } from '../services/hedera-escrow.service';
+import { PolygonNFTService } from '../services/polygon-nft.service';
 import { MintNFTRequestDto } from '../dto/mint-nft-request.dto';
 import { UsersService } from '../../users/users.service';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -27,6 +28,7 @@ export class Web3Controller {
         private readonly transactionHashValidator: TransactionHashValidatorService,
         private readonly hederaNFTService: HederaNFTService,
         private readonly hederaEscrowService: HederaEscrowService,
+        private readonly polygonNFTService: PolygonNFTService,
         private readonly usersService: UsersService,
         @InjectRepository(Design)
         private readonly designRepository: Repository<Design>,
@@ -614,6 +616,196 @@ export class Web3Controller {
                 tokenIds: result.tokenIds,
                 txHash: result.txHash,
                 source: isNFT ? 'nft' : 'design',
+            },
+        };
+    }
+
+    @Post('polygon/mint')
+    @UseGuards(JwtAuthGuard)
+    async mintPolygonCollectible(@Req() req, @Body() body: MintNFTRequestDto) {
+        this.logger.log(`========== POLYGON AMOY MINT REQUEST START ==========`);
+        this.logger.log(`User ID: ${req.user.id}`);
+        this.logger.log(`Design ID from body: ${body.designId}`);
+        this.logger.log(`Full request body: ${JSON.stringify(body)}`);
+        this.logger.log(`====================================================`);
+
+        // Validate designId is provided
+        if (!body.designId) {
+            this.logger.error(`Missing designId in minting request - userId: ${req.user.id}`);
+            throw new HttpException(
+                {
+                    status: false,
+                    message: 'Design ID is required',
+                    path: '/web3/polygon/mint',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+
+        // Check designs table first (manual uploads)
+        let design = await this.designRepository.findOne({
+            where: { id: body.designId, creatorId: req.user.id }
+        });
+
+        let isNFT = false;
+        let nft: NFT | null = null;
+
+        // If not found in designs table, check NFTs table (AI-generated designs)
+        if (!design) {
+            this.logger.log(`Design not found in designs table, checking NFTs table - designId: ${body.designId}`);
+            nft = await this.nftRepository.findOne({
+                where: { id: body.designId, creatorId: req.user.id }
+            });
+
+            if (!nft) {
+                this.logger.error(`Design not found in either table - designId: ${body.designId}, userId: ${req.user.id}`);
+                throw new HttpException(
+                    {
+                        status: false,
+                        message: 'Design not found',
+                        path: '/web3/polygon/mint',
+                        timestamp: new Date().toISOString(),
+                    },
+                    HttpStatus.NOT_FOUND
+                );
+            }
+
+            isNFT = true;
+            this.logger.log(`Found NFT - id: ${nft.id}, name: ${nft.name}, status: ${nft.status}`);
+        }
+
+        // Check if already minted on Polygon
+        if (isNFT) {
+            if (nft!.metadata?.polygonMint) {
+                const existingTokenIds = nft!.metadata.polygonMint.tokenIds || [];
+                this.logger.warn(`NFT already minted on Polygon - id: ${nft!.id}`);
+
+                throw new HttpException(
+                    {
+                        status: false,
+                        message: 'This design has already been minted on Polygon Amoy',
+                        data: {
+                            alreadyMinted: true,
+                            transactionHash: nft!.metadata.polygonMint.transactionHash,
+                            tokenIds: existingTokenIds,
+                            timestamp: nft!.metadata.polygonMint.timestamp,
+                        },
+                        path: '/web3/polygon/mint',
+                        timestamp: new Date().toISOString(),
+                    },
+                    HttpStatus.CONFLICT
+                );
+            }
+        } else {
+            if (design!.blockchainMetadata?.transactionHash) {
+                this.logger.warn(`Design already minted on Polygon - id: ${design!.id}`);
+
+                throw new HttpException(
+                    {
+                        status: false,
+                        message: 'This design has already been minted on Polygon Amoy',
+                        data: {
+                            alreadyMinted: true,
+                            transactionHash: design!.blockchainMetadata.transactionHash,
+                        },
+                        path: '/web3/polygon/mint',
+                        timestamp: new Date().toISOString(),
+                    },
+                    HttpStatus.CONFLICT
+                );
+            }
+        }
+
+        // Extract design data from either source
+        const designId = isNFT ? nft!.id : design!.id;
+        const dbName = isNFT ? nft!.name : design!.name;
+
+        this.logger.log(`Name resolution - body.name: ${body.name}, dbName: ${dbName}`);
+
+        const designName = body.name || dbName || 'Untitled Design';
+        const designImage = isNFT ? nft!.imageUrl : design!.designImages?.[0] || '';
+        const quantity = body.quantity || (isNFT ? nft!.quantity : design!.amountOfPieces) || 1;
+
+        const recipientAddress = body.recipientAddress || (await this.usersService.ensureUserHasWallet(req.user.id));
+
+        this.logger.log(`Final designName: ${designName}`);
+
+        const result = await this.polygonNFTService.mintCollectibles({
+            recipientAddress,
+            designId,
+            designName,
+            designImage,
+            prompt: `Design for ${designName}`,
+            count: quantity,
+        });
+
+        if (!result.success) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: result.error,
+                    path: '/web3/polygon/mint',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+
+        // Validate that we received a transaction hash
+        if (!result.txHash) {
+            this.logger.error(`Mint succeeded but no transaction hash received! Result: ${JSON.stringify(result)}`);
+            throw new HttpException(
+                {
+                    status: false,
+                    message: 'Minting succeeded but transaction hash is missing. This is a critical error.',
+                    path: '/web3/polygon/mint',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+
+        this.logger.log(`Mint successful! TxHash: ${result.txHash}, TokenIDs: ${result.tokenIds?.join(', ')}`);
+
+        // Update the appropriate table based on source
+        if (isNFT) {
+            const updatedMetadata = {
+                ...(nft!.metadata || {}),
+                polygonMint: {
+                    transactionHash: result.txHash,
+                    tokenIds: result.tokenIds?.map(id => id.toString()) || [],
+                    quantity: quantity,
+                    timestamp: new Date().toISOString(),
+                }
+            };
+
+            nft!.name = body.name || nft!.name;
+            nft!.metadata = updatedMetadata as any;
+
+            const savedNFT = await this.nftRepository.save(nft!);
+            this.logger.log(`Saved NFT with Polygon mint data - id: ${savedNFT.id}, txHash: ${result.txHash}`);
+        } else {
+            await this.designRepository.update(design!.id, {
+                blockchainMetadata: {
+                    transactionHash: result.txHash,
+                    tokenIds: result.tokenIds.map(id => id.toString()),
+                    quantity: quantity,
+                    timestamp: new Date().toISOString(),
+                },
+            });
+            this.logger.log(`Updated design with Polygon mint data - id: ${design!.id}`);
+        }
+
+        return {
+            status: true,
+            message: 'Polygon Amoy collectibles minted successfully',
+            data: {
+                tokenIds: result.tokenIds,
+                txHash: result.txHash,
+                source: isNFT ? 'nft' : 'design',
+                network: 'polygon-amoy',
+                explorer: `https://amoy.polygonscan.com/tx/${result.txHash}`
             },
         };
     }
