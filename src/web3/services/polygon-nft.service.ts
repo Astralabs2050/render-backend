@@ -58,6 +58,23 @@ export class PolygonNFTService {
     );
   }
 
+  /**
+   * Get optimal gas price for Polygon transactions
+   * Fetches current network gas price and ensures it meets Polygon's minimum requirements
+   */
+  private async getGasPrice(): Promise<ethers.BigNumber> {
+    const feeData = await this.provider.getFeeData();
+    const networkGasPrice = feeData.gasPrice || ethers.utils.parseUnits('50', 'gwei');
+
+    // Polygon minimum gas price (adjust if needed based on network conditions)
+    const minGasPrice = ethers.utils.parseUnits('30', 'gwei');
+
+    const finalGasPrice = networkGasPrice.gt(minGasPrice) ? networkGasPrice : minGasPrice;
+
+    this.logger.log(`Gas price: ${ethers.utils.formatUnits(finalGasPrice, 'gwei')} Gwei`);
+    return finalGasPrice;
+  }
+
   async mintCollectibles(data: {
     recipientAddress: string;
     designId: string;
@@ -114,13 +131,20 @@ export class PolygonNFTService {
       }
 
       this.logger.log('Calling mintNFTs on contract...');
+
+      const gasPrice = await this.getGasPrice();
+
       const mintTx = await this.astraNFTContract.mintNFTs(
         data.recipientAddress,
         data.designId,
         data.designName,
         data.designImage,
         data.prompt,
-        data.count
+        data.count,
+        {
+          gasPrice,
+          gasLimit: 500000
+        }
       );
 
       this.logger.log(`Mint transaction submitted: ${mintTx.hash}. Waiting for confirmation...`);
@@ -163,7 +187,12 @@ export class PolygonNFTService {
 
   async setBaseTokenURI(folderHash: string): Promise<void> {
     const baseTokenURI = `ipfs://${folderHash}/`;
-    const tx = await this.astraNFTContract.setBaseURI(baseTokenURI);
+    const gasPrice = await this.getGasPrice();
+
+    const tx = await this.astraNFTContract.setBaseURI(baseTokenURI, {
+      gasPrice,
+      gasLimit: 100000
+    });
     await tx.wait();
     this.logger.log(`Base token URI set to: ${baseTokenURI}`);
   }
@@ -177,7 +206,12 @@ export class PolygonNFTService {
       return { success: false, error: 'Polygon Amoy service not configured' };
     }
     try {
-      const tx = await this.astraNFTContract.listNFT(tokenId, price);
+      const gasPrice = await this.getGasPrice();
+
+      const tx = await this.astraNFTContract.listNFT(tokenId, price, {
+        gasPrice,
+        gasLimit: 200000
+      });
       const receipt = await tx.wait();
       return { success: receipt.status === 1, txHash: receipt.hash };
     } catch (error) {
@@ -191,7 +225,12 @@ export class PolygonNFTService {
       return { success: false, error: 'Polygon Amoy service not configured' };
     }
     try {
-      const tx = await this.astraNFTContract.listOwnedNFTsByQuantity(quantity, price);
+      const gasPrice = await this.getGasPrice();
+
+      const tx = await this.astraNFTContract.listOwnedNFTsByQuantity(quantity, price, {
+        gasPrice,
+        gasLimit: 300000
+      });
       const receipt = await tx.wait();
       return { success: receipt.status === 1, txHash: receipt.hash };
     } catch (error) {
@@ -224,7 +263,12 @@ export class PolygonNFTService {
     try {
       this.logger.log(`Approving ${spender} to spend ${amount.toString()} USDC tokens`);
 
-      const tx = await this.usdcTokenContract.approve(spender, amount);
+      const gasPrice = await this.getGasPrice();
+
+      const tx = await this.usdcTokenContract.approve(spender, amount, {
+        gasPrice,
+        gasLimit: 100000
+      });
 
       this.logger.log(`Approval transaction submitted: ${tx.hash}`);
       const receipt = await tx.wait();
