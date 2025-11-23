@@ -4,10 +4,10 @@ import { Repository } from 'typeorm';
 import { Chat } from '../entities/chat.entity';
 import { Message, MessageType } from '../entities/message.entity';
 import { Job } from '../entities/job.entity';
-import { DeliveryDetails } from '../entities/delivery-details.entity';
-import { Measurements } from '../entities/measurements.entity';
+import { UserDeliveryDetails } from '../entities/user-delivery-details.entity';
+import { UserMeasurements } from '../entities/user-measurements.entity';
 import { DeliveryDetailsDto, MeasurementsDto, ApplicationAcceptedDto } from '../dto/delivery-measurements.dto';
-import { NFT, NFTStatus } from '../../web3/entities/nft.entity';
+import { NFT } from '../../web3/entities/nft.entity';
 
 @Injectable()
 export class ChatService {
@@ -18,10 +18,10 @@ export class ChatService {
     private messageRepository: Repository<Message>,
     @InjectRepository(Job)
     private jobRepository: Repository<Job>,
-    @InjectRepository(DeliveryDetails)
-    private deliveryDetailsRepository: Repository<DeliveryDetails>,
-    @InjectRepository(Measurements)
-    private measurementsRepository: Repository<Measurements>,
+    @InjectRepository(UserDeliveryDetails)
+    private userDeliveryDetailsRepository: Repository<UserDeliveryDetails>,
+    @InjectRepository(UserMeasurements)
+    private userMeasurementsRepository: Repository<UserMeasurements>,
     @InjectRepository(NFT)
     private nftRepository: Repository<NFT>,
   ) {}
@@ -136,22 +136,23 @@ export class ChatService {
         });
 
         const savedMessage = await manager.save(message);
-        
+
+        // Save delivery details and measurements to user-scoped tables only
         if (deliveryDetails) {
-          const existing = await manager.findOne(DeliveryDetails, { where: { chatId } });
-          if (existing) {
-            await manager.update(DeliveryDetails, { chatId }, deliveryDetails);
+          const userExisting = await manager.findOne(UserDeliveryDetails, { where: { userId: senderId } });
+          if (userExisting) {
+            await manager.update(UserDeliveryDetails, { userId: senderId }, deliveryDetails);
           } else {
-            await manager.save(DeliveryDetails, { chatId, ...deliveryDetails });
+            await manager.save(UserDeliveryDetails, { userId: senderId, ...deliveryDetails });
           }
         }
 
         if (measurements) {
-          const existing = await manager.findOne(Measurements, { where: { chatId } });
-          if (existing) {
-            await manager.update(Measurements, { chatId }, measurements);
+          const userExisting = await manager.findOne(UserMeasurements, { where: { userId: senderId } });
+          if (userExisting) {
+            await manager.update(UserMeasurements, { userId: senderId }, measurements);
           } else {
-            await manager.save(Measurements, { chatId, ...measurements });
+            await manager.save(UserMeasurements, { userId: senderId, ...measurements });
           }
         }
 
@@ -423,30 +424,33 @@ export class ChatService {
     );
   }
 
-  async getDeliveryAndMeasurements(chatId: string, userId: string): Promise<{ deliveryDetails: DeliveryDetails | null; measurements: Measurements | null }> {
+  async getDeliveryAndMeasurements(chatId: string, userId: string): Promise<{ deliveryDetails: UserDeliveryDetails | null; measurements: UserMeasurements | null }> {
     const chat = await this.validateChatAccess(chatId, userId);
     if (!chat) throw new ForbiddenException('Not authorized to access this chat');
 
+    // Fetch from user-scoped tables instead of chat-scoped
     const [deliveryDetails, measurements] = await Promise.all([
-      this.deliveryDetailsRepository.findOne({ where: { chatId } }),
-      this.measurementsRepository.findOne({ where: { chatId } })
+      this.userDeliveryDetailsRepository.findOne({ where: { userId } }),
+      this.userMeasurementsRepository.findOne({ where: { userId } })
     ]);
 
     return { deliveryDetails, measurements };
   }
 
-  async getDeliveryDetails(chatId: string, userId: string): Promise<DeliveryDetails | null> {
+  async getDeliveryDetails(chatId: string, userId: string): Promise<UserDeliveryDetails | null> {
     const chat = await this.validateChatAccess(chatId, userId);
     if (!chat) throw new ForbiddenException('Not authorized to access this chat');
 
-    return this.deliveryDetailsRepository.findOne({ where: { chatId } });
+    // Fetch from user-scoped table instead of chat-scoped
+    return this.userDeliveryDetailsRepository.findOne({ where: { userId } });
   }
 
-  async getMeasurements(chatId: string, userId: string): Promise<Measurements | null> {
+  async getMeasurements(chatId: string, userId: string): Promise<UserMeasurements | null> {
     const chat = await this.validateChatAccess(chatId, userId);
     if (!chat) throw new ForbiddenException('Not authorized to access this chat');
 
-    return this.measurementsRepository.findOne({ where: { chatId } });
+    // Fetch from user-scoped table instead of chat-scoped
+    return this.userMeasurementsRepository.findOne({ where: { userId } });
   }
 
   async markJobCompleted(chatId: string, userId: string): Promise<Message> {
@@ -487,8 +491,14 @@ export class ChatService {
     await this.messageRepository.remove(message);
   }
 
+  // User-scoped delivery details and measurements methods
+  async getUserDeliveryAndMeasurements(userId: string): Promise<{ deliveryDetails: UserDeliveryDetails | null; measurements: UserMeasurements | null }> {
+    const [deliveryDetails, measurements] = await Promise.all([
+      this.userDeliveryDetailsRepository.findOne({ where: { userId } }),
+      this.userMeasurementsRepository.findOne({ where: { userId } })
+    ]);
 
-
-
+    return { deliveryDetails, measurements };
+  }
 
 }

@@ -259,5 +259,14 @@ export class ChatController {
     };
   }
 
-
+  // User-scoped delivery and measurements endpoint
+  @Get('user/delivery-measurements')
+  async getUserDeliveryAndMeasurements(@Req() req) {
+    const data = await this.chatService.getUserDeliveryAndMeasurements(req.user.id);
+    return {
+      status: true,
+      message: 'User delivery details and measurements retrieved successfully',
+      data,
+    };
+  }
 }
