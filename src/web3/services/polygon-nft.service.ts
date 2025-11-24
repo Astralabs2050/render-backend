@@ -126,13 +126,58 @@ export class PolygonNFTService {
         this.logger.log(`Approving ${ethers.utils.formatUnits(totalFee, 6)} USDC for minting`);
         await this.approveUSDC(this.astraNFTContract.address, totalFee);
         this.logger.log('USDC approval successful');
+
+        // Verify the approval actually worked
+        const newAllowance = await this.usdcTokenContract.allowance(this.wallet.address, this.astraNFTContract.address);
+        this.logger.log(`New USDC allowance after approval: ${newAllowance.toString()} (${ethers.utils.formatUnits(newAllowance, 6)} USDC)`);
+
+        if (BigInt(newAllowance.toString()) < totalFee) {
+          throw new Error(`Approval failed: Allowance is still insufficient. Required: ${ethers.utils.formatUnits(totalFee, 6)}, Got: ${ethers.utils.formatUnits(newAllowance, 6)}`);
+        }
       } else {
         this.logger.log('Sufficient allowance already exists, skipping approval');
       }
 
+      // Log all parameters before minting
+      this.logger.log('=== Mint Parameters ===');
+      this.logger.log(`Recipient: ${data.recipientAddress}`);
+      this.logger.log(`Design ID: ${data.designId}`);
+      this.logger.log(`Design Name: ${data.designName}`);
+      this.logger.log(`Count: ${data.count}`);
+      this.logger.log(`Wallet: ${this.wallet.address}`);
+      this.logger.log(`NFT Contract: ${this.astraNFTContract.address}`);
+      this.logger.log(`USDC Contract: ${this.usdcTokenContract.address}`);
+      this.logger.log('=====================');
+
       this.logger.log('Calling mintNFTs on contract...');
 
       const gasPrice = await this.getGasPrice();
+
+      // Try to estimate gas first - this will fail with a revert reason if the transaction would fail
+      try {
+        const estimatedGas = await this.astraNFTContract.estimateGas.mintNFTs(
+          data.recipientAddress,
+          data.designId,
+          data.designName,
+          data.designImage,
+          data.prompt,
+          data.count
+        );
+        this.logger.log(`Estimated gas: ${estimatedGas.toString()}`);
+      } catch (estimateError) {
+        this.logger.error('Gas estimation failed - transaction would revert:');
+        this.logger.error(estimateError);
+
+        // Try to extract revert reason
+        let revertReason = 'Unknown reason';
+        if (estimateError.error?.message) {
+          revertReason = estimateError.error.message;
+        } else if (estimateError.message) {
+          revertReason = estimateError.message;
+        }
+
+        throw new Error(`Transaction would revert: ${revertReason}`);
+      }
 
       const mintTx = await this.astraNFTContract.mintNFTs(
         data.recipientAddress,
@@ -148,11 +193,25 @@ export class PolygonNFTService {
       );
 
       this.logger.log(`Mint transaction submitted: ${mintTx.hash}. Waiting for confirmation...`);
-      const receipt = await mintTx.wait();
+
+      let receipt: any;
+      try {
+        receipt = await mintTx.wait();
+      } catch (receiptError: any) {
+        this.logger.error('Transaction receipt error:', receiptError);
+
+        // Try to get more details about why it failed
+        if (receiptError.receipt) {
+          this.logger.error(`Receipt status: ${receiptError.receipt.status}`);
+          this.logger.error(`Gas used: ${receiptError.receipt.gasUsed?.toString()}`);
+        }
+
+        throw new Error(`Transaction reverted: ${receiptError.message}`);
+      }
 
       this.logger.log(`Transaction confirmed. Receipt status: ${receipt.status}`);
       this.logger.log(`Transaction hash: ${mintTx.hash}`);
-      this.logger.log(`Receipt object keys: ${Object.keys(receipt).join(', ')}`);
+      this.logger.log(`Gas used: ${receipt.gasUsed?.toString()}`);
 
       if (receipt.status === 1) {
         const tokenIds = this.extractTokenIds(receipt, data.count);
