@@ -269,4 +269,15 @@ export class ChatController {
       data,
     };
   }
+
+  // Escrow earnings endpoint for makers
+  @Get('escrow/earnings')
+  async getEscrowEarnings(@Req() req) {
+    const earnings = await this.chatService.getEscrowEarnings(req.user.id);
+    return {
+      status: true,
+      message: 'Escrow earnings retrieved successfully',
+      data: earnings,
+    };
+  }
 }
