@@ -75,6 +75,56 @@ export class PolygonNFTService {
     return finalGasPrice;
   }
 
+  /**
+   * Wait for allowance to be updated after approval transaction
+   * Polls the blockchain until allowance matches expected amount or timeout
+   * More reliable than fixed delays for handling network latency
+   */
+  private async waitForAllowanceUpdate(
+    spender: string,
+    requiredAmount: bigint,
+    timeoutMs = 30000
+  ): Promise<boolean> {
+    const startTime = Date.now();
+    const pollInterval = 2000; // Check every 2 seconds
+    let attempt = 0;
+
+    while (Date.now() - startTime < timeoutMs) {
+      attempt++;
+
+      try {
+        const allowance = await this.usdcTokenContract.allowance(this.wallet.address, spender);
+        const allowanceBigInt = BigInt(allowance.toString());
+
+        this.logger.log(
+          `[Attempt ${attempt}] Allowance: ${ethers.utils.formatUnits(allowance, 6)} USDC ` +
+          `(Required: ${ethers.utils.formatUnits(requiredAmount, 6)} USDC)`
+        );
+
+        if (allowanceBigInt >= requiredAmount) {
+          this.logger.log('✓ Allowance verified successfully');
+          return true;
+        }
+
+        // Wait before next check
+        const elapsed = Date.now() - startTime;
+        const remaining = timeoutMs - elapsed;
+
+        if (remaining > pollInterval) {
+          this.logger.log(`Waiting ${pollInterval / 1000}s before next check...`);
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+        }
+      } catch (error) {
+        this.logger.warn(`Allowance check failed:`, error.message);
+        // Continue polling even if one check fails
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+      }
+    }
+
+    this.logger.error(`Allowance verification timed out after ${timeoutMs / 1000}s`);
+    return false;
+  }
+
   async mintCollectibles(data: {
     recipientAddress: string;
     designId: string;
@@ -125,17 +175,25 @@ export class PolygonNFTService {
       if (BigInt(currentAllowance.toString()) < totalFee) {
         this.logger.log(`Approving ${ethers.utils.formatUnits(totalFee, 6)} USDC for minting`);
         await this.approveUSDC(this.astraNFTContract.address, totalFee);
-        this.logger.log('USDC approval successful');
+        this.logger.log('✓ USDC approval transaction confirmed on-chain');
 
-        // Verify the approval actually worked
-        const newAllowance = await this.usdcTokenContract.allowance(this.wallet.address, this.astraNFTContract.address);
-        this.logger.log(`New USDC allowance after approval: ${newAllowance.toString()} (${ethers.utils.formatUnits(newAllowance, 6)} USDC)`);
+        // Wait for allowance to be readable from blockchain with polling
+        this.logger.log('Waiting for allowance update to propagate...');
+        const isVerified = await this.waitForAllowanceUpdate(
+          this.astraNFTContract.address,
+          totalFee,
+          30000 // 30 second timeout
+        );
 
-        if (BigInt(newAllowance.toString()) < totalFee) {
-          throw new Error(`Approval failed: Allowance is still insufficient. Required: ${ethers.utils.formatUnits(totalFee, 6)}, Got: ${ethers.utils.formatUnits(newAllowance, 6)}`);
+        if (!isVerified) {
+          throw new Error(
+            `Allowance verification timed out. Required: ${ethers.utils.formatUnits(totalFee, 6)} USDC. ` +
+            `The approval transaction was confirmed but the updated allowance is not yet visible. ` +
+            `Please wait a moment and try minting again.`
+          );
         }
       } else {
-        this.logger.log('Sufficient allowance already exists, skipping approval');
+        this.logger.log('✓ Sufficient allowance already exists, skipping approval');
       }
 
       // Log all parameters before minting
@@ -154,8 +212,9 @@ export class PolygonNFTService {
       const gasPrice = await this.getGasPrice();
 
       // Try to estimate gas first - this will fail with a revert reason if the transaction would fail
+      let estimatedGas: ethers.BigNumber;
       try {
-        const estimatedGas = await this.astraNFTContract.estimateGas.mintNFTs(
+        estimatedGas = await this.astraNFTContract.estimateGas.mintNFTs(
           data.recipientAddress,
           data.designId,
           data.designName,
@@ -164,20 +223,34 @@ export class PolygonNFTService {
           data.count
         );
         this.logger.log(`Estimated gas: ${estimatedGas.toString()}`);
-      } catch (estimateError) {
-        this.logger.error('Gas estimation failed - transaction would revert:');
-        this.logger.error(estimateError);
+      } catch (estimateError: any) {
+        this.logger.error('========= Gas estimation failed - transaction would revert =========');
+        this.logger.error('Full error object:', JSON.stringify(estimateError, null, 2));
 
         // Try to extract revert reason
         let revertReason = 'Unknown reason';
-        if (estimateError.error?.message) {
+        if (estimateError.error?.data?.message) {
+          revertReason = estimateError.error.data.message;
+        } else if (estimateError.error?.message) {
           revertReason = estimateError.error.message;
+        } else if (estimateError.reason) {
+          revertReason = estimateError.reason;
         } else if (estimateError.message) {
           revertReason = estimateError.message;
         }
 
+        // Check if it's a contract revert with data
+        if (estimateError.error?.data) {
+          this.logger.error('Contract revert data:', estimateError.error.data);
+        }
+
+        this.logger.error('===================================================================');
         throw new Error(`Transaction would revert: ${revertReason}`);
       }
+
+      // Use 1.5x the estimated gas, with a minimum of 600k
+      const gasLimit = estimatedGas.mul(150).div(100).lt(600000) ? 600000 : estimatedGas.mul(150).div(100).toNumber();
+      this.logger.log(`Using gas limit: ${gasLimit} (1.5x estimated)`);
 
       const mintTx = await this.astraNFTContract.mintNFTs(
         data.recipientAddress,
@@ -188,7 +261,7 @@ export class PolygonNFTService {
         data.count,
         {
           gasPrice,
-          gasLimit: 500000
+          gasLimit
         }
       );
 
@@ -330,13 +403,16 @@ export class PolygonNFTService {
       });
 
       this.logger.log(`Approval transaction submitted: ${tx.hash}`);
-      const receipt = await tx.wait();
+
+      // Wait for 2 confirmations on testnet for better reliability
+      this.logger.log('Waiting for 2 block confirmations...');
+      const receipt = await tx.wait(2);
 
       if (receipt.status !== 1) {
         throw new Error('USDC approval transaction failed');
       }
 
-      this.logger.log('USDC approval transaction confirmed');
+      this.logger.log(`✓ Approval confirmed after ${receipt.confirmations} blocks (tx: ${tx.hash})`);
     } catch (error) {
       this.logger.error('USDC approval failed:', error);
       throw new Error(`Failed to approve USDC: ${error.message}`);
