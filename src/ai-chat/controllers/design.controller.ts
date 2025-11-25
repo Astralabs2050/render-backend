@@ -24,7 +24,7 @@ export class DesignController {
   @Post('variation')
   async createDesignVariation(@Req() req, @Body() dto: CreateDesignVariationDto) {
     const userId = req.user.id;
-    const result = await this.designWorkflowService.processDesignVariation(userId, dto.chatId, dto.prompt);
+    const result = await this.designWorkflowService.processDesignVariation(userId, dto.chatId, dto.prompt, dto.model);
     return {
       status: true,
       message: 'Design variation created successfully',

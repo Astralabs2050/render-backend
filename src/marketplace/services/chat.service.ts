@@ -501,4 +501,62 @@ export class ChatService {
     return { deliveryDetails, measurements };
   }
 
+  // Escrow earnings analytics for makers
+  async getEscrowEarnings(userId: string): Promise<any> {
+    // Use query builder for efficient database-level aggregations
+
+    // Calculate total earnings (sum of all released amounts)
+    const totalEarningsResult = await this.chatRepository
+      .createQueryBuilder('chat')
+      .select('COALESCE(SUM(chat.releasedAmount), 0)', 'total')
+      .where('chat.makerId = :userId', { userId })
+      .getRawOne();
+
+    const totalEarnings = Number(totalEarningsResult?.total || 0);
+
+    // Calculate pending earnings (funded escrows: escrowAmount - releasedAmount)
+    const pendingEarningsResult = await this.chatRepository
+      .createQueryBuilder('chat')
+      .select('COALESCE(SUM(chat.escrowAmount - chat.releasedAmount), 0)', 'pending')
+      .where('chat.makerId = :userId', { userId })
+      .andWhere('chat.escrowStatus = :status', { status: 'funded' })
+      .getRawOne();
+
+    const pendingEarnings = Number(pendingEarningsResult?.pending || 0);
+
+    // Count completed jobs
+    const completedJobsCount = await this.chatRepository
+      .createQueryBuilder('chat')
+      .where('chat.makerId = :userId', { userId })
+      .andWhere('chat.escrowStatus = :status', { status: 'completed' })
+      .getCount();
+
+    // Recent escrow activities (last 10 activities with minimal data)
+    const recentActivities = await this.chatRepository
+      .createQueryBuilder('chat')
+      .leftJoinAndSelect('chat.creator', 'creator')
+      .leftJoinAndSelect('chat.job', 'job')
+      .where('chat.makerId = :userId', { userId })
+      .andWhere('chat.escrowAmount IS NOT NULL')
+      .andWhere('chat.escrowAmount > 0')
+      .orderBy('COALESCE(chat.lastMessageAt, chat.updatedAt)', 'DESC')
+      .limit(10)
+      .getMany();
+
+    return {
+      totalEarnings,
+      pendingEarnings,
+      completedJobsCount,
+      recentActivities: recentActivities.map(chat => ({
+        timestamp: chat.lastMessageAt || chat.updatedAt,
+        name: chat.creator?.fullName || 'Unknown Creator',
+        location: chat.creator?.location || 'N/A',
+        amount: Number(chat.releasedAmount || 0),
+        status: chat.escrowStatus,
+        chatId: chat.id,
+        jobTitle: chat.job?.title || 'N/A'
+      }))
+    };
+  }
+
 }

@@ -409,16 +409,16 @@ export class OpenAIService {
 
   private async enhanceConsistentDesignPrompt(prompt: string, baseStylePrompt?: string, variationIndex: number = 0, referenceImageBase64?: string): Promise<string> {
     try {
-      const consistencyInstructions = baseStylePrompt ? 
-        `Maintain the same art style, lighting, and visual aesthetic as established in the base design: "${baseStylePrompt}". ` : 
+      const consistencyInstructions = baseStylePrompt ?
+        `Maintain the same art style, lighting, and visual aesthetic as established in the base design: "${baseStylePrompt}". ` :
         'Establish a consistent art style for this design series. ';
-      
+
       const variationInstructions = [
         'Show the design from a front view with clean background',
-        'Show the design from a 3/4 angle view with clean background', 
+        'Show the design from a 3/4 angle view with clean background',
         'Show the design with detailed close-up of key features with clean background'
       ];
-      
+
       const messages: any[] = [
         {
           role: 'system',
@@ -429,7 +429,7 @@ export class OpenAIService {
           content: `Create variation ${variationIndex + 1} of this fashion design: "${prompt}". ${variationInstructions[variationIndex] || variationInstructions[0]}. Maintain consistent artistic style.`
         }
       ];
-      
+
       if (referenceImageBase64) {
         messages[1].content += ' Consider the reference image provided for fabric/texture details.';
         messages.push({
@@ -444,7 +444,7 @@ export class OpenAIService {
           ]
         });
       }
-      
+
       const response = await this.axiosInstance.post(
         this.apiUrl,
         {
@@ -454,17 +454,150 @@ export class OpenAIService {
           max_tokens: 300,
         }
       );
-      
+
       const enhancedPrompt = response.data.choices[0].message.content;
       return enhancedPrompt;
     } catch (error) {
       this.logger.error(`Consistent prompt enhancement error: ${error.message}`);
       const fallbackStyles = [
         'front view, professional fashion photography style',
-        '3/4 angle view, professional fashion photography style', 
+        '3/4 angle view, professional fashion photography style',
         'detailed close-up view, professional fashion photography style'
       ];
       return `Professional fashion design: ${prompt}. ${fallbackStyles[variationIndex] || fallbackStyles[0]}, consistent lighting, clean white background, high-quality fashion illustration, detailed garment construction.`;
+    }
+  }
+
+  // ============ DALL-E (OpenAI) Image Generation Methods ============
+
+  async generateDesignImageWithDALLE(prompt: string): Promise<string> {
+    try {
+      const enhancedPrompt = await this.enhanceDesignPromptForDALLE(prompt);
+
+      this.logger.log(`Generating DALL-E image with prompt: ${enhancedPrompt.substring(0, 100)}...`);
+
+      const response = await this.axiosInstance.post(
+        'https://api.openai.com/v1/images/generations',
+        {
+          model: 'dall-e-3',
+          prompt: enhancedPrompt,
+          n: 1,
+          size: '1024x1024',
+          quality: 'standard',
+          response_format: 'url'
+        }
+      );
+
+      const temporaryUrl = response.data.data[0].url;
+      this.logger.log(`DALL-E image generated: ${temporaryUrl}`);
+
+      // Store permanently on Cloudinary
+      const permanentUrl = await this.storeImagePermanently(temporaryUrl, prompt);
+      return permanentUrl;
+    } catch (error) {
+      this.logger.error(`DALL-E image generation error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async generateConsistentDesignImageWithDALLE(prompt: string, baseStylePrompt?: string, variationIndex: number = 0): Promise<string> {
+    try {
+      const enhancedPrompt = await this.enhanceConsistentDesignPromptForDALLE(prompt, baseStylePrompt, variationIndex);
+
+      this.logger.log(`Generating DALL-E variation ${variationIndex + 1}: ${enhancedPrompt.substring(0, 100)}...`);
+
+      const response = await this.axiosInstance.post(
+        'https://api.openai.com/v1/images/generations',
+        {
+          model: 'dall-e-3',
+          prompt: enhancedPrompt,
+          n: 1,
+          size: '1024x1024',
+          quality: 'standard',
+          response_format: 'url'
+        }
+      );
+
+      const temporaryUrl = response.data.data[0].url;
+      this.logger.log(`DALL-E variation ${variationIndex + 1} generated: ${temporaryUrl}`);
+
+      // Store permanently on Cloudinary
+      const permanentUrl = await this.storeImagePermanently(temporaryUrl, prompt);
+      return permanentUrl;
+    } catch (error) {
+      this.logger.error(`DALL-E consistent image generation error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  private async enhanceDesignPromptForDALLE(prompt: string): Promise<string> {
+    try {
+      const response = await this.axiosInstance.post(
+        this.apiUrl,
+        {
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert fashion design prompt engineer. Transform user descriptions into detailed, professional DALL-E 3 image generation prompts for fashion design. Focus on technical fashion details, fabric textures, silhouettes, and professional fashion illustration style. Keep prompts under 1000 characters.'
+            },
+            {
+              role: 'user',
+              content: `Transform this fashion design request into a detailed DALL-E 3 image generation prompt: "${prompt}"`
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 300,
+        }
+      );
+
+      return response.data.choices[0].message.content;
+    } catch (error) {
+      this.logger.error(`DALL-E prompt enhancement error: ${error.message}`);
+      return `Professional fashion design: ${prompt}. High-quality fashion illustration, detailed garment construction, elegant silhouette, professional fashion sketch style, clean lines, detailed fabric textures, fashion runway presentation, studio lighting, white background.`;
+    }
+  }
+
+  private async enhanceConsistentDesignPromptForDALLE(prompt: string, baseStylePrompt?: string, variationIndex: number = 0): Promise<string> {
+    try {
+      const consistencyInstructions = baseStylePrompt ?
+        `Maintain the same art style, lighting, and visual aesthetic as: "${baseStylePrompt}". ` :
+        'Establish a consistent art style. ';
+
+      const variationInstructions = [
+        'front view with white background',
+        '3/4 angle view with white background',
+        'detailed close-up of key design features with white background'
+      ];
+
+      const response = await this.axiosInstance.post(
+        this.apiUrl,
+        {
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an expert fashion design prompt engineer. Create consistent DALL-E 3 prompts that maintain the same artistic style across variations. ${consistencyInstructions}Focus on: same lighting, same illustration technique, same color palette, same level of detail, same background. Keep under 1000 characters.`
+            },
+            {
+              role: 'user',
+              content: `Create variation ${variationIndex + 1} of this fashion design: "${prompt}". ${variationInstructions[variationIndex] || variationInstructions[0]}. Maintain consistent artistic style.`
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 300,
+        }
+      );
+
+      return response.data.choices[0].message.content;
+    } catch (error) {
+      this.logger.error(`DALL-E consistent prompt enhancement error: ${error.message}`);
+      const fallbackStyles = [
+        'front view, professional fashion photography',
+        '3/4 angle view, professional fashion photography',
+        'detailed close-up view, professional fashion photography'
+      ];
+      return `Professional fashion design: ${prompt}. ${fallbackStyles[variationIndex] || fallbackStyles[0]}, consistent lighting, white background, high-quality fashion illustration, detailed garment construction.`;
     }
   }
 }
