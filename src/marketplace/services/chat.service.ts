@@ -561,7 +561,8 @@ export class ChatService {
       .andWhere('chat.escrowAmount IS NOT NULL')
       .andWhere('chat.escrowAmount > 0')
       .andWhere('chat.escrowStatus IN (:...statuses)', { statuses: ['funded', 'completed'] })
-      .orderBy('COALESCE(chat.lastMessageAt, chat.updatedAt)', 'DESC')
+      .orderBy('chat.lastMessageAt', 'DESC')
+      .addOrderBy('chat.updatedAt', 'DESC')
       .skip(skip)
       .take(limit)
       .getMany();
