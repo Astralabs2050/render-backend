@@ -3,8 +3,8 @@ import { Type } from 'class-transformer';
 
 export class EscrowAmountDto {
   @Type(() => Number)
-  @IsNumber({ allowNaN: false, allowInfinity: false })
-  @Min(0.01, { message: 'Amount must be greater than 0' })
+  @IsNumber({ allowNaN: false, allowInfinity: false }, { message: 'Amount must be a valid number' })
+  @Min(0.01, { message: 'Amount must be greater than 0.01' })
   amount: number;
 }
 

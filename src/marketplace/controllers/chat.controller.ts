@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Delete, Body, Param, UseGuards, Req, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Param, Query, UseGuards, Req, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ChatService } from '../services/chat.service';
@@ -152,10 +152,9 @@ export class ChatController {
   @Post(':chatId/escrow/fund')
   async fundEscrow(
     @Param('chatId') chatId: string,
-    @Body() body: EscrowAmountDto,
     @Req() req
   ) {
-    const chat = await this.chatService.fundEscrow(chatId, req.user.id, body.amount);
+    const chat = await this.chatService.fundEscrow(chatId, req.user.id);
     return {
       status: true,
       message: 'Escrow funded successfully',
@@ -272,8 +271,23 @@ export class ChatController {
 
   // Escrow earnings endpoint for makers
   @Get('escrow/earnings')
-  async getEscrowEarnings(@Req() req) {
-    const earnings = await this.chatService.getEscrowEarnings(req.user.id);
+  async getEscrowEarnings(
+    @Req() req,
+    @Query('page') page?: string | number,
+    @Query('limit') limit?: string | number
+  ) {
+    const parsedPage = Math.max(1, Number(page) || 1);
+    const parsedLimit = Math.min(50, Math.max(1, Number(limit) || 10));
+
+    if (isNaN(parsedPage) || isNaN(parsedLimit)) {
+      return {
+        status: false,
+        message: 'Invalid pagination parameters',
+        data: null,
+      };
+    }
+
+    const earnings = await this.chatService.getEscrowEarnings(req.user.id, parsedPage, parsedLimit);
     return {
       status: true,
       message: 'Escrow earnings retrieved successfully',

@@ -319,20 +319,28 @@ export class ChatService {
     return this.chatRepository.save(chat);
   }
 
-  async fundEscrow(chatId: string, userId: string, amount: number): Promise<Chat> {
+  async fundEscrow(chatId: string, userId: string): Promise<Chat> {
     const chat = await this.chatRepository.findOne({ where: { id: chatId } });
     if (!chat) throw new NotFoundException('Chat not found');
-    
+
     if (chat.creatorId !== userId) {
       throw new ForbiddenException('Only the chat initiator can fund escrow');
     }
 
-    if (!chat.escrowAmount) {
-      throw new BadRequestException('Escrow must be created before funding');
+    if (!chat.escrowAmount || Number(chat.escrowAmount) <= 0) {
+      throw new BadRequestException('Escrow must be created with a valid amount before funding');
     }
 
-    if (amount !== chat.escrowAmount) {
-      throw new BadRequestException(`Amount must match escrow amount: ${chat.escrowAmount}`);
+    if (chat.escrowStatus === 'funded') {
+      throw new BadRequestException('Escrow is already funded');
+    }
+
+    if (chat.escrowStatus === 'completed') {
+      throw new BadRequestException('Cannot fund a completed escrow');
+    }
+
+    if (chat.escrowStatus === 'disputed') {
+      throw new BadRequestException('Cannot fund a disputed escrow');
     }
 
     chat.escrowStatus = 'funded';
@@ -502,24 +510,24 @@ export class ChatService {
   }
 
   // Escrow earnings analytics for makers
-  async getEscrowEarnings(userId: string): Promise<any> {
-    // Use query builder for efficient database-level aggregations
-
-    // Calculate total earnings (sum of all released amounts)
+  async getEscrowEarnings(userId: string, page: number = 1, limit: number = 10): Promise<any> {
+    // Calculate total earnings (sum of all released amounts where > 0)
     const totalEarningsResult = await this.chatRepository
       .createQueryBuilder('chat')
-      .select('COALESCE(SUM(chat.releasedAmount), 0)', 'total')
+      .select('COALESCE(SUM(COALESCE(chat.releasedAmount, 0)), 0)', 'total')
       .where('chat.makerId = :userId', { userId })
+      .andWhere('chat.releasedAmount > 0')
       .getRawOne();
 
     const totalEarnings = Number(totalEarningsResult?.total || 0);
 
-    // Calculate pending earnings (funded escrows: escrowAmount - releasedAmount)
+    // Calculate pending earnings (funded escrows only: escrowAmount - releasedAmount)
     const pendingEarningsResult = await this.chatRepository
       .createQueryBuilder('chat')
-      .select('COALESCE(SUM(chat.escrowAmount - chat.releasedAmount), 0)', 'pending')
+      .select('COALESCE(SUM(COALESCE(chat.escrowAmount, 0) - COALESCE(chat.releasedAmount, 0)), 0)', 'pending')
       .where('chat.makerId = :userId', { userId })
       .andWhere('chat.escrowStatus = :status', { status: 'funded' })
+      .andWhere('chat.escrowAmount > 0')
       .getRawOne();
 
     const pendingEarnings = Number(pendingEarningsResult?.pending || 0);
@@ -531,7 +539,20 @@ export class ChatService {
       .andWhere('chat.escrowStatus = :status', { status: 'completed' })
       .getCount();
 
-    // Recent escrow activities (last 10 activities with minimal data)
+    // Get total count for pagination
+    const totalActivities = await this.chatRepository
+      .createQueryBuilder('chat')
+      .where('chat.makerId = :userId', { userId })
+      .andWhere('chat.escrowAmount IS NOT NULL')
+      .andWhere('chat.escrowAmount > 0')
+      .andWhere('chat.escrowStatus IN (:...statuses)', { statuses: ['funded', 'completed'] })
+      .getCount();
+
+    const totalPages = Math.max(1, Math.ceil(totalActivities / limit));
+    const safePage = Math.min(page, totalPages);
+    const skip = (safePage - 1) * limit;
+
+    // Recent escrow activities (paginated, funded or completed escrows only)
     const recentActivities = await this.chatRepository
       .createQueryBuilder('chat')
       .leftJoinAndSelect('chat.creator', 'creator')
@@ -539,8 +560,10 @@ export class ChatService {
       .where('chat.makerId = :userId', { userId })
       .andWhere('chat.escrowAmount IS NOT NULL')
       .andWhere('chat.escrowAmount > 0')
+      .andWhere('chat.escrowStatus IN (:...statuses)', { statuses: ['funded', 'completed'] })
       .orderBy('COALESCE(chat.lastMessageAt, chat.updatedAt)', 'DESC')
-      .limit(10)
+      .skip(skip)
+      .take(limit)
       .getMany();
 
     return {
@@ -555,7 +578,15 @@ export class ChatService {
         status: chat.escrowStatus,
         chatId: chat.id,
         jobTitle: chat.job?.title || 'N/A'
-      }))
+      })),
+      pagination: {
+        page: safePage,
+        limit,
+        totalActivities,
+        totalPages,
+        hasNext: safePage < totalPages,
+        hasPrevious: safePage > 1
+      }
     };
   }
 
