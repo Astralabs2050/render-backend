@@ -533,27 +533,28 @@ export class ChatService {
 
     const pendingEarnings = Number(pendingEarningsResult?.pending || 0);
 
-    // Count completed jobs
+    // Count completed jobs (jobs where full escrow amount has been released)
     const completedJobsCount = await this.chatRepository
       .createQueryBuilder('chat')
       .where('chat.makerId = :userId', { userId })
-      .andWhere('chat.escrowStatus = :status', { status: 'completed' })
+      .andWhere('CAST(chat.releasedAmount AS DECIMAL) >= CAST(chat.escrowAmount AS DECIMAL)')
+      .andWhere('chat.escrowAmount > 0')
       .getCount();
 
-    // Get total count for pagination
+    // Get total count for pagination (include all escrows with activity)
     const totalActivities = await this.chatRepository
       .createQueryBuilder('chat')
       .where('chat.makerId = :userId', { userId })
       .andWhere('chat.escrowAmount IS NOT NULL')
       .andWhere('chat.escrowAmount > 0')
-      .andWhere('chat.escrowStatus IN (:...statuses)', { statuses: ['funded', 'completed'] })
+      .andWhere('(chat.escrowStatus IN (:...statuses) OR chat.releasedAmount > 0)', { statuses: ['funded', 'completed'] })
       .getCount();
 
     const totalPages = Math.max(1, Math.ceil(totalActivities / limit));
     const safePage = Math.min(page, totalPages);
     const skip = (safePage - 1) * limit;
 
-    // Recent escrow activities (paginated, funded or completed escrows only)
+    // Recent escrow activities (paginated, include all escrows with activity)
     const recentActivities = await this.chatRepository
       .createQueryBuilder('chat')
       .leftJoinAndSelect('chat.creator', 'creator')
@@ -561,7 +562,7 @@ export class ChatService {
       .where('chat.makerId = :userId', { userId })
       .andWhere('chat.escrowAmount IS NOT NULL')
       .andWhere('chat.escrowAmount > 0')
-      .andWhere('chat.escrowStatus IN (:...statuses)', { statuses: ['funded', 'completed'] })
+      .andWhere('(chat.escrowStatus IN (:...statuses) OR chat.releasedAmount > 0)', { statuses: ['funded', 'completed'] })
       .orderBy('chat.lastMessageAt', 'DESC')
       .addOrderBy('chat.updatedAt', 'DESC')
       .skip(skip)
@@ -572,15 +573,25 @@ export class ChatService {
       totalEarnings,
       pendingEarnings,
       completedJobsCount,
-      recentActivities: recentActivities.map(chat => ({
-        timestamp: chat.lastMessageAt || chat.updatedAt,
-        name: chat.creator?.fullName || 'Unknown Creator',
-        location: chat.creator?.location || 'N/A',
-        amount: Number(chat.releasedAmount || 0),
-        status: chat.escrowStatus,
-        chatId: chat.id,
-        jobTitle: chat.job?.title || 'N/A'
-      })),
+      recentActivities: recentActivities.map(chat => {
+        const escrowAmount = Number(chat.escrowAmount || 0);
+        const releasedAmount = Number(chat.releasedAmount || 0);
+        const remainingAmount = escrowAmount - releasedAmount;
+        const actualStatus = releasedAmount >= escrowAmount ? 'completed' : chat.escrowStatus;
+
+        return {
+          timestamp: chat.lastMessageAt || chat.updatedAt,
+          name: chat.creator?.fullName || 'Unknown Creator',
+          location: chat.creator?.brandOrigin || chat.creator?.location || 'N/A',
+          amount: releasedAmount,
+          escrowAmount,
+          remainingAmount,
+          status: chat.escrowStatus,
+          actualStatus,
+          chatId: chat.id,
+          jobTitle: chat.job?.title || 'N/A'
+        };
+      }),
       pagination: {
         page: safePage,
         limit,
