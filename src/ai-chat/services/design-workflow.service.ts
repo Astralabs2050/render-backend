@@ -8,12 +8,12 @@ import { AIModel } from '../dto/chat.dto';
 import { ChatState } from '../entities/chat.entity';
 import { NFTStatus } from '../../web3/entities/nft.entity';
 
-// Interface for design request (used internally)
+// Interface for design request 
 interface DesignRequestDto {
   prompt: string;
   fabricImageBase64?: string;
   model?: AIModel;
-  chatId?: string; // For internal guard checks
+  chatId?: string; 
 }
 @Injectable()
 export class DesignWorkflowService {
@@ -24,10 +24,9 @@ export class DesignWorkflowService {
     private readonly nftService: NFTService,
     private readonly jobService: JobService,
   ) {}
-  async processDesignVariation(userId: string, chatId: string, prompt: string, model?: AIModel) {
+  async processDesignVariation(userId: string, chatId: string, prompt: string, model: AIModel = AIModel.OPENAI) {
     try {
-      const selectedModel = model || AIModel.OPENAI; // Default to OpenAI if not specified
-      this.logger.log(`Processing design variation for chat ${chatId}: ${prompt} using ${selectedModel}`);
+      this.logger.log(`Processing design variation for chat ${chatId}: ${prompt} using ${model}`);
 
       // Validate chat exists and user has access
       const chat = await this.chatService.getChat(userId, chatId);
@@ -44,10 +43,10 @@ export class DesignWorkflowService {
           let imageUrl: string;
 
           // Use selected model
-          if (selectedModel === AIModel.OPENAI) {
+          if (model === AIModel.OPENAI) {
             imageUrl = await this.openaiService.generateConsistentDesignImageWithDALLE(prompt, baseStylePrompt, i);
           } else {
-            // Use Gemini
+         
             imageUrl = await this.openaiService.generateConsistentDesignImage(prompt, baseStylePrompt, i);
           }
 
@@ -59,9 +58,9 @@ export class DesignWorkflowService {
             baseStylePrompt = prompt;
           }
 
-          this.logger.log(`Generated design variation ${i + 1} with ${selectedModel}: ${imageUrl}`);
+          this.logger.log(`Generated design variation ${i + 1} with ${model}: ${imageUrl}`);
         } catch (error) {
-          this.logger.error(`Failed to generate design variation ${i + 1} with ${selectedModel}: ${error.message}`);
+          this.logger.error(`Failed to generate design variation ${i + 1} with ${model}: ${error.message}`);
           designImages.push('https://via.placeholder.com/400x400?text=Design+Error');
         }
       }
@@ -73,19 +72,14 @@ export class DesignWorkflowService {
 
       await this.chatService.updateChat(chat.id, { designPreviews: designImages });
 
-      const variationsText = designImages.map((url, index) => `Variation ${index + 1}: ${url}`).join('\n');
-
-      await this.chatService.sendMessage(userId, {
-        chatId: chat.id,
-        content: `Here are your ${successCount} design variations (generated with ${selectedModel === AIModel.OPENAI ? 'OpenAI DALL-E' : 'Google Gemini'}):\n\n${variationsText}\n\nWould you like to make any other changes or proceed with one of these designs?`,
-      });
+      // Don't send message here - let the controller handle the response to avoid duplicates
 
       return {
         chat,
         designImages,
         designUrls: designImages,
         successCount,
-        model: selectedModel,
+        model,
       };
     } catch (error) {
       this.logger.error(`Design variation workflow error: ${error.message}`, error.stack);
@@ -121,7 +115,7 @@ export class DesignWorkflowService {
       const designImages = [];
       let successCount = 0;
       let baseStylePrompt = null;
-      const selectedModel = dto.model || AIModel.OPENAI; // Default to OpenAI if not specified
+      const selectedModel = dto.model || AIModel.OPENAI; // Default to OpenAI
 
       this.logger.log(`Generating designs with ${selectedModel}`);
 
@@ -174,10 +168,7 @@ export class DesignWorkflowService {
       
       const designsText = designImages.map((url, index) => `Design ${index + 1}: ${url}`).join('\n');
 
-      const modelName = selectedModel === AIModel.OPENAI ? 'OpenAI DALL-E' : 'Google Gemini';
-      const aiGeneratedDetails = `Here are your ${successCount} design options (generated with ${modelName}):\n\n${designsText}\n\nWhich one do you like best? You can also request tweaks or new variations until you're satisfied.`;
-
-      await this.chatService.sendMessage(userId, { chatId: chat.id, content: aiGeneratedDetails });
+      // Don't send message here - let the controller handle the response to avoid duplicates
       await this.chatService.updateChat(chat.id, { metadata: { ...chat.metadata, generating: false, lastGenerationCompletedAt: new Date().toISOString() } });
       
       return {

@@ -422,11 +422,11 @@ export class OpenAIService {
       const messages: any[] = [
         {
           role: 'system',
-          content: `You are an expert fashion design prompt engineer. Create consistent Gemini image generation prompts that maintain the same artistic style across variations. ${consistencyInstructions}Focus on: same lighting style, same illustration technique, same color palette approach, same level of detail, same background style.`
+          content: `You are an expert fashion design prompt engineer. Create consistent image generation prompts that maintain the same artistic style across variations. ${consistencyInstructions}CRITICAL: All three variations MUST be uniform in style and hyper-realistic. Focus on: same lighting style, same illustration technique, same color palette approach, same level of detail, same background style, photorealistic rendering, professional fashion photography quality.`
         },
         {
           role: 'user',
-          content: `Create variation ${variationIndex + 1} of this fashion design: "${prompt}". ${variationInstructions[variationIndex] || variationInstructions[0]}. Maintain consistent artistic style.`
+          content: `Create variation ${variationIndex + 1} of this fashion design: "${prompt}". ${variationInstructions[variationIndex] || variationInstructions[0]}. MUST maintain consistent artistic style and hyper-realistic appearance across all variations.`
         }
       ];
 
@@ -460,11 +460,11 @@ export class OpenAIService {
     } catch (error) {
       this.logger.error(`Consistent prompt enhancement error: ${error.message}`);
       const fallbackStyles = [
-        'front view, professional fashion photography style',
-        '3/4 angle view, professional fashion photography style',
-        'detailed close-up view, professional fashion photography style'
+        'front view, hyper-realistic professional fashion photography style',
+        '3/4 angle view, hyper-realistic professional fashion photography style',
+        'detailed close-up view, hyper-realistic professional fashion photography style'
       ];
-      return `Professional fashion design: ${prompt}. ${fallbackStyles[variationIndex] || fallbackStyles[0]}, consistent lighting, clean white background, high-quality fashion illustration, detailed garment construction.`;
+      return `Professional fashion design: ${prompt}. ${fallbackStyles[variationIndex] || fallbackStyles[0]}, consistent uniform lighting, clean white background, hyper-realistic photorealistic rendering, detailed garment construction, professional studio quality.`;
     }
   }
 
@@ -577,11 +577,11 @@ export class OpenAIService {
           messages: [
             {
               role: 'system',
-              content: `You are an expert fashion design prompt engineer. Create consistent DALL-E 3 prompts that maintain the same artistic style across variations. ${consistencyInstructions}Focus on: same lighting, same illustration technique, same color palette, same level of detail, same background. Keep under 1000 characters.`
+              content: `You are an expert fashion design prompt engineer. Create consistent prompts that maintain the same artistic style across variations. ${consistencyInstructions}CRITICAL: All three variations MUST be uniform in style and hyper-realistic. Focus on: same lighting, same illustration technique, same color palette, same level of detail, same background, photorealistic rendering, professional fashion photography quality. Keep under 1000 characters.`
             },
             {
               role: 'user',
-              content: `Create variation ${variationIndex + 1} of this fashion design: "${prompt}". ${variationInstructions[variationIndex] || variationInstructions[0]}. Maintain consistent artistic style.`
+              content: `Create variation ${variationIndex + 1} of this fashion design: "${prompt}". ${variationInstructions[variationIndex] || variationInstructions[0]}. MUST maintain consistent artistic style and hyper-realistic appearance across all variations.`
             }
           ],
           temperature: 0.3,
@@ -593,11 +593,11 @@ export class OpenAIService {
     } catch (error) {
       this.logger.error(`DALL-E consistent prompt enhancement error: ${error.message}`);
       const fallbackStyles = [
-        'front view, professional fashion photography',
-        '3/4 angle view, professional fashion photography',
-        'detailed close-up view, professional fashion photography'
+        'front view, hyper-realistic professional fashion photography',
+        '3/4 angle view, hyper-realistic professional fashion photography',
+        'detailed close-up view, hyper-realistic professional fashion photography'
       ];
-      return `Professional fashion design: ${prompt}. ${fallbackStyles[variationIndex] || fallbackStyles[0]}, consistent lighting, white background, high-quality fashion illustration, detailed garment construction.`;
+      return `Professional fashion design: ${prompt}. ${fallbackStyles[variationIndex] || fallbackStyles[0]}, consistent uniform lighting, white background, hyper-realistic photorealistic rendering, detailed garment construction, professional studio quality.`;
     }
   }
 }
