@@ -780,7 +780,7 @@ export class Web3Controller {
                 }
             };
 
-            // Update NFT with mint details - same as Hedera endpoint
+            // Update NFT with mint details 
             nft!.name = body.name || nft!.name;
             nft!.status = 'minted' as any;
             nft!.transactionHash = result.txHash;
@@ -890,6 +890,28 @@ export class Web3Controller {
     @Post('hedera/nfts/listings/batch')
     @UseGuards(JwtAuthGuard)
     async listHederaNFTsByQuantity(@Body() body: { quantity: number; price: string }) {
+        if (!body.quantity || body.quantity <= 0) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: 'Quantity must be greater than 0',
+                    path: '/web3/hedera/nfts/listings/batch',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+        if (!body.price || BigInt(body.price) <= 0) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: 'Price must be greater than 0',
+                    path: '/web3/hedera/nfts/listings/batch',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
         const result = await this.hederaNFTService.listOwnedNFTsByQuantity(body.quantity, BigInt(body.price));
         if (!result.success) {
             throw new HttpException(
@@ -946,7 +968,7 @@ export class Web3Controller {
         return {
             status: true,
             message: 'Seller listings retrieved',
-            data: { tokenIds },
+            data: { tokenIds: tokenIds.map(id => id.toString()) },
         };
     }
 
@@ -956,7 +978,7 @@ export class Web3Controller {
         return {
             status: true,
             message: 'Active listings retrieved',
-            data: { tokenIds },
+            data: { tokenIds: tokenIds.map(id => id.toString()) },
         };
     }
 
@@ -979,6 +1001,123 @@ export class Web3Controller {
             status: true,
             message: 'USDC token association successful. You can now mint NFTs.',
             data: result,
+        };
+    }
+
+    @Post('polygon/nfts/:tokenId/listings')
+    @UseGuards(JwtAuthGuard)
+    async listPolygonNFT(@Param('tokenId') tokenId: string, @Body() body: { price: string }) {
+        const result = await this.polygonNFTService.listNFT(Number(tokenId), BigInt(body.price));
+        if (!result.success) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: result.error,
+                    path: '/web3/polygon/nfts/:tokenId/listings',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+        return {
+            status: true,
+            message: 'NFT listed successfully on Polygon',
+            data: { txHash: result.txHash },
+        };
+    }
+
+    @Post('polygon/nfts/listings/batch')
+    @UseGuards(JwtAuthGuard)
+    async listPolygonNFTsByQuantity(@Body() body: { quantity: number; price: string }) {
+        if (!body.quantity || body.quantity <= 0) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: 'Quantity must be greater than 0',
+                    path: '/web3/polygon/nfts/listings/batch',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+        if (!body.price || BigInt(body.price) <= 0) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: 'Price must be greater than 0',
+                    path: '/web3/polygon/nfts/listings/batch',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+        const result = await this.polygonNFTService.listOwnedNFTsByQuantity(body.quantity, BigInt(body.price));
+        if (!result.success) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: result.error,
+                    path: '/web3/polygon/nfts/listings/batch',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+        return {
+            status: true,
+            message: 'NFTs listed successfully on Polygon',
+            data: { txHash: result.txHash },
+        };
+    }
+
+    @Get('polygon/nfts/:designId/listings')
+    async getPolygonNFTListing(@Param('designId') designId: string) {
+        const design = await this.designRepository.findOne({
+            where: { id: designId }
+        });
+
+        if (!design || !design.blockchainMetadata?.transactionHash) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: 'Design not minted on Polygon or not found',
+                    path: '/web3/polygon/nfts/:designId/listings',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.NOT_FOUND
+            );
+        }
+
+        return {
+            status: true,
+            message: 'Design listing details retrieved from Polygon',
+            data: {
+                designId: design.id,
+                name: design.name,
+                status: design.status,
+                transactionHash: design.blockchainMetadata.transactionHash,
+                amountOfPieces: design.amountOfPieces,
+            },
+        };
+    }
+
+    @Get('polygon/nfts/listings/sellers/:address')
+    async getPolygonSellerListings(@Param('address') address: string) {
+        const tokenIds = await this.polygonNFTService.getSellerListings(address);
+        return {
+            status: true,
+            message: 'Seller listings retrieved from Polygon',
+            data: { tokenIds: tokenIds.map(id => id.toString()) },
+        };
+    }
+
+    @Get('polygon/nfts/listings')
+    async getPolygonActiveListings() {
+        const tokenIds = await this.polygonNFTService.getActiveListings();
+        return {
+            status: true,
+            message: 'Active listings retrieved from Polygon',
+            data: { tokenIds: tokenIds.map(id => id.toString()) },
         };
     }
 }
