@@ -308,6 +308,7 @@ export class ChatService {
 
     chat.escrowAmount = amount;
     chat.escrowStatus = 'pending';
+    chat.releasedAmount = 0; // Initialize released amount to 0
 
     if (tokenId) {
       chat.escrowTokenId = tokenId;

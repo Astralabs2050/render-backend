@@ -2,7 +2,7 @@ import { Controller, Post, Body, UseGuards, Req, BadRequestException } from '@ne
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { DesignWorkflowService } from '../services/design-workflow.service';
 import { ChatService } from '../services/chat.service';
-import { CreateDesignDto, CreateDesignVariationDto, StoreDesignDto, ApproveDesignDto, SimpleApproveDesignDto } from '../dto/design.dto';
+import { StoreDesignDto, ApproveDesignDto, SimpleApproveDesignDto } from '../dto/design.dto';
 @Controller('design')
 @UseGuards(JwtAuthGuard)
 export class DesignController {
@@ -10,27 +10,6 @@ export class DesignController {
     private readonly designWorkflowService: DesignWorkflowService,
     private readonly chatService: ChatService
   ) {}
-  @Post('create')
-  async createDesign(@Req() req, @Body() dto: CreateDesignDto) {
-    const userId = req.user.id;
-    // Delegate classification to AI-driven workflow (no hardcoded keywords)
-    const result = await this.designWorkflowService.processDesignRequest(userId, dto);
-    return {
-      status: true,
-      message: 'Design variations generated. Provide name, price, quantity and deadline to approve.',
-      data: result,
-    };
-  }
-  @Post('variation')
-  async createDesignVariation(@Req() req, @Body() dto: CreateDesignVariationDto) {
-    const userId = req.user.id;
-    const result = await this.designWorkflowService.processDesignVariation(userId, dto.chatId, dto.prompt, dto.model);
-    return {
-      status: true,
-      message: 'Design variation created successfully',
-      data: result,
-    };
-  }
 
   @Post('approve')
   async approveDesign(@Req() req, @Body() dto: ApproveDesignDto) {

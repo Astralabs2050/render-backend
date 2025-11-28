@@ -46,8 +46,15 @@ export class InteractiveChatService {
       dto.chatId = chat.id;
     }
     // Mark chat as managed by interactive flow to prevent legacy auto-replies
-    if (!chat.metadata?.managedByInteractive) {
-      await this.chatService.updateChat(dto.chatId, { metadata: { ...chat.metadata, managedByInteractive: true } });
+    // Also store model preference if provided
+    const updatedMetadata = {
+      ...chat.metadata,
+      managedByInteractive: true,
+      ...(dto.model && { preferredModel: dto.model })
+    };
+    if (!chat.metadata?.managedByInteractive || (dto.model && dto.model !== chat.metadata?.preferredModel)) {
+      await this.chatService.updateChat(dto.chatId, { metadata: updatedMetadata });
+      chat.metadata = updatedMetadata;
     }
     const messageData: any = {
       chatId: dto.chatId,
@@ -80,8 +87,10 @@ export class InteractiveChatService {
           return { chatId: dto.chatId, state: 'info_gather', aiResponse: reply, awaitingConfirmation: true };
         }
         if (action === 'design:variation') {
-          const basePrompt = this.buildDesignPrompt((await this.chatService.getChat(userId, dto.chatId)).messages);
-          const result = await this.designWorkflowService.processDesignVariation(userId, dto.chatId, `${basePrompt} ${dto.content}`);
+          const chatNow = await this.chatService.getChat(userId, dto.chatId);
+          const basePrompt = this.buildDesignPrompt(chatNow.messages);
+          const preferredModel = chatNow.metadata?.preferredModel;
+          const result = await this.designWorkflowService.processDesignVariation(userId, dto.chatId, `${basePrompt} ${dto.content}`, preferredModel);
           const reply = `Generated new variations. Select one (variation_1/2/3) or refine again.`;
           await this.streamChatService.sendAIMessage(dto.chatId, reply);
           return { chatId: dto.chatId, state: 'design_preview', designPreviews: result.designImages, aiResponse: reply };
@@ -313,9 +322,11 @@ Reply with ONLY the state name.`;
       await this.streamChatService.sendAIMessage(chatId, generatingMessage);
       const designPrompt = this.buildDesignPrompt(chat.messages);
       const sketchBase64 = this.extractSketchFromMessages(chat.messages);
+      const preferredModel = chat.metadata?.preferredModel;
       const result = await this.designWorkflowService.processDesignRequest(userId, {
         prompt: designPrompt,
         fabricImageBase64: sketchBase64,
+        model: preferredModel,
         // Ensure centralized guard can use the chat context
         ...( { chatId } as any ),
       } as any);
@@ -354,8 +365,9 @@ Reply with ONLY the state name.`;
         const pendingMod = chat.metadata?.pendingModification || '';
         const userModification = pendingMod + (pendingMod ? ' ' + content : content);
         const enhancedPrompt = `${designPrompt} - ${userModification}`;
-        
-        const result = await this.designWorkflowService.processDesignVariation(userId, chatId, enhancedPrompt);
+        const preferredModel = chat.metadata?.preferredModel;
+
+        const result = await this.designWorkflowService.processDesignVariation(userId, chatId, enhancedPrompt, preferredModel);
         const completionMessage = "Here's a new set of variations! Do you like one of these better?";
         await this.streamChatService.sendAIMessage(chatId, completionMessage);
         await this.chatService.updateChat(chatId, { 

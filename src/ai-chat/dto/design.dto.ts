@@ -7,24 +7,6 @@ export enum DesignVariety {
   VARIATION_3 = 'variation_3'
 }
 
-export enum AIModel {
-  GEMINI = 'gemini',        // Previously "Nano Banana" - Google's Gemini 2.5 Flash
-  OPENAI = 'openai'         // OpenAI's DALL-E 3
-}
-
-export class CreateDesignDto {
-  @IsString()
-  prompt: string;
-
-  @IsOptional()
-  @IsString()
-  fabricImageBase64?: string;
-
-  @IsOptional()
-  @IsEnum(AIModel)
-  model?: AIModel = AIModel.GEMINI; // Default to Gemini for backward compatibility
-}
-
 export class ApproveDesignDto {
   @IsUUID()
   chatId: string;
@@ -75,18 +57,6 @@ export class SimpleApproveDesignDto {
   @IsString()
   @IsOptional()
   customName?: string; // Only if user wants to override AI name
-}
-
-export class CreateDesignVariationDto {
-  @IsUUID()
-  chatId: string;
-
-  @IsString()
-  prompt: string;
-
-  @IsOptional()
-  @IsEnum(AIModel)
-  model?: AIModel = AIModel.GEMINI; // Default to Gemini for backward compatibility
 }
 
 export class StoreDesignDto {
