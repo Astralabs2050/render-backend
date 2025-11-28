@@ -780,11 +780,20 @@ export class Web3Controller {
                 }
             };
 
+            // Update NFT with mint details - same as Hedera endpoint
             nft!.name = body.name || nft!.name;
+            nft!.status = 'minted' as any;
+            nft!.transactionHash = result.txHash;
+            nft!.mintedAt = new Date();
+            nft!.quantity = quantity;
             nft!.metadata = updatedMetadata as any;
 
             const savedNFT = await this.nftRepository.save(nft!);
-            this.logger.log(`Saved NFT with Polygon mint data - id: ${savedNFT.id}, txHash: ${result.txHash}`);
+            this.logger.log(`Saved NFT - id: ${savedNFT.id}, status: ${savedNFT.status}, txHash: ${savedNFT.transactionHash}, quantity: ${savedNFT.quantity}`);
+
+            // Verify the save by reading back
+            const verifyNFT = await this.nftRepository.findOne({ where: { id: nft!.id } });
+            this.logger.log(`Verified NFT from DB - txHash: ${verifyNFT?.transactionHash}, status: ${verifyNFT?.status}`);
         } else {
             await this.designRepository.update(design!.id, {
                 blockchainMetadata: {
