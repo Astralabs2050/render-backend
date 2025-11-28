@@ -3,9 +3,18 @@ import { ChatService } from './chat.service';
 import { OpenAIService } from './openai.service';
 import { NFTService } from '../../web3/services/nft.service';
 import { JobService } from '../../marketplace/services/job.service';
-import { CreateDesignDto, ApproveDesignDto, SimpleApproveDesignDto, AIModel } from '../dto/design.dto';
+import { ApproveDesignDto, SimpleApproveDesignDto } from '../dto/design.dto';
+import { AIModel } from '../dto/chat.dto';
 import { ChatState } from '../entities/chat.entity';
 import { NFTStatus } from '../../web3/entities/nft.entity';
+
+// Interface for design request (used internally)
+interface DesignRequestDto {
+  prompt: string;
+  fabricImageBase64?: string;
+  model?: AIModel;
+  chatId?: string; // For internal guard checks
+}
 @Injectable()
 export class DesignWorkflowService {
   private readonly logger = new Logger(DesignWorkflowService.name);
@@ -15,9 +24,10 @@ export class DesignWorkflowService {
     private readonly nftService: NFTService,
     private readonly jobService: JobService,
   ) {}
-  async processDesignVariation(userId: string, chatId: string, prompt: string, model: AIModel = AIModel.GEMINI) {
+  async processDesignVariation(userId: string, chatId: string, prompt: string, model?: AIModel) {
     try {
-      this.logger.log(`Processing design variation for chat ${chatId}: ${prompt} using ${model}`);
+      const selectedModel = model || AIModel.OPENAI; // Default to OpenAI if not specified
+      this.logger.log(`Processing design variation for chat ${chatId}: ${prompt} using ${selectedModel}`);
 
       // Validate chat exists and user has access
       const chat = await this.chatService.getChat(userId, chatId);
@@ -34,10 +44,10 @@ export class DesignWorkflowService {
           let imageUrl: string;
 
           // Use selected model
-          if (model === AIModel.OPENAI) {
+          if (selectedModel === AIModel.OPENAI) {
             imageUrl = await this.openaiService.generateConsistentDesignImageWithDALLE(prompt, baseStylePrompt, i);
           } else {
-            // Default to Gemini
+            // Use Gemini
             imageUrl = await this.openaiService.generateConsistentDesignImage(prompt, baseStylePrompt, i);
           }
 
@@ -49,9 +59,9 @@ export class DesignWorkflowService {
             baseStylePrompt = prompt;
           }
 
-          this.logger.log(`Generated design variation ${i + 1} with ${model}: ${imageUrl}`);
+          this.logger.log(`Generated design variation ${i + 1} with ${selectedModel}: ${imageUrl}`);
         } catch (error) {
-          this.logger.error(`Failed to generate design variation ${i + 1} with ${model}: ${error.message}`);
+          this.logger.error(`Failed to generate design variation ${i + 1} with ${selectedModel}: ${error.message}`);
           designImages.push('https://via.placeholder.com/400x400?text=Design+Error');
         }
       }
@@ -67,7 +77,7 @@ export class DesignWorkflowService {
 
       await this.chatService.sendMessage(userId, {
         chatId: chat.id,
-        content: `Here are your ${successCount} design variations (generated with ${model === AIModel.OPENAI ? 'OpenAI DALL-E' : 'Google Gemini'}):\n\n${variationsText}\n\nWould you like to make any other changes or proceed with one of these designs?`,
+        content: `Here are your ${successCount} design variations (generated with ${selectedModel === AIModel.OPENAI ? 'OpenAI DALL-E' : 'Google Gemini'}):\n\n${variationsText}\n\nWould you like to make any other changes or proceed with one of these designs?`,
       });
 
       return {
@@ -75,7 +85,7 @@ export class DesignWorkflowService {
         designImages,
         designUrls: designImages,
         successCount,
-        model,
+        model: selectedModel,
       };
     } catch (error) {
       this.logger.error(`Design variation workflow error: ${error.message}`, error.stack);
@@ -83,7 +93,7 @@ export class DesignWorkflowService {
     }
   }
 
-  async processDesignRequest(userId: string, dto: CreateDesignDto) {
+  async processDesignRequest(userId: string, dto: DesignRequestDto) {
     try {
       this.logger.log(`Processing design request: ${dto.prompt}`);
 
@@ -111,7 +121,7 @@ export class DesignWorkflowService {
       const designImages = [];
       let successCount = 0;
       let baseStylePrompt = null;
-      const selectedModel = dto.model || AIModel.GEMINI; // Default to Gemini
+      const selectedModel = dto.model || AIModel.OPENAI; // Default to OpenAI if not specified
 
       this.logger.log(`Generating designs with ${selectedModel}`);
 

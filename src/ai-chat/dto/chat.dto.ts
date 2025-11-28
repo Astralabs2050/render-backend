@@ -1,5 +1,11 @@
 import { IsString, IsOptional, IsUUID, IsEnum, IsObject, IsNumber } from 'class-validator';
 import { ChatState } from '../entities/chat.entity';
+
+export enum AIModel {
+  GEMINI = 'gemini',
+  OPENAI = 'openai'
+}
+
 export class CreateChatDto {
   @IsString()
   @IsOptional()
@@ -23,6 +29,9 @@ export class SendMessageDto {
   @IsOptional()
   @IsString()
   actionType?: string;
+  @IsOptional()
+  @IsEnum(AIModel)
+  model?: AIModel;
 }
 export class GenerateDesignDto {
   @IsUUID()
