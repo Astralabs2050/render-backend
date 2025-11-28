@@ -13,11 +13,12 @@ export class MintNFTRequestDto {
 
   @Transform(({ obj }) => {
     // Handle different field name variations from frontend
-    return obj.designId || obj.design_id || obj.nftId || obj.id;
+    const id = obj.designId || obj.design_id || obj.nftId || obj.id;
+    return id;
   })
-  @IsNotEmpty({ message: 'designId is required' })
-  @IsUUID('4', { message: 'designId must be a valid UUID' })
-  designId: string;
+  @IsOptional()
+  @IsUUID('4', { message: 'designId must be a valid UUID. Received value does not match UUID format.' })
+  designId?: string;
 
   @IsOptional()
   @IsString()

@@ -15,6 +15,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Design } from '../../users/entities/collection.entity';
 import { NFT } from '../entities/nft.entity';
+import { Chat } from '../../ai-chat/entities/chat.entity';
 @Controller('web3')
 export class Web3Controller {
     private readonly logger = new Logger(Web3Controller.name);
@@ -34,6 +35,8 @@ export class Web3Controller {
         private readonly designRepository: Repository<Design>,
         @InjectRepository(NFT)
         private readonly nftRepository: Repository<NFT>,
+        @InjectRepository(Chat)
+        private readonly chatRepository: Repository<Chat>,
     ) { }
     @Post('nft/create')
     @UseGuards(JwtAuthGuard)
@@ -625,17 +628,37 @@ export class Web3Controller {
     async mintPolygonCollectible(@Req() req, @Body() body: MintNFTRequestDto) {
         this.logger.log(`========== POLYGON AMOY MINT REQUEST START ==========`);
         this.logger.log(`User ID: ${req.user.id}`);
-        this.logger.log(`Design ID from body: ${body.designId}`);
         this.logger.log(`Full request body: ${JSON.stringify(body)}`);
         this.logger.log(`====================================================`);
 
-        // Validate designId is provided
+        // Handle AI-generated designs: if chatId is provided, look up the NFT from chat
+        if (body.chatId && !body.designId) {
+            this.logger.log(`AI-generated design flow detected - chatId: ${body.chatId}`);
+            const chat = await this.chatRepository.findOne({
+                where: { id: body.chatId, userId: req.user.id }
+            });
+            if (!chat || !chat.nftId) {
+                throw new HttpException(
+                    {
+                        status: false,
+                        message: 'No approved design found for this chat. Please approve a design first.',
+                        path: '/web3/polygon/mint',
+                        timestamp: new Date().toISOString(),
+                    },
+                    HttpStatus.NOT_FOUND
+                );
+            }
+            body.designId = chat.nftId;
+            this.logger.log(`Resolved designId from chat: ${body.designId}`);
+        }
+
+        // Validate designId is provided (after transformation)
         if (!body.designId) {
             this.logger.error(`Missing designId in minting request - userId: ${req.user.id}`);
             throw new HttpException(
                 {
                     status: false,
-                    message: 'Design ID is required',
+                    message: 'Design ID is required. Please provide designId or chatId with an approved design.',
                     path: '/web3/polygon/mint',
                     timestamp: new Date().toISOString(),
                 },
