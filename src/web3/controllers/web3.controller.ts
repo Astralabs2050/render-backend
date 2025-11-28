@@ -15,7 +15,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Design } from '../../users/entities/collection.entity';
 import { NFT } from '../entities/nft.entity';
-import { Chat } from '../../ai-chat/entities/chat.entity';
+import { Chat as AiChat } from '../../ai-chat/entities/chat.entity';
 @Controller('web3')
 export class Web3Controller {
     private readonly logger = new Logger(Web3Controller.name);
@@ -35,8 +35,8 @@ export class Web3Controller {
         private readonly designRepository: Repository<Design>,
         @InjectRepository(NFT)
         private readonly nftRepository: Repository<NFT>,
-        @InjectRepository(Chat)
-        private readonly chatRepository: Repository<Chat>,
+        @InjectRepository(AiChat)
+        private readonly chatRepository: Repository<AiChat>,
     ) { }
     @Post('nft/create')
     @UseGuards(JwtAuthGuard)
