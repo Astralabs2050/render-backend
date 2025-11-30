@@ -25,7 +25,7 @@ export enum ChatState {
   COMPLETED = 'completed',
 }
 @Entity('ai_chats')
-export class Chat extends BaseEntity {
+export class AiChat extends BaseEntity {
   @Column()
   title: string;
   @Column({
@@ -51,8 +51,8 @@ export class Chat extends BaseEntity {
   maker: User;
   @Column({ nullable: true })
   makerId: string;
-  @OneToMany(() => ChatMessage, message => message.chat, { cascade: true })
-  messages: ChatMessage[];
+  @OneToMany(() => AiChatMessage, message => message.chat, { cascade: true })
+  messages: AiChatMessage[];
   @Column('simple-array', { nullable: true })
   designPreviews: string[];
   @Column({ nullable: true })
@@ -69,16 +69,16 @@ export class Chat extends BaseEntity {
   // measurements: Measurements[];
 }
 @Entity('ai_chat_messages')
-export class ChatMessage extends BaseEntity {
+export class AiChatMessage extends BaseEntity {
   @Column({ type: 'text' })
   content: string;
   @Column()
   role: 'user' | 'assistant' | 'system';
   @Column({ nullable: true, type: 'jsonb' })
   metadata: Record<string, any>;
-  @ManyToOne(() => Chat, chat => chat.messages, { onDelete: 'CASCADE' })
+  @ManyToOne(() => AiChat, chat => chat.messages, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'chatId' })
-  chat: Chat;
+  chat: AiChat;
   @Column()
   chatId: string;
   @Column({ nullable: true })
@@ -86,3 +86,7 @@ export class ChatMessage extends BaseEntity {
   @Column({ nullable: true })
   actionType: string;
 }
+
+// Backward-compatible aliases
+export { AiChat as Chat };
+export { AiChatMessage as ChatMessage };

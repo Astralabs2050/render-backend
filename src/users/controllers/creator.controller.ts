@@ -181,8 +181,8 @@ Skills: ${hireMakerDto.skillKeywords.join(', ')}`,
       };
     }
 
-    // Update the NFT with marketplace information
-    await this.nftService.updateNFT(design.id, {
+    // Update the NFT with marketplace information and set status to LISTED
+    const listedNFT = await this.nftService.updateNFT(design.id, {
       price: publishDto.pricePerOutfit,
       quantity: publishDto.quantityAvailable,
       status: NFTStatus.LISTED,
@@ -194,9 +194,6 @@ Skills: ${hireMakerDto.skillKeywords.join(', ')}`,
         marketplaceListedAt: new Date().toISOString()
       }
     });
-
-    // List the NFT on the marketplace
-    const listedNFT = await this.nftService.listNFT(design.id);
 
     return {
       status: true,
