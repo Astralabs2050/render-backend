@@ -17,8 +17,8 @@ import { NFT } from './entities/nft.entity';
 import { EscrowContract } from './entities/escrow.entity';
 import { QRCode } from './entities/qr.entity';
 import { EscrowMilestone } from './entities/escrow.entity';
-import { Chat as AiChat } from '../ai-chat/entities/chat.entity';
-import { Chat as MarketplaceChat } from '../marketplace/entities/chat.entity';
+import { AiChat } from '../ai-chat/entities/chat.entity';
+import { MarketplaceChat } from '../marketplace/entities/chat.entity';
 import { UsersModule } from '../users/users.module';
 import { forwardRef } from '@nestjs/common';
 @Module({

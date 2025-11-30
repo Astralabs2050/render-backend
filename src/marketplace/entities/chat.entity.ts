@@ -6,7 +6,7 @@ import { DeliveryDetails } from './delivery-details.entity';
 import { Measurements } from './measurements.entity';
 
 @Entity('chats')
-export class Chat extends BaseEntity {
+export class MarketplaceChat extends BaseEntity {
   @Column({ nullable: true })
   jobId: string;
 
@@ -61,3 +61,6 @@ export class Chat extends BaseEntity {
   @OneToMany(() => Measurements, measurements => measurements.chat)
   measurements: Measurements[];
 }
+
+// Backward-compatible alias
+export { MarketplaceChat as Chat };

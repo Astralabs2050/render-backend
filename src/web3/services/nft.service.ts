@@ -134,6 +134,13 @@ export class NFTService {
   async listNFT(nftId: string): Promise<NFT> {
     try {
       const nft = await this.findById(nftId);
+      
+      // If already listed, return it (idempotent operation)
+      if (nft.status === NFTStatus.LISTED) {
+        this.logger.log(`NFT already listed: ${nftId}`);
+        return nft;
+      }
+      
       // Accept both MINTED and PUBLISHED for backward compatibility
       const validStatuses = [NFTStatus.MINTED, NFTStatus.PUBLISHED];
       if (!validStatuses.includes(nft.status)) {
