@@ -136,8 +136,10 @@ export class Web3Controller {
             };
         } catch (error) {
             const duration = Date.now() - startTime;
+            const errorMessage = typeof error?.message === 'string' ? error.message : 'Unknown error';
+
             console.error(`[${requestId}] NFT minting failed`, {
-                error: error.message,
+                error: errorMessage,
                 userId: req.user.id,
                 chatId: body.chatId,
                 designId: body.designId,
@@ -145,8 +147,10 @@ export class Web3Controller {
                 timestamp: new Date().toISOString()
             });
 
+            const normalizedMessage = errorMessage.toLowerCase();
+
             // Check if it's a validation error
-            if (error.message.includes('Transaction hash') || error.message.includes('Payment verification')) {
+            if (normalizedMessage.includes('transaction hash') || normalizedMessage.includes('payment verification')) {
                 const validationResult = this.transactionHashValidator.validateFormat(body.paymentTransactionHash);
                 if (!validationResult.isValid) {
                     const errorResponse = this.transactionHashValidator.createErrorResponse(validationResult);
@@ -155,11 +159,15 @@ export class Web3Controller {
                 }
             }
 
+            if (error instanceof HttpException) {
+                throw error;
+            }
+
             // Handle other errors with standardized format
             throw new HttpException({
                 status: false,
                 message: 'Internal server error',
-                error: error.message,
+                error: errorMessage,
                 path: '/web3/nft/mint',
                 timestamp: new Date().toISOString(),
             }, HttpStatus.INTERNAL_SERVER_ERROR);
