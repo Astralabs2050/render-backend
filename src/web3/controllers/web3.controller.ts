@@ -15,7 +15,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Design } from '../../users/entities/collection.entity';
 import { NFT } from '../entities/nft.entity';
-import { AiChat } from '../../ai-chat/entities/chat.entity';
+import { AiChat, ChatState } from '../../ai-chat/entities/chat.entity';
 @Controller('web3')
 export class Web3Controller {
     private readonly logger = new Logger(Web3Controller.name);
@@ -640,6 +640,8 @@ export class Web3Controller {
         this.logger.log(`====================================================`);
 
         // Handle AI-generated designs: if chatId is provided, look up the NFT from chat
+        let autoCreatedNFT: NFT | null = null;
+
         if (body.chatId && !body.designId) {
             this.logger.log(`AI-generated design flow detected - chatId: ${body.chatId}`);
             const chat = await this.chatRepository.findOne({
@@ -648,18 +650,25 @@ export class Web3Controller {
                     { id: body.chatId, creatorId: req.user.id }
                 ]
             });
-            if (!chat || !chat.nftId) {
-                this.logger.error(`Chat lookup failed - chatId: ${body.chatId}, userId: ${req.user.id}, chat found: ${!!chat}, nftId: ${chat?.nftId}`);
+            if (!chat) {
+                this.logger.error(`Chat lookup failed - chatId: ${body.chatId}, userId: ${req.user.id}`);
                 throw new HttpException(
                     {
                         status: false,
-                        message: 'No approved design found for this chat. Please approve a design first.',
+                        message: 'Chat not found or access denied.',
                         path: '/web3/polygon/mint',
                         timestamp: new Date().toISOString(),
                     },
                     HttpStatus.NOT_FOUND
                 );
             }
+
+            if (!chat.nftId) {
+                autoCreatedNFT = await this.autoCreateNftFromChat(chat, body, req.user.id);
+                chat.nftId = autoCreatedNFT.id;
+                this.logger.log(`Auto-created NFT ${chat.nftId} from chat ${chat.id} for minting`);
+            }
+
             body.designId = chat.nftId;
             this.logger.log(`Resolved designId from chat: ${body.designId}`);
         }
@@ -684,14 +693,16 @@ export class Web3Controller {
         });
 
         let isNFT = false;
-        let nft: NFT | null = null;
+        let nft: NFT | null = autoCreatedNFT;
 
         // If not found in designs table, check NFTs table (AI-generated designs)
         if (!design) {
             this.logger.log(`Design not found in designs table, checking NFTs table - designId: ${body.designId}`);
-            nft = await this.nftRepository.findOne({
-                where: { id: body.designId, creatorId: req.user.id }
-            });
+            if (!nft) {
+                nft = await this.nftRepository.findOne({
+                    where: { id: body.designId, creatorId: req.user.id }
+                });
+            }
 
             if (!nft) {
                 this.logger.error(`Design not found in either table - designId: ${body.designId}, userId: ${req.user.id}`);
@@ -1155,4 +1166,153 @@ export class Web3Controller {
             data: { tokenIds: tokenIds.map(id => id.toString()) },
         };
     }
+
+    private async autoCreateNftFromChat(chat: AiChat, body: MintNFTRequestDto, userId: string): Promise<NFT> {
+        if (!body.selectedVariation) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: 'selectedVariation is required when minting directly from a chat.',
+                    path: '/web3/polygon/mint',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+
+        const previews = this.normalizeDesignPreviews(chat.designPreviews as any);
+        if (!previews.length) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: 'No design previews found for this chat. Please generate designs first.',
+                    path: '/web3/polygon/mint',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+
+        const variationIndex = this.getVariationIndex(body.selectedVariation);
+        const imageUrl = previews[variationIndex] || previews[0];
+
+        if (!imageUrl) {
+            throw new HttpException(
+                {
+                    status: false,
+                    message: 'Selected variation image could not be found.',
+                    path: '/web3/polygon/mint',
+                    timestamp: new Date().toISOString(),
+                },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+
+        const name = (body.name || chat.metadata?.designName || `AI Design ${chat.id.slice(0, 8)}`).trim();
+        const description = this.buildAutoDescription(chat, name);
+        const quantity = this.resolveQuantity(body, chat);
+        const price = this.resolvePrice(chat);
+        const category = chat.metadata?.category || 'AI Design';
+
+        const nft = await this.nftService.createNFT({
+            name,
+            description,
+            category,
+            price,
+            quantity,
+            imageUrl,
+            creatorId: userId,
+            chatId: chat.id,
+            attributes: [
+                { trait_type: 'chatId', value: chat.id },
+                { trait_type: 'autoApproved', value: 'true' },
+                { trait_type: 'variation', value: body.selectedVariation },
+            ],
+        });
+
+        await this.nftService.updateNFT(nft.id, {
+            designLink: `/designs/${nft.id}`,
+        });
+
+        await this.chatRepository.update(chat.id, {
+            nftId: nft.id,
+            state: chat.state === ChatState.DESIGN_APPROVED ? chat.state : ChatState.DESIGN_APPROVED,
+        });
+
+        return nft;
+    }
+
+    private normalizeDesignPreviews(previews?: string[] | string | null): string[] {
+        if (!previews) {
+            return [];
+        }
+        if (Array.isArray(previews)) {
+            return previews.filter(Boolean);
+        }
+        if (typeof previews === 'string') {
+            try {
+                const parsed = JSON.parse(previews);
+                if (Array.isArray(parsed)) {
+                    return parsed.filter(Boolean);
+                }
+            } catch (error) {
+                // fall back to comma separated parsing
+            }
+            return previews
+                .split(',')
+                .map(value => value.trim())
+                .filter(Boolean);
+        }
+        return [];
+    }
+
+    private getVariationIndex(selectedVariation: string): number {
+        const match = selectedVariation.match(/variation_(\d+)/i);
+        const index = match ? parseInt(match[1], 10) - 1 : 0;
+        return index >= 0 ? index : 0;
+    }
+
+    private buildAutoDescription(chat: AiChat, name: string): string {
+        const metadata = chat.metadata || {};
+        return (
+            metadata.description ||
+            metadata.designBrief ||
+            metadata.intent ||
+            `AI-generated design "${name}" originating from chat ${chat.id}.`
+        );
+    }
+
+    private resolveQuantity(body: MintNFTRequestDto, chat: AiChat): number {
+        const quantityCandidates = [body.quantity, chat.metadata?.collectionQuantity, chat.metadata?.quantity];
+        for (const candidate of quantityCandidates) {
+            const parsed = Number(candidate);
+            if (Number.isFinite(parsed) && parsed > 0) {
+                return Math.floor(parsed);
+            }
+        }
+        return 1;
+    }
+
+    private resolvePrice(chat: AiChat): number {
+        const metadata = chat.metadata || {};
+        const candidates = [
+            metadata?.pricing?.usd,
+            metadata?.pricing?.amount,
+            metadata?.pricing,
+            metadata?.budget?.usd,
+            metadata?.budget?.amount,
+            metadata?.budget,
+            metadata?.price,
+        ];
+
+        for (const candidate of candidates) {
+            const value = Number(candidate);
+            if (Number.isFinite(value) && value >= 0) {
+                return Number(value.toFixed(2));
+            }
+        }
+
+        return 0;
+    }
+
 }
