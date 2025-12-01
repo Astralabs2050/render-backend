@@ -643,9 +643,13 @@ export class Web3Controller {
         if (body.chatId && !body.designId) {
             this.logger.log(`AI-generated design flow detected - chatId: ${body.chatId}`);
             const chat = await this.chatRepository.findOne({
-                where: { id: body.chatId, userId: req.user.id }
+                where: [
+                    { id: body.chatId, userId: req.user.id },
+                    { id: body.chatId, creatorId: req.user.id }
+                ]
             });
             if (!chat || !chat.nftId) {
+                this.logger.error(`Chat lookup failed - chatId: ${body.chatId}, userId: ${req.user.id}, chat found: ${!!chat}, nftId: ${chat?.nftId}`);
                 throw new HttpException(
                     {
                         status: false,
