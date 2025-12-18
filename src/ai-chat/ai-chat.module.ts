@@ -17,6 +17,7 @@ import { Web3Module } from '../web3/web3.module';
 import { CommonModule } from '../common/common.module';
 import { MarketplaceModule } from '../marketplace/marketplace.module';
 import { AuthModule } from '../auth/auth.module';
+import { CreditsModule } from '../credits/credits.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { AuthModule } from '../auth/auth.module';
     forwardRef(() => MarketplaceModule),
     forwardRef(() => AuthModule),
     CommonModule,
+    CreditsModule,
   ],
   controllers: [ChatController, DesignController],
   providers: [
