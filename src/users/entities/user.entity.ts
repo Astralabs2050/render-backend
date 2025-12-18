@@ -94,6 +94,9 @@ export class User extends BaseEntity {
   @Column('text', { nullable: true })
   bio: string;
 
+  @Column({ type: 'int', default: 0 })
+  creditBalance: number;
+
   @OneToMany(() => OAuthProvider, oauthProvider => oauthProvider.user)
   oauthProviders: OAuthProvider[];
 }

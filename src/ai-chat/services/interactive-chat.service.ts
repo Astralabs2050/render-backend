@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ChatService } from './chat.service';
@@ -8,6 +8,8 @@ import { JobService } from '../../marketplace/services/job.service';
 import { OpenAIService } from './openai.service';
 import { StreamChatService } from './stream-chat.service';
 import { PromptService } from './prompt.service';
+import { CreditService } from '../../credits/services/credit.service';
+import { AIActionType } from '../../credits/entities/credit-transaction.entity';
 import { SendMessageDto } from '../dto/chat.dto';
 import { ChatState, ChatMessage } from '../entities/chat.entity';
 @Injectable()
@@ -21,6 +23,7 @@ export class InteractiveChatService {
     private readonly openaiService: OpenAIService,
     private readonly streamChatService: StreamChatService,
     private readonly promptService: PromptService,
+    private readonly creditService: CreditService,
     @InjectRepository(ChatMessage)
     private messageRepository: Repository<ChatMessage>,
   ) {}
@@ -75,7 +78,15 @@ export class InteractiveChatService {
           const chatNow = await this.chatService.getChat(userId, dto.chatId);
           const conversationHistory = chatNow.messages.map(m => `${m.role}: ${m.content}`).join('\n');
           if (!chatNow.metadata?.confirmRequested) {
-            const confirmMsg = 'Generate 3 visual variations now? (yes/no)';
+            // Check credits before asking to generate
+            const hasCredits = await this.creditService.hasEnoughCredits(userId, AIActionType.DESIGN_GENERATION);
+            const balance = await this.creditService.getBalance(userId);
+            if (!hasCredits) {
+              const noCreditsMsg = `You need credits to generate designs. Your current balance is ${balance} credits.\n\nPlease top up your credits to continue.`;
+              await this.streamChatService.sendAIMessage(dto.chatId, noCreditsMsg);
+              return { chatId: dto.chatId, state: 'info_gather', aiResponse: noCreditsMsg, insufficientCredits: true, creditBalance: balance };
+            }
+            const confirmMsg = `Generate 3 visual variations now? This will use 1 credit (balance: ${balance}). (yes/no)`;
             await this.streamChatService.sendAIMessage(dto.chatId, confirmMsg);
             await this.chatService.updateChat(dto.chatId, { state: ChatState.INFO_GATHER, metadata: { ...chatNow.metadata, confirmRequested: true } });
             return { chatId: dto.chatId, state: 'info_gather', aiResponse: confirmMsg, awaitingConfirmation: true };
@@ -87,13 +98,33 @@ export class InteractiveChatService {
           return { chatId: dto.chatId, state: 'info_gather', aiResponse: reply, awaitingConfirmation: true };
         }
         if (action === 'design:variation') {
+          // Check and deduct credits before generating variation
+          const hasCredits = await this.creditService.hasEnoughCredits(userId, AIActionType.DESIGN_VARIATION);
+          const balance = await this.creditService.getBalance(userId);
+          if (!hasCredits) {
+            const noCreditsMsg = `You need credits to generate variations. Your current balance is ${balance} credits.\n\nPlease top up your credits to continue.`;
+            await this.streamChatService.sendAIMessage(dto.chatId, noCreditsMsg);
+            return { chatId: dto.chatId, state: 'design_preview', aiResponse: noCreditsMsg, insufficientCredits: true, creditBalance: balance };
+          }
+          
+          await this.creditService.deductCredits(userId, AIActionType.DESIGN_VARIATION, dto.chatId);
+          
           const chatNow = await this.chatService.getChat(userId, dto.chatId);
           const basePrompt = this.buildDesignPrompt(chatNow.messages);
           const preferredModel = chatNow.metadata?.preferredModel;
-          const result = await this.designWorkflowService.processDesignVariation(userId, dto.chatId, `${basePrompt} ${dto.content}`, preferredModel);
-          const reply = `Generated new variations. Select one (variation_1/2/3) or refine again.`;
+          
+          let result;
+          try {
+            result = await this.designWorkflowService.processDesignVariation(userId, dto.chatId, `${basePrompt} ${dto.content}`, preferredModel);
+          } catch (error) {
+            await this.creditService.refundCredits(userId, 1, 'Variation generation failed', dto.chatId);
+            throw error;
+          }
+          
+          const newBalance = await this.creditService.getBalance(userId);
+          const reply = `Generated new variations. Select one (variation_1/2/3) or refine again.\n\n💳 Credits remaining: ${newBalance}`;
           await this.streamChatService.sendAIMessage(dto.chatId, reply);
-          return { chatId: dto.chatId, state: 'design_preview', designPreviews: result.designImages, aiResponse: reply };
+          return { chatId: dto.chatId, state: 'design_preview', designPreviews: result.designImages, aiResponse: reply, creditBalance: newBalance };
         }
         if (action === 'design:select') {
           const sel = (dto.content || '').trim().toLowerCase();
@@ -299,7 +330,15 @@ Reply with ONLY the state name.`;
     // Confirmation gate: always ask before generating
     const confirmRequested = !!chat.metadata?.confirmRequested;
     if (!confirmRequested) {
-      const confirmMsg = 'I can generate 3 visual variations for your design now. Would you like me to proceed? (yes/no)';
+      // Check credits before asking to generate
+      const hasCredits = await this.creditService.hasEnoughCredits(userId, AIActionType.DESIGN_GENERATION);
+      const balance = await this.creditService.getBalance(userId);
+      if (!hasCredits) {
+        const noCreditsMsg = `You need credits to generate designs. Your current balance is ${balance} credits.\n\nPlease top up your credits to continue.`;
+        await this.streamChatService.sendAIMessage(chatId, noCreditsMsg);
+        return { chatId, state: 'info_gather', aiResponse: noCreditsMsg, insufficientCredits: true, creditBalance: balance };
+      }
+      const confirmMsg = `I can generate 3 visual variations for your design now. This will use 1 credit (balance: ${balance}). Would you like me to proceed? (yes/no)`;
       await this.streamChatService.sendAIMessage(chatId, confirmMsg);
       await this.chatService.updateChat(chatId, { metadata: { ...chat.metadata, confirmRequested: true } });
       return { chatId, state: 'info_gather', aiResponse: confirmMsg, awaitingConfirmation: true };
@@ -318,20 +357,40 @@ Reply with ONLY the state name.`;
       return { chatId, state: 'info_gather', aiResponse: waitMsg, awaitingConfirmation: false };
     }
     if (isConfirming) {
+      // Deduct credits before generation
+      try {
+        await this.creditService.deductCredits(userId, AIActionType.DESIGN_GENERATION, chatId);
+      } catch (error) {
+        const balance = await this.creditService.getBalance(userId);
+        const noCreditsMsg = `Insufficient credits to generate designs. Your current balance is ${balance} credits.\n\nPlease top up your credits to continue.`;
+        await this.streamChatService.sendAIMessage(chatId, noCreditsMsg);
+        return { chatId, state: 'info_gather', aiResponse: noCreditsMsg, insufficientCredits: true, creditBalance: balance };
+      }
+
       const generatingMessage = "Perfect! Let me generate a visual design for you... This will take a moment.";
       await this.streamChatService.sendAIMessage(chatId, generatingMessage);
       const designPrompt = this.buildDesignPrompt(chat.messages);
       const sketchBase64 = this.extractSketchFromMessages(chat.messages);
       const preferredModel = chat.metadata?.preferredModel;
-      const result = await this.designWorkflowService.processDesignRequest(userId, {
-        prompt: designPrompt,
-        fabricImageBase64: sketchBase64,
-        model: preferredModel,
-        // Ensure centralized guard can use the chat context
-        ...( { chatId } as any ),
-      } as any);
+      
+      let result;
+      try {
+        result = await this.designWorkflowService.processDesignRequest(userId, {
+          prompt: designPrompt,
+          fabricImageBase64: sketchBase64,
+          model: preferredModel,
+          // Ensure centralized guard can use the chat context
+          ...( { chatId } as any ),
+        } as any);
+      } catch (error) {
+        // Refund credits if generation fails
+        await this.creditService.refundCredits(userId, 1, 'Design generation failed', chatId);
+        throw error;
+      }
+      
       const images = result.designImages || [];
-      const completionMessage = `Here are your design variations! 🎨\n\n${images.map((url, i) => `**Variation ${i + 1}**: ${url || 'Design created'}`).join('\n')}\n\nWhich one do you like best?`;
+      const newBalance = await this.creditService.getBalance(userId);
+      const completionMessage = `Here are your design variations! 🎨\n\n${images.map((url, i) => `**Variation ${i + 1}**: ${url || 'Design created'}`).join('\n')}\n\nWhich one do you like best?\n\n💳 Credits remaining: ${newBalance}`;
       await this.streamChatService.sendAIMessage(chatId, completionMessage);
       await this.chatService.updateChat(chatId, { state: ChatState.DESIGN_PREVIEW, metadata: { ...chat.metadata, confirmRequested: false, generating: false, lastGenerationCompletedAt: new Date().toISOString() } });
       return { 
@@ -341,6 +400,7 @@ Reply with ONLY the state name.`;
         job: result?.job,
         nft: result?.nft,
         aiResponse: completionMessage,
+        creditBalance: newBalance,
       };
     }
     // Otherwise, continue gathering info conversationally
@@ -356,6 +416,16 @@ Reply with ONLY the state name.`;
     if (chat.metadata?.confirmVariationRequested) {
       const confirm = await this.isUserConfirming(content, conversationHistory);
       if (confirm) {
+        // Deduct credits before generating variation
+        try {
+          await this.creditService.deductCredits(userId, AIActionType.DESIGN_VARIATION, chatId);
+        } catch (error) {
+          const balance = await this.creditService.getBalance(userId);
+          const noCreditsMsg = `Insufficient credits to generate variations. Your current balance is ${balance} credits.\n\nPlease top up your credits to continue.`;
+          await this.streamChatService.sendAIMessage(chatId, noCreditsMsg);
+          return { chatId, state: 'design_preview', aiResponse: noCreditsMsg, insufficientCredits: true, creditBalance: balance };
+        }
+
         const generatingMessage = "Generating another variation for you...";
         await this.streamChatService.sendAIMessage(chatId, generatingMessage);
         const designPrompt = this.buildDesignPrompt(chat.messages);
@@ -367,8 +437,17 @@ Reply with ONLY the state name.`;
         const enhancedPrompt = `${designPrompt} - ${userModification}`;
         const preferredModel = chat.metadata?.preferredModel;
 
-        const result = await this.designWorkflowService.processDesignVariation(userId, chatId, enhancedPrompt, preferredModel);
-        const completionMessage = "Here's a new set of variations! Do you like one of these better?";
+        let result;
+        try {
+          result = await this.designWorkflowService.processDesignVariation(userId, chatId, enhancedPrompt, preferredModel);
+        } catch (error) {
+          // Refund credits if variation generation fails
+          await this.creditService.refundCredits(userId, 1, 'Variation generation failed', chatId);
+          throw error;
+        }
+        
+        const newBalance = await this.creditService.getBalance(userId);
+        const completionMessage = `Here's a new set of variations! Do you like one of these better?\n\n💳 Credits remaining: ${newBalance}`;
         await this.streamChatService.sendAIMessage(chatId, completionMessage);
         await this.chatService.updateChat(chatId, { 
           metadata: { 
@@ -381,7 +460,8 @@ Reply with ONLY the state name.`;
         return { 
           chatId, 
           state: 'design_preview',
-          aiResponse: completionMessage
+          aiResponse: completionMessage,
+          creditBalance: newBalance,
         };
       } else {
         // User is providing more details, update the pending modification
@@ -410,8 +490,16 @@ Reply with ONLY the state name.`;
         await this.streamChatService.sendAIMessage(chatId, msg);
         return { chatId, state: 'design_preview', aiResponse: msg };
       }
+      // Check credits before asking to generate variation
+      const hasCredits = await this.creditService.hasEnoughCredits(userId, AIActionType.DESIGN_VARIATION);
+      const balance = await this.creditService.getBalance(userId);
+      if (!hasCredits) {
+        const noCreditsMsg = `You need credits to generate variations. Your current balance is ${balance} credits.\n\nPlease top up your credits to continue.`;
+        await this.streamChatService.sendAIMessage(chatId, noCreditsMsg);
+        return { chatId, state: 'design_preview', aiResponse: noCreditsMsg, insufficientCredits: true, creditBalance: balance };
+      }
       // Confirmation gate before creating another variation
-      const ask = 'I can generate another variation now. Would you like me to proceed? (yes/no)';
+      const ask = `I can generate another variation now. This will use 1 credit (balance: ${balance}). Would you like me to proceed? (yes/no)`;
       await this.streamChatService.sendAIMessage(chatId, ask);
       await this.chatService.updateChat(chatId, { 
         metadata: { 
