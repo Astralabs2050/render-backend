@@ -1,9 +1,10 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { CreditTransaction, TransactionType, AIActionType } from '../entities/credit-transaction.entity';
 import { PaystackService } from '../../common/services/paystack.service';
+import { NotificationService } from '../../notifications/services/notification.service';
 
 export interface CreditPackage {
   id: string;
@@ -26,6 +27,8 @@ export const CREDIT_COSTS: Record<AIActionType, number> = {
   [AIActionType.METADATA_EXTRACTION]: 1,
 };
 
+const LOW_CREDIT_THRESHOLD = 2;
+
 @Injectable()
 export class CreditService {
   private readonly logger = new Logger(CreditService.name);
@@ -37,6 +40,8 @@ export class CreditService {
     private transactionRepository: Repository<CreditTransaction>,
     private paystackService: PaystackService,
     private dataSource: DataSource,
+    @Inject(forwardRef(() => NotificationService))
+    private notificationService: NotificationService,
   ) {}
 
   async getBalance(userId: string): Promise<number> {
@@ -96,6 +101,17 @@ export class CreditService {
       await manager.save(transaction);
 
       this.logger.log(`Deducted ${cost} credits from user ${userId}. Balance: ${balanceAfter}`);
+
+      // Send notifications for low/zero credits
+      if (balanceAfter === 0) {
+        this.notificationService.notifyCreditsFinished(userId).catch(err => 
+          this.logger.error(`Failed to send credits finished notification: ${err.message}`)
+        );
+      } else if (balanceAfter <= LOW_CREDIT_THRESHOLD && balanceBefore > LOW_CREDIT_THRESHOLD) {
+        this.notificationService.notifyCreditsLow(userId, balanceAfter).catch(err =>
+          this.logger.error(`Failed to send credits low notification: ${err.message}`)
+        );
+      }
 
       return { success: true, newBalance: balanceAfter, cost };
     });
@@ -222,6 +238,11 @@ export class CreditService {
       await manager.save(transaction);
 
       this.logger.log(`Added ${credits} credits to user ${userId}. Balance: ${balanceAfter}`);
+
+      // Send notification for credit purchase
+      this.notificationService.notifyCreditPurchase(userId, credits, balanceAfter).catch(err =>
+        this.logger.error(`Failed to send credit purchase notification: ${err.message}`)
+      );
 
       return { success: true, credits, newBalance: balanceAfter };
     });

@@ -56,4 +56,48 @@ export class EmailService {
       return false;
     }
   }
+
+  async sendNotificationEmail(
+    email: string,
+    title: string,
+    message: string,
+    actionUrl?: string,
+  ): Promise<boolean> {
+    try {
+      const appUrl = this.configService.get('APP_URL') || 'http://localhost:3000';
+      const fullActionUrl = actionUrl ? `${appUrl}${actionUrl}` : null;
+
+      const mailOptions = {
+        from: this.configService.get('SMTP_FROM_EMAIL') || this.configService.get('SMTP_USER'),
+        to: email,
+        subject: title,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #333;">${title}</h2>
+            <p style="color: #666; font-size: 16px; line-height: 1.5;">${message}</p>
+            ${fullActionUrl ? `
+              <div style="margin-top: 20px;">
+                <a href="${fullActionUrl}" 
+                   style="background-color: #007bff; color: white; padding: 12px 24px; 
+                          text-decoration: none; border-radius: 4px; display: inline-block;">
+                  View Details
+                </a>
+              </div>
+            ` : ''}
+            <hr style="margin-top: 30px; border: none; border-top: 1px solid #eee;" />
+            <p style="color: #999; font-size: 12px;">
+              This is an automated notification. Please do not reply to this email.
+            </p>
+          </div>
+        `,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(`Notification email sent to ${email}: ${title}`);
+      return true;
+    } catch (error) {
+      this.logger.error(`Failed to send notification email to ${email}: ${error.message}`);
+      return false;
+    }
+  }
 }

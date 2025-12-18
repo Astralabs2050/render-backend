@@ -11,6 +11,7 @@ import { Web3Module } from './web3/web3.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { VrEmailModule } from './vr-email/vr-email.module';
 import { CreditsModule } from './credits/credits.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { AppController } from './app.controller';
 import { JobSeeder } from './database/seeders/job.seeder';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -35,6 +36,7 @@ import { User } from './users/entities/user.entity';
     MarketplaceModule,
     VrEmailModule,
     CreditsModule,
+    NotificationsModule,
     TypeOrmModule.forFeature([Job, JobApplication, User]),
   ],
   controllers: [AppController],
