@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Chat } from '../entities/chat.entity';
@@ -8,6 +8,7 @@ import { UserDeliveryDetails } from '../entities/user-delivery-details.entity';
 import { UserMeasurements } from '../entities/user-measurements.entity';
 import { DeliveryDetailsDto, MeasurementsDto, ApplicationAcceptedDto } from '../dto/delivery-measurements.dto';
 import { NFT } from '../../web3/entities/nft.entity';
+import { NotificationService as AppNotificationService } from '../../notifications/services/notification.service';
 
 @Injectable()
 export class ChatService {
@@ -24,6 +25,8 @@ export class ChatService {
     private userMeasurementsRepository: Repository<UserMeasurements>,
     @InjectRepository(NFT)
     private nftRepository: Repository<NFT>,
+    @Inject(forwardRef(() => AppNotificationService))
+    private appNotificationService: AppNotificationService,
   ) {}
 
   async createChat(jobId: string | undefined, creatorId: string, makerId: string, designId?: string): Promise<Chat> {
@@ -171,6 +174,20 @@ export class ChatService {
           where: { id: savedMessage.id },
           relations: ['sender']
         });
+
+        // Send notification to the recipient
+        const recipientId = chat.creatorId === senderId ? chat.makerId : chat.creatorId;
+        const senderName = messageWithSender.sender?.fullName || 'Someone';
+        
+        // Don't notify for system messages
+        if (type !== MessageType.SYSTEM) {
+          this.appNotificationService.notifyNewMessage(
+            recipientId,
+            senderName,
+            chatId,
+            content,
+          ).catch(err => console.error('Failed to send message notification:', err.message));
+        }
 
         return {
           ...messageWithSender,

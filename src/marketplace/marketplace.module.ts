@@ -23,12 +23,14 @@ import { MarketplaceService } from './services/marketplace.service';
 import { UsersModule } from '../users/users.module';
 import { Web3Module } from '../web3/web3.module';
 import { JwtModule } from '@nestjs/jwt';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Job, JobApplication, SavedJob, Chat, Message, DeliveryDetails, Measurements, UserDeliveryDetails, UserMeasurements, User, NFT]),
     forwardRef(() => UsersModule),
     Web3Module,
+    forwardRef(() => NotificationsModule),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
