@@ -91,6 +91,54 @@ export class DesignService {
     }
   }
 
+  async getDesignPublic(designId: string): Promise<CreateDesignInventoryDto | null> {
+    try {
+      const design = await this.nftRepository.findOne({
+        where: { id: designId },
+        relations: ['creator'],
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          quantity: true,
+          status: true,
+          imageUrl: true,
+          updatedAt: true,
+          creator: {
+            id: true,
+            fullName: true,
+            profilePicture: true,
+          }
+        }
+      });
+
+      if (!design) {
+        this.logger.log(`Design not found: ${designId}`);
+        return null;
+      }
+
+      this.logger.log(`Found design: ${design.name} (ID: ${designId})`);
+
+      return {
+        id: design.id,
+        name: design.name,
+        price: design.price || 0,
+        quantity: design.quantity || 0,
+        publishedStatus: design.status,
+        designLink: design.imageUrl,
+        lastUpdated: design.updatedAt,
+        creator: design.creator ? {
+          id: design.creator.id,
+          fullName: design.creator.fullName,
+          profilePicture: design.creator.profilePicture,
+        } : null,
+      } as any;
+    } catch (error) {
+      this.logger.error(`Failed to fetch design: ${error.message}`, error.stack);
+      throw new NotFoundException('Failed to fetch design');
+    }
+  }
+
   async getDesignById(designId: string): Promise<NFT | null> {
     try {
       const design = await this.nftRepository.findOne({

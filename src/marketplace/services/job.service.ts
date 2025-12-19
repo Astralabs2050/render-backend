@@ -918,13 +918,13 @@ export class JobService {
   }
 
   async uploadDesignForMinting(file: Express.Multer.File, name: string, description: string, userId: string): Promise<any> {
-    // Verify user exists and is a creator
+    // Verify user exists
     const user = await this.userRepository.findOne({
-      where: { id: userId, userType: UserType.CREATOR }
+      where: { id: userId }
     });
 
     if (!user) {
-      throw new BadRequestException('Only creators can upload designs');
+      throw new BadRequestException('User not found');
     }
 
     let uploadResult;
