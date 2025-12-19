@@ -6,6 +6,7 @@ import { DesignService } from './services/design.service';
 import { UsersController } from './users.controller';
 import { CreatorController } from './controllers/creator.controller';
 import { MakerController } from './controllers/maker.controller';
+import { DesignController } from './controllers/design.controller';
 import { User } from './entities/user.entity';
 import { Design } from './entities/collection.entity';
 import { PaymentIntent } from './entities/payment-intent.entity';
@@ -20,7 +21,7 @@ import { MarketplaceModule } from '../marketplace/marketplace.module';
     Web3Module,
     forwardRef(() => MarketplaceModule)
   ],
-  controllers: [UsersController, CreatorController, MakerController],
+  controllers: [UsersController, CreatorController, MakerController, DesignController],
   providers: [UsersService, ReconciliationService, DesignService],
   exports: [UsersService, DesignService],
 })
