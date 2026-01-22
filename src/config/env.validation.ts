@@ -61,6 +61,9 @@ export const envSchema = z.object({
 
   PINATA_JWT_TOKEN: z.string().optional(),
   THIRDWEB_PRIVATE_KEY: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid Thirdweb private key format').optional(),
+
+  // Paystack Configuration
+  PAYSTACK_SECRET_KEY: z.string().startsWith('sk_', 'Paystack secret key must start with sk_').optional(),
 });
 export type EnvConfig = z.infer<typeof envSchema>;
 export function validateEnv(env: Record<string, string | undefined> = process.env): EnvConfig {
@@ -68,7 +71,7 @@ export function validateEnv(env: Record<string, string | undefined> = process.en
     return envSchema.parse(env);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errorMessages = error.errors.map(err => 
+      const errorMessages = error.errors.map(err =>
         `${err.path.join('.')}: ${err.message}`
       ).join('\n');
       throw new Error(`Environment validation failed:\n${errorMessages}`);
@@ -84,8 +87,8 @@ export function checkEnvHealth(): { healthy: boolean; errors: string[] } {
     validateEnv();
     return { healthy: true, errors: [] };
   } catch (error) {
-    return { 
-      healthy: false, 
+    return {
+      healthy: false,
       errors: error instanceof Error ? [error.message] : ['Unknown validation error']
     };
   }
