@@ -37,6 +37,7 @@ export class PaystackService {
   }
 
   async verifyTransaction(reference: string): Promise<any> {
+    this.logger.log(`Verifying transaction reference: ${reference}`);
     try {
       const response = await axios.get(
         `${this.baseUrl}/transaction/verify/${reference}`,
@@ -50,6 +51,9 @@ export class PaystackService {
       return response.data.data;
     } catch (error) {
       this.logger.error(`Paystack verification failed: ${error.message}`);
+      if (error.response) {
+        this.logger.error(`Paystack response: ${JSON.stringify(error.response.data)}`);
+      }
       throw error;
     }
   }

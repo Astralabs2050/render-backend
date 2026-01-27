@@ -27,7 +27,7 @@ export class OAuthService {
     private oauthRepository: Repository<OAuthProvider>,
     private jwtService: JwtService,
     private thirdwebService: ThirdwebService,
-  ) {}
+  ) { }
   async validateOAuthLogin(oauthUser: OAuthUser) {
     try {
       let oauthProvider = await this.oauthRepository.findOne({
@@ -66,8 +66,8 @@ export class OAuthService {
           user = this.userRepository.create({
             email: oauthUser.email,
             fullName: oauthUser.fullName,
-            verified: true, 
-            userType: UserType.CREATOR, 
+            verified: true,
+            userType: UserType.CREATOR,
             walletAddress: wallet.address,
             walletPrivateKey: encryptedPrivateKey,
           });
@@ -113,7 +113,7 @@ export class OAuthService {
     const { token, user } = authResult;
     const providerColors = {
       google: '#28a745',
-      discord: '#7289da', 
+      discord: '#7289da',
       twitter: '#1da1f2'
     };
     const successHtml = `

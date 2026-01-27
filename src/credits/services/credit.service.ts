@@ -42,7 +42,7 @@ export class CreditService {
     private dataSource: DataSource,
     @Inject(forwardRef(() => NotificationService))
     private notificationService: NotificationService,
-  ) {}
+  ) { }
 
   async getBalance(userId: string): Promise<number> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -68,7 +68,7 @@ export class CreditService {
     const cost = CREDIT_COSTS[actionType] || 1;
 
     return await this.dataSource.transaction(async (manager) => {
-      const user = await manager.findOne(User, { 
+      const user = await manager.findOne(User, {
         where: { id: userId },
         lock: { mode: 'pessimistic_write' },
       });
@@ -104,7 +104,7 @@ export class CreditService {
 
       // Send notifications for low/zero credits
       if (balanceAfter === 0) {
-        this.notificationService.notifyCreditsFinished(userId).catch(err => 
+        this.notificationService.notifyCreditsFinished(userId).catch(err =>
           this.logger.error(`Failed to send credits finished notification: ${err.message}`)
         );
       } else if (balanceAfter <= LOW_CREDIT_THRESHOLD && balanceBefore > LOW_CREDIT_THRESHOLD) {
@@ -201,12 +201,18 @@ export class CreditService {
     }
 
     const verification = await this.paystackService.verifyTransaction(reference);
+    this.logger.log(`Paystack verification response: status=${verification.status}, gateway_response=${verification.gateway_response}`);
 
     if (verification.status !== 'success') {
-      throw new BadRequestException('Payment verification failed');
+      throw new BadRequestException(`Payment verification failed: ${verification.status} - ${verification.gateway_response || 'Unknown'}`);
     }
 
-    const { userId, packageId, credits } = verification.metadata;
+    const { userId, packageId, credits: creditsRaw } = verification.metadata;
+    const credits = Number(creditsRaw);  // Ensure credits is a number (metadata values come as strings)
+
+    if (isNaN(credits) || credits <= 0) {
+      throw new BadRequestException(`Invalid credits value in metadata: ${creditsRaw}`);
+    }
 
     return await this.dataSource.transaction(async (manager) => {
       const user = await manager.findOne(User, {
