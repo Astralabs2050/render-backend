@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { User, UserType } from '../../users/entities/user.entity';
 import { OAuthProvider } from './oauth.entity';
 import { Helpers } from '../../common/utils/helpers';
@@ -27,6 +28,7 @@ export class OAuthService {
     private oauthRepository: Repository<OAuthProvider>,
     private jwtService: JwtService,
     private thirdwebService: ThirdwebService,
+    private configService: ConfigService,
   ) { }
   async validateOAuthLogin(oauthUser: OAuthUser) {
     try {
@@ -111,46 +113,24 @@ export class OAuthService {
   }
   handleOAuthCallback(authResult: any, provider: string, res: any) {
     const { token, user } = authResult;
-    const providerColors = {
-      google: '#28a745',
-      discord: '#7289da',
-      twitter: '#1da1f2'
-    };
-    const successHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${provider.charAt(0).toUpperCase() + provider.slice(1)} OAuth Success</title>
-        <style>
-          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f8f9fa; }
-          .success { background: #d4edda; color: #155724; padding: 20px; border-radius: 10px; margin: 20px auto; max-width: 500px; }
-          .token { background: #f8f9fa; padding: 15px; border-radius: 5px; font-family: monospace; word-break: break-all; margin: 20px 0; }
-          .btn { background: ${providerColors[provider]}; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
-        </style>
-      </head>
-      <body>
-        <div class="success">
-          <h2>${provider.charAt(0).toUpperCase() + provider.slice(1)} Authentication Successful!</h2>
-          <p>Welcome, ${user.fullName}!</p>
-          <p>Email: ${user.email}</p>
-          <p>Wallet: ${user.walletAddress}</p>
-          <div class="token">JWT Token: ${token}</div>
-          <button class="btn" onclick="window.close()">Close Window</button>
-        </div>
-        <script>
-          setTimeout(() => window.close(), 5000);
-          if (window.opener) {
-            window.opener.postMessage({
-              type: 'oauth-success',
-              provider: '${provider}',
-              token: '${token}',
-              user: ${JSON.stringify(user)}
-            }, '*');
-          }
-        </script>
-      </body>
-      </html>
-    `;
-    res.send(successHtml);
+
+    // Get frontend URL from environment (defaults to localhost for dev)
+    const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:3001');
+
+    // Encode user data for URL
+    const userData = encodeURIComponent(JSON.stringify({
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      walletAddress: user.walletAddress,
+    }));
+
+    // Redirect to frontend dashboard with token in hash fragment
+    // Hash fragments (#) are NOT sent to server, making them more secure
+    const redirectUrl = `${frontendUrl}/dashboard#token=${token}&user=${userData}&provider=${provider}`;
+
+    this.logger.log(`Redirecting ${user.email} to ${frontendUrl}/dashboard after ${provider} OAuth`);
+
+    res.redirect(redirectUrl);
   }
 }
