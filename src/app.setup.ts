@@ -1,6 +1,7 @@
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import helmet from 'helmet';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
@@ -9,12 +10,51 @@ export function configureServer(app: NestExpressApplication) {
   app.getHttpServer().keepAliveTimeout = 5000;
   app.getHttpServer().headersTimeout = 6000;
 
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // Configure Helmet for security headers
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        imgSrc: ["'self'", "data:", "https:", "blob:"],
+        fontSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", frontendUrl, "https:", "wss:", "ws:"],
+        frameSrc: ["'self'", "https:"],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: isProduction ? [] : null,
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }));
+
   // Configure CORS
   app.enableCors({
-    origin: true, // Allow all origins in development, or specify ['http://localhost:3000', 'https://yourdomain.com']
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        frontendUrl,
+        'http://localhost:3001',
+        'http://localhost:3000',
+        'https://render-backend-drm4.onrender.com',
+      ];
+      
+      if (!origin || allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+        callback(null, true);
+      } else if (!isProduction) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 86400,
   });
 
   // Configure Express for large file uploads
