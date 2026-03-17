@@ -28,7 +28,9 @@ import { ConfigService } from '@nestjs/config';
         return {
           ...config,
           entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-          synchronize: true, // Temporarily enabled to fix designId UUID migration
+          migrations: [__dirname + '/../migrations/*{.ts,.js}'],
+          synchronize: false, // IMPORTANT: Disabled - use migrations instead
+          migrationsRun: false, // Don't auto-run migrations on startup
           logging: false,
           maxQueryExecutionTime: 1000,
           cache: false,

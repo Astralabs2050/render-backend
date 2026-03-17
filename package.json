@@ -22,7 +22,11 @@
     "env:check": "ts-node scripts/env-check.ts check",
     "env:validate": "ts-node scripts/env-check.ts validate --verbose",
     "env:generate": "ts-node scripts/env-check.ts generate-example",
-    "env:health": "ts-node scripts/env-check.ts check --verbose"
+    "env:health": "ts-node scripts/env-check.ts check --verbose",
+    "migration:run": "ts-node scripts/run-migrations.ts",
+    "migration:revert": "ts-node scripts/revert-migration.ts",
+    "migration:show": "ts-node scripts/show-migrations.ts",
+    "typeorm": "typeorm-ts-node-commonjs"
   },
   "dependencies": {
     "@google/genai": "^1.29.1",
