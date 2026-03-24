@@ -12,9 +12,10 @@ export class HederaEscrowService {
   constructor(private configService: ConfigService) {
     const privateKey = this.configService.get('HEDERA_PRIVATE_KEY');
     const rpcUrl = this.configService.get('HEDERA_TESTNET_RPC_URL');
+    const escrowContractAddress = this.configService.get('HEDERA_ESCROW_CONTRACT_ADDRESS');
 
-    if (!privateKey || !rpcUrl) {
-      this.logger.warn('Hedera credentials not configured. Escrow service will be unavailable.');
+    if (!privateKey || !rpcUrl || !escrowContractAddress) {
+      this.logger.warn('Hedera credentials not fully configured. Escrow service will be unavailable.');
       return;
     }
 
@@ -22,7 +23,7 @@ export class HederaEscrowService {
     this.wallet = new ethers.Wallet(privateKey, this.provider);
 
     this.escrowContract = new ethers.Contract(
-      this.configService.get('HEDERA_ESCROW_CONTRACT_ADDRESS'),
+      escrowContractAddress,
       [
         'function createEscrowByAgent(address shopper, address maker, address creator, uint256 amount, uint256 nftTokenId) external returns (uint256)',
         'function getAllEscrows() external view returns (tuple(address shopper, address maker, address creator, address agent, uint256 amount, uint256 nftTokenId, uint8 milestonesCompleted, bytes status, uint256 remainingBalance, bool hasCreator)[] memory)',

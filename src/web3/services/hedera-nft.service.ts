@@ -13,9 +13,11 @@ export class HederaNFTService {
   constructor(private configService: ConfigService) {
     const privateKey = this.configService.get('HEDERA_PRIVATE_KEY');
     const rpcUrl = this.configService.get('HEDERA_TESTNET_RPC_URL');
+    const nftContractAddress = this.configService.get('HEDERA_ASTRA_NFT_COLLECTIBLE_CONTRACT_ADDRESS');
+    const usdcTokenAddress = this.configService.get('HEDERA_USDC_TOKEN_ADDRESS');
 
-    if (!privateKey || !rpcUrl) {
-      this.logger.warn('Hedera credentials not configured. Service will be unavailable.');
+    if (!privateKey || !rpcUrl || !nftContractAddress || !usdcTokenAddress) {
+      this.logger.warn('Hedera credentials not fully configured. Service will be unavailable.');
       return;
     }
 
@@ -23,7 +25,7 @@ export class HederaNFTService {
     this.wallet = new ethers.Wallet(privateKey, this.provider);
 
     this.astraNFTContract = new ethers.Contract(
-      this.configService.get('HEDERA_ASTRA_NFT_COLLECTIBLE_CONTRACT_ADDRESS'),
+      nftContractAddress,
       [
         // Functions
         'function mintNFTs(address to, string memory designId, string memory designName, string memory designImage, string memory prompt, uint256 count) external',
@@ -48,7 +50,7 @@ export class HederaNFTService {
     );
 
     this.usdcTokenContract = new ethers.Contract(
-      this.configService.get('HEDERA_USDC_TOKEN_ADDRESS'),
+      usdcTokenAddress,
       [
         'function balanceOf(address account) external view returns (uint256)',
         'function allowance(address owner, address spender) external view returns (uint256)',
