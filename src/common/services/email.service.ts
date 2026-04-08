@@ -1,35 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: nodemailer.Transporter;
+  private readonly resend: Resend;
+  private readonly fromEmail: string;
 
   constructor(private configService: ConfigService) {
-    // Initialize SMTP transporter for Office365
-    const port = parseInt(this.configService.get('SMTP_PORT') || '587');
-    this.transporter = nodemailer.createTransport({
-      host: this.configService.get('SMTP_HOST'),
-      port: port,
-      secure: port === 465, // true for 465, false for other ports
-      requireTLS: port === 587, // Use STARTTLS for port 587
-      auth: {
-        user: this.configService.get('SMTP_USER'),
-        pass: this.configService.get('SMTP_PASSWORD'),
-      },
-      tls: {
-        ciphers: 'SSLv3',
-        rejectUnauthorized: false,
-      },
-    });
+    this.resend = new Resend(this.configService.get<string>('RESEND_API_KEY'));
+    this.fromEmail =
+      this.configService.get<string>('RESEND_FROM_EMAIL') ||
+      this.configService.get<string>('SENDGRID_FROM_EMAIL') ||
+      'onboarding@resend.dev';
   }
 
   async sendOtpEmail(email: string, otp: string): Promise<boolean> {
     try {
-      const mailOptions = {
-        from: this.configService.get('SMTP_FROM_EMAIL') || this.configService.get('SMTP_USER'),
+      await this.resend.emails.send({
+        from: this.fromEmail,
         to: email,
         subject: 'Your Verification Code',
         html: `
@@ -43,9 +33,7 @@ export class EmailService {
             <p>If you didn't request this code, please ignore this email.</p>
           </div>
         `,
-      };
-
-      await this.transporter.sendMail(mailOptions);
+      });
       this.logger.log(`OTP email sent to ${email}`);
       return true;
     } catch (error) {
@@ -67,8 +55,8 @@ export class EmailService {
       const appUrl = this.configService.get('APP_URL') || 'http://localhost:3000';
       const fullActionUrl = actionUrl ? `${appUrl}${actionUrl}` : null;
 
-      const mailOptions = {
-        from: this.configService.get('SMTP_FROM_EMAIL') || this.configService.get('SMTP_USER'),
+      await this.resend.emails.send({
+        from: this.fromEmail,
         to: email,
         subject: title,
         html: `
@@ -90,9 +78,7 @@ export class EmailService {
             </p>
           </div>
         `,
-      };
-
-      await this.transporter.sendMail(mailOptions);
+      });
       this.logger.log(`Notification email sent to ${email}: ${title}`);
       return true;
     } catch (error) {

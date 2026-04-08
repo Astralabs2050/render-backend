@@ -6,6 +6,8 @@ export const envSchema = z.object({
   SUPABASE_URL: z.string().url('Invalid Supabase URL').optional(),
   JWT_SECRET: z.string().min(32, 'JWT secret must be at least 32 characters'),
   JWT_EXPIRATION: z.string().default('7d'),
+  RESEND_API_KEY: z.string().startsWith('re_', 'Resend API key must start with re_').optional(),
+  RESEND_FROM_EMAIL: z.string().email('Invalid Resend sender email').optional(),
   SENDGRID_API_KEY: z.string().startsWith('SG.', 'SendGrid API key must start with SG.').optional(),
   SENDGRID_FROM_EMAIL: z.string().email('Invalid sender email').optional(),
   // SMTP Configuration
