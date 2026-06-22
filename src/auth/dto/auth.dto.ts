@@ -25,6 +25,9 @@ export class LoginDto {
   @IsString()
   @IsNotEmpty()
   password: string;
+  @IsEnum(UserType, { message: 'userType must be either creator or maker' })
+  @IsNotEmpty()
+  userType: UserType;
 }
 export class OtpVerificationDto {
   @IsEmail()

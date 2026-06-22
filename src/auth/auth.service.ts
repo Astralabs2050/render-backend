@@ -40,8 +40,13 @@ export class AuthService {
     };
   }
   async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
+    const { email, password, userType } = loginDto;
     const user = await this.usersService.findByEmail(email);
+    if (user.userType !== userType) {
+      throw new UnauthorizedException(
+        `No ${userType} account found with these credentials. Please sign up as a ${userType} first.`,
+      );
+    }
     if (!user.verified) {
       const otp = Helpers.generateOtp();
       await this.usersService.update(user.id, {
