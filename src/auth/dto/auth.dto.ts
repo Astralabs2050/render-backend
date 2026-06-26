@@ -1,4 +1,5 @@
 import { IsEmail, IsNotEmpty, IsString, MinLength, IsEnum, Matches } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { UserType } from '../../users/entities/user.entity';
 export class RegisterDto {
   @IsEmail()
@@ -25,6 +26,7 @@ export class LoginDto {
   @IsString()
   @IsNotEmpty()
   password: string;
+  @Transform(({ obj }) => obj.userType ?? obj.role)
   @IsEnum(UserType, { message: 'userType must be either creator or maker' })
   @IsNotEmpty()
   userType: UserType;

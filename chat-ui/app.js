@@ -65,7 +65,7 @@
       const res = await fetch(`${base}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, userType: 'creator' })
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.message || `Login failed (${res.status})`);
@@ -93,7 +93,7 @@
       const res = await fetch(`${base}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, userType: 'creator' })
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
