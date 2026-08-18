@@ -80,6 +80,8 @@ export class Helpers {
   static generateOtp(): string {
     return Math.floor(1000 + Math.random() * 9000).toString();
   }
+  static readonly OTP_TTL_MS = 15 * 60 * 1000;
+  static readonly OTP_RESEND_COOLDOWN_MS = 45 * 1000;
   static async hashPassword(password: string): Promise<string> {
     const salt = await bcrypt.genSalt();
     return bcrypt.hash(password, salt);
@@ -90,8 +92,13 @@ export class Helpers {
   static isOtpExpired(otpCreatedAt: Date): boolean {
     if (!otpCreatedAt) return true;
     const now = new Date();
-    const expirationTime = new Date(otpCreatedAt.getTime() + 15 * 60 * 1000); 
+    const expirationTime = new Date(otpCreatedAt.getTime() + this.OTP_TTL_MS);
     return now > expirationTime;
+  }
+  static secondsUntilOtpResend(otpCreatedAt?: Date | null): number {
+    if (!otpCreatedAt) return 0;
+    const elapsed = Date.now() - new Date(otpCreatedAt).getTime();
+    return Math.max(0, Math.ceil((this.OTP_RESEND_COOLDOWN_MS - elapsed) / 1000));
   }
   private static deriveKey(secret: string, salt: Buffer): SecureBuffer {
     const derivedKey = crypto.pbkdf2Sync(secret, salt, 100000, 32, 'sha256');
