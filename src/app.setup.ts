@@ -6,9 +6,10 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 export function configureServer(app: NestExpressApplication) {
-  app.getHttpServer().timeout = 30000;
-  app.getHttpServer().keepAliveTimeout = 5000;
-  app.getHttpServer().headersTimeout = 6000;
+  // Allow slow Cloudinary uploads / large multipart brand logos
+  app.getHttpServer().timeout = 120000;
+  app.getHttpServer().keepAliveTimeout = 65000;
+  app.getHttpServer().headersTimeout = 66000;
 
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
   const isProduction = process.env.NODE_ENV === 'production';

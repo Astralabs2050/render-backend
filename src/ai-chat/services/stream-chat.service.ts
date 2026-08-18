@@ -9,6 +9,8 @@ import { ChatState, ChatMessage } from '../entities/chat.entity';
 export class StreamChatService implements OnModuleInit {
   private readonly logger = new Logger(StreamChatService.name);
   private client: StreamChat;
+  /** Stream API calls can be slow over some networks; 2s was causing false timeouts. */
+  private readonly requestTimeoutMs = 30_000;
   constructor(
     private configService: ConfigService,
     @InjectRepository(ChatMessage)
@@ -22,8 +24,43 @@ export class StreamChatService implements OnModuleInit {
       this.logger.error('Stream Chat API key or secret not found');
       return;
     }
-    this.client = StreamChat.getInstance(apiKey, apiSecret);
+    this.client = StreamChat.getInstance(apiKey, apiSecret, {
+      timeout: this.requestTimeoutMs,
+    });
     this.logger.log('Stream Chat client initialized successfully');
+    this.ensureBotUser().catch((err) =>
+      this.logger.warn(`Could not upsert astra-ai user: ${err?.message || err}`),
+    );
+  }
+
+  private async ensureBotUser(): Promise<void> {
+    if (!this.client) return;
+    await this.withTimeout(
+      this.client.upsertUser({
+        id: 'astra-ai',
+        name: 'Astra',
+        role: 'admin',
+      }),
+      'upsertBot',
+    );
+  }
+
+  private withTimeout<T>(operation: Promise<T>, label: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`Stream Chat timeout (${label})`));
+      }, this.requestTimeoutMs);
+
+      operation
+        .then((value) => {
+          clearTimeout(timer);
+          resolve(value);
+        })
+        .catch((error) => {
+          clearTimeout(timer);
+          reject(error);
+        });
+    });
   }
   async createUserToken(userId: string): Promise<string> {
     if (!this.client) {
@@ -41,16 +78,13 @@ export class StreamChatService implements OnModuleInit {
       if (userData.userType === 'creator' || userData.userType === 'maker') {
         streamRole = 'user';
       }
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Stream Chat timeout')), 2000);
-      });
       const upsertPromise = this.client.upsertUser({
         id: userId,
         name: userData.fullName || 'Astra User',
         role: streamRole,
         image: userData.avatar || undefined,
       });
-      await Promise.race([upsertPromise, timeoutPromise]);
+      await this.withTimeout(upsertPromise, 'upsertUser');
       return { success: true };
     } catch (error) {
       this.logger.error(`Error upserting user: ${error.message}`);
@@ -63,16 +97,14 @@ export class StreamChatService implements OnModuleInit {
       return null;
     }
     try {
+      await this.ensureBotUser();
       const channelData = {
         created_by_id: creatorId,
         members: makerId ? [creatorId, makerId, 'astra-ai'] : [creatorId, 'astra-ai'],
         name: `Chat ${channelId.substring(0, 8)}`,
       };
       const channel = this.client.channel('messaging', channelId, channelData);
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Stream Chat timeout')), 2000);
-      });
-      await Promise.race([channel.create(), timeoutPromise]);
+      await this.withTimeout(channel.create(), 'createChannel');
       return channel;
     } catch (error) {
       this.logger.error(`Error creating channel: ${error.message}`);
@@ -82,26 +114,29 @@ export class StreamChatService implements OnModuleInit {
   async sendAIMessage(channelId: string, message: string, attachments: any[] = []): Promise<any> {
     if (!this.client) {
       this.logger.warn('Stream Chat not configured, skipping AI message send');
+      await this.syncMessageToDatabase(channelId, message, 'assistant');
       return { message: { id: 'mock-message-id' } };
     }
     try {
+      await this.ensureBotUser();
       const channel = this.client.channel('messaging', channelId);
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Stream Chat timeout')), 2000);
-      });
-      const sendPromise = channel.sendMessage({
-        text: message,
-        user_id: 'astra-ai',
-        attachments,
-      });
-      const response = await Promise.race([sendPromise, timeoutPromise]);
-      
-      // Sync to database
       await this.syncMessageToDatabase(channelId, message, 'assistant');
-      
-      return response;
+
+      this.withTimeout(
+        channel.sendMessage({
+          text: message,
+          user_id: 'astra-ai',
+          attachments,
+        }),
+        'sendMessage',
+      ).catch((error) => {
+        this.logger.error(`Error sending AI message: ${error.message}`);
+      });
+
+      return { message: { id: 'queued' } };
     } catch (error) {
       this.logger.error(`Error sending AI message: ${error.message}`);
+      await this.syncMessageToDatabase(channelId, message, 'assistant');
       return { message: { id: 'mock-message-id' } };
     }
   }

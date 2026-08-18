@@ -3,7 +3,7 @@ import { IsString, IsNotEmpty, IsNumber, IsOptional, IsUUID, Min, Max } from 'cl
 export class PublishMarketplaceDto {
   @IsUUID()
   @IsNotEmpty()
-  designId: string; // The NFT design to publish
+  designId: string;
 
   @IsNumber()
   @Min(1)

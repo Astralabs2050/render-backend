@@ -36,8 +36,7 @@ export class ZodConfigService {
       sendgrid: this.config.SENDGRID_API_KEY ? 'Configured' : 'Missing',
       streamChat: this.config.STREAM_API_KEY ? 'Configured' : 'Missing',
       cloudinary: this.config.CLOUDINARY_CLOUD_NAME ? 'Configured' : 'Missing',
-      thirdweb: this.config.THIRDWEB_CLIENT_ID ? 'Configured' : 'Missing',
-      walletEncryption: this.config.WALLET_ENCRYPTION_KEY ? 'Configured' : 'Missing',
+      paystack: this.config.PAYSTACK_SECRET_KEY ? 'Configured' : 'Missing',
     };
   }
   validateRuntimeConfig<T>(schema: z.ZodSchema<T>, config: unknown): T {

@@ -1,6 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Agent as HttpsAgent } from 'https';
 import { v2 as cloudinary, UploadApiResponse, UploadApiErrorResponse } from 'cloudinary';
+
 export interface CloudinaryUploadResult {
   public_id: string;
   secure_url: string;
@@ -12,6 +14,7 @@ export interface CloudinaryUploadResult {
   bytes: number;
   created_at: string;
 }
+
 export interface ImageTransformOptions {
   width?: number;
   height?: number;
@@ -21,17 +24,28 @@ export interface ImageTransformOptions {
   background?: string;
   gravity?: 'auto' | 'face' | 'center' | 'north' | 'south' | 'east' | 'west';
 }
+
 @Injectable()
 export class CloudinaryService {
   private readonly logger = new Logger(CloudinaryService.name);
+  /** Node 22 default agent timeout is 5s — too short for Cloudinary uploads. */
+  private readonly uploadAgent = new HttpsAgent({
+    keepAlive: true,
+    timeout: 120_000,
+    maxSockets: 10,
+  });
+  private readonly uploadTimeoutMs = 120_000;
+
   constructor(private configService: ConfigService) {
     cloudinary.config({
       cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
       api_key: this.configService.get<string>('CLOUDINARY_API_KEY'),
       api_secret: this.configService.get<string>('CLOUDINARY_API_SECRET'),
+      timeout: this.uploadTimeoutMs,
     });
     this.logger.log('Cloudinary service initialized');
   }
+
   async uploadImage(
     file: Buffer | string,
     options: {
@@ -40,34 +54,46 @@ export class CloudinaryService {
       tags?: string[];
       context?: Record<string, string>;
       transformation?: ImageTransformOptions;
-    } = {}
+    } = {},
   ): Promise<CloudinaryUploadResult> {
     try {
-      const uploadOptions: any = {
+      const uploadOptions: Record<string, any> = {
         folder: options.folder || 'astra-fashion',
         resource_type: 'image',
         quality: 'auto',
-        ...options,
+        timeout: this.uploadTimeoutMs,
+        agent: this.uploadAgent,
+        ...(options.public_id ? { public_id: options.public_id } : {}),
+        ...(options.tags ? { tags: options.tags } : {}),
+        ...(options.context ? { context: options.context } : {}),
       };
+
       if (options.transformation) {
         uploadOptions.transformation = this.buildTransformation(options.transformation);
       }
+
       const result: UploadApiResponse = await new Promise((resolve, reject) => {
         if (Buffer.isBuffer(file)) {
-          cloudinary.uploader.upload_stream(
+          const stream = cloudinary.uploader.upload_stream(
             uploadOptions,
-            (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
+            (error: UploadApiErrorResponse | undefined, uploadResult: UploadApiResponse | undefined) => {
               if (error) reject(error);
-              else resolve(result!);
-            }
-          ).end(file);
+              else resolve(uploadResult!);
+            },
+          );
+          stream.end(file);
         } else {
-          cloudinary.uploader.upload(file, uploadOptions, (error, result) => {
-            if (error) reject(error);
-            else resolve(result!);
-          });
+          cloudinary.uploader.upload(
+            file,
+            uploadOptions,
+            (error: UploadApiErrorResponse | undefined, uploadResult: UploadApiResponse | undefined) => {
+              if (error) reject(error);
+              else resolve(uploadResult!);
+            },
+          );
         }
       });
+
       this.logger.log(`Image uploaded to Cloudinary: ${result.public_id}`);
       return {
         public_id: result.public_id,
@@ -81,14 +107,21 @@ export class CloudinaryService {
         created_at: result.created_at,
       };
     } catch (error) {
-      this.logger.error(`Cloudinary upload failed: ${error.message}`);
+      const message = error?.message || String(error);
+      this.logger.error(`Cloudinary upload failed: ${message}`);
+      if (/timeout/i.test(message)) {
+        throw new ServiceUnavailableException(
+          'Image upload timed out. Please try again with a smaller image.',
+        );
+      }
       throw error;
     }
   }
+
   async uploadDesignImage(
     file: Buffer,
     designId: string,
-    userId: string
+    userId: string,
   ): Promise<CloudinaryUploadResult> {
     return this.uploadImage(file, {
       folder: 'astra-fashion/designs',
@@ -107,9 +140,10 @@ export class CloudinaryService {
       },
     });
   }
+
   async uploadProfileImage(
     file: Buffer,
-    userId: string
+    userId: string,
   ): Promise<CloudinaryUploadResult> {
     return this.uploadImage(file, {
       folder: 'astra-fashion/profiles',
@@ -128,32 +162,18 @@ export class CloudinaryService {
       },
     });
   }
+
   async uploadNFTImage(
     file: Buffer,
-    nftId: string,
-    userId: string
+    designId: string,
+    userId: string,
   ): Promise<CloudinaryUploadResult> {
-    return this.uploadImage(file, {
-      folder: 'astra-fashion/nfts',
-      public_id: `nft_${nftId}`,
-      tags: ['nft', 'fashion', userId],
-      context: {
-        nft_id: nftId.replace(/[^a-zA-Z0-9]/g, '_'),
-        user_id: userId.replace(/[^a-zA-Z0-9]/g, '_'),
-        type: 'nft',
-      },
-      transformation: {
-        width: 1000,
-        height: 1000,
-        crop: 'fit',
-        quality: 90, 
-        format: 'png', 
-      },
-    });
+    return this.uploadDesignImage(file, designId, userId);
   }
+
   generateImageUrl(
     publicId: string,
-    transformation: ImageTransformOptions = {}
+    transformation: ImageTransformOptions = {},
   ): string {
     try {
       const transformationString = this.buildTransformation(transformation);
@@ -166,6 +186,7 @@ export class CloudinaryService {
       throw error;
     }
   }
+
   getImageVariants(publicId: string): {
     thumbnail: string;
     medium: string;
@@ -194,6 +215,7 @@ export class CloudinaryService {
       original: this.generateImageUrl(publicId),
     };
   }
+
   async deleteImage(publicId: string): Promise<void> {
     try {
       await cloudinary.uploader.destroy(publicId);
@@ -203,15 +225,16 @@ export class CloudinaryService {
       throw error;
     }
   }
+
   async getImageDetails(publicId: string): Promise<any> {
     try {
-      const result = await cloudinary.api.resource(publicId);
-      return result;
+      return await cloudinary.api.resource(publicId);
     } catch (error) {
       this.logger.error(`Failed to get image details: ${error.message}`);
       throw error;
     }
   }
+
   async searchImages(tags: string[], maxResults: number = 50): Promise<any[]> {
     try {
       const result = await cloudinary.search
@@ -224,6 +247,7 @@ export class CloudinaryService {
       throw error;
     }
   }
+
   private buildTransformation(options: ImageTransformOptions): any {
     const transformation: any = {};
     if (options.width) transformation.width = options.width;
@@ -235,7 +259,6 @@ export class CloudinaryService {
     if (options.gravity) transformation.gravity = options.gravity;
     return transformation;
   }
-
 
   async analyzeDesignImage(publicId: string): Promise<{
     colors: string[];
@@ -249,14 +272,22 @@ export class CloudinaryService {
         phash: true,
       });
       const colors = result.colors?.map((color: any) => color[0]) || [];
-      const autoTagResult = await cloudinary.uploader.upload(
-        cloudinary.url(publicId),
-        {
-          public_id: `${publicId}_analysis`,
-          categorization: 'google_tagging',
-          auto_tagging: 0.7,
-        }
-      );
+      const autoTagResult = await new Promise<UploadApiResponse>((resolve, reject) => {
+        cloudinary.uploader.upload(
+          cloudinary.url(publicId),
+          {
+            public_id: `${publicId}_analysis`,
+            categorization: 'google_tagging',
+            auto_tagging: 0.7,
+            timeout: this.uploadTimeoutMs,
+            agent: this.uploadAgent,
+          },
+          (error, uploadResult) => {
+            if (error) reject(error);
+            else resolve(uploadResult!);
+          },
+        );
+      });
       return {
         colors,
         tags: autoTagResult.tags || [],

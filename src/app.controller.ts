@@ -20,7 +20,6 @@ export class AppController {
         endpoints: {
           auth: '/auth',
           'ai-chat': '/ai-chat',
-          web3: '/web3',
           health: '/health'
       },
         testPages: {

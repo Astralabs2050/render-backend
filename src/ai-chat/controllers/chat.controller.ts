@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Body, Param, UseGuards, Req, Logger } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ChatService } from '../services/chat.service';
 import { InteractiveChatService } from '../services/interactive-chat.service';
@@ -23,6 +24,7 @@ export class ChatController {
       data: chat,
     };
   }
+  @SkipThrottle()
   @Get('token')
   async getStreamToken(@Req() req) {
     const userId = req.user.id;
@@ -37,6 +39,7 @@ export class ChatController {
       },
     };
   }
+  @SkipThrottle()
   @Post('message')
   async sendMessage(@Req() req, @Body() dto: SendMessageDto) {
     const userId = req.user.id;
@@ -58,6 +61,7 @@ export class ChatController {
       },
     };
   }
+  @SkipThrottle()
   @Get()
   async getChats(@Req() req) {
     const userId = req.user.id;
@@ -68,6 +72,7 @@ export class ChatController {
       data: chats,
     };
   }
+  @SkipThrottle()
   @Get(':id')
   async getChat(@Req() req, @Param('id') chatId: string) {
     const userId = req.user.id;

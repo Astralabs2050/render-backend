@@ -59,11 +59,12 @@ export class UsersController {
   @Post('brand-details')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('brandLogo', {
+    limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
-      if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg') {
+      if (['image/jpeg', 'image/jpg', 'image/png'].includes(file.mimetype)) {
         cb(null, true);
       } else {
-        cb(new Error('Only JPEG files are allowed'), false);
+        cb(new Error('Only JPG and PNG files are allowed'), false);
       }
     }
   }))

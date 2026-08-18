@@ -11,7 +11,7 @@ import { Measurements } from './entities/measurements.entity';
 import { UserDeliveryDetails } from './entities/user-delivery-details.entity';
 import { UserMeasurements } from './entities/user-measurements.entity';
 import { User } from '../users/entities/user.entity';
-import { NFT } from '../web3/entities/nft.entity';
+import { DesignRecord } from '../designs/entities/design-record.entity';
 import { JobController } from './controllers/job.controller';
 import { ChatController } from './controllers/chat.controller';
 import { JobService } from './services/job.service';
@@ -21,15 +21,15 @@ import { WorkflowService } from './services/workflow.service';
 import { NotificationService } from './services/notification.service';
 import { MarketplaceService } from './services/marketplace.service';
 import { UsersModule } from '../users/users.module';
-import { Web3Module } from '../web3/web3.module';
+import { DesignsModule } from '../designs/designs.module';
 import { JwtModule } from '@nestjs/jwt';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Job, JobApplication, SavedJob, Chat, Message, DeliveryDetails, Measurements, UserDeliveryDetails, UserMeasurements, User, NFT]),
+    TypeOrmModule.forFeature([Job, JobApplication, SavedJob, Chat, Message, DeliveryDetails, Measurements, UserDeliveryDetails, UserMeasurements, User, DesignRecord]),
     forwardRef(() => UsersModule),
-    Web3Module,
+    DesignsModule,
     forwardRef(() => NotificationsModule),
     JwtModule.registerAsync({
       imports: [ConfigModule],

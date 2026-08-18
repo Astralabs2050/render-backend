@@ -30,7 +30,6 @@
   },
   "dependencies": {
     "@google/genai": "^1.29.1",
-    "@hashgraph/sdk": "^2.75.0",
     "@nestjs/cache-manager": "^3.0.1",
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^3.1.1",
@@ -43,8 +42,6 @@
     "@nestjs/typeorm": "^10.0.0",
     "@nestjs/websockets": "^10.4.20",
     "@sendgrid/mail": "^8.1.5",
-    "@thirdweb-dev/sdk": "^4.0.99",
-    "@thirdweb-dev/wallets": "^2.5.39",
     "@types/multer": "^2.0.0",
     "@types/nodemailer": "^6.4.21",
     "aws-sdk": "^2.1692.0",

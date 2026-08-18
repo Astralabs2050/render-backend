@@ -6,7 +6,6 @@ import { RegisterDto, LoginDto, OtpVerificationDto, ResendOtpDto, ForgotPassword
 import { User } from '../users/entities/user.entity';
 import { Helpers } from '../common/utils/helpers';
 import { EmailService } from '../common/services/email.service';
-import { ThirdwebService } from '../web3/services/thirdweb.service';
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -15,7 +14,6 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private emailService: EmailService,
-    private thirdwebService: ThirdwebService,
   ) { }
   async register(registerDto: RegisterDto) {
     const otp = Helpers.generateOtp();
@@ -28,7 +26,7 @@ export class AuthService {
     await this.emailService.sendOtpEmail(user.email, otp);
     this.logger.log(`Registered new user: ${user.email} with OTP`);
     if (this.configService.get('NODE_ENV') === 'development') {
-      this.logger.debug(`DEV MODE: OTP for ${user.email} is ${otp}`);
+      this.logger.log(`DEV MODE: OTP for ${user.email} is ${otp}`);
     }
     return {
       status: true,
@@ -56,7 +54,7 @@ export class AuthService {
       await this.emailService.sendOtpEmail(user.email, otp);
       this.logger.log(`OTP sent to unverified user: ${email}`);
       if (this.configService.get('NODE_ENV') === 'development') {
-        this.logger.debug(`DEV MODE: OTP for unverified login ${email} is ${otp}`);
+        this.logger.log(`DEV MODE: OTP for unverified login ${email} is ${otp}`);
       }
       throw new UnauthorizedException('Account not verified. We\'ve sent a new OTP to your email. Please verify your account first.');
     }
@@ -97,26 +95,12 @@ export class AuthService {
       verified: true,
       otp: null,
     });
-    let walletAddress = null;
-    if (user.userType === 'creator') {
-      const wallet = await this.thirdwebService.generateWallet();
-      const encryptedPrivateKey = Helpers.encryptPrivateKey(wallet.privateKey);
-      await this.usersService.update(user.id, {
-        walletAddress: wallet.address,
-        walletPrivateKey: encryptedPrivateKey,
-      });
-      walletAddress = wallet.address;
-      updatedUser.walletAddress = wallet.address;
-      this.logger.log(`OTP verified and wallet created for creator: ${email}`);
-    } else {
-      this.logger.log(`OTP verified for maker: ${email} - wallet will be created after profile completion`);
-    }
+    this.logger.log(`OTP verified for ${user.userType}: ${email}`);
     const { accessToken, refreshToken } = this.generateTokens(updatedUser);
     return {
       status: true,
-      message: user.userType === 'creator' ? 'OTP verified successfully, wallet created' : 'OTP verified successfully',
+      message: 'OTP verified successfully',
       data: {
-        walletAddress,
         user: Helpers.sanitizeUser(updatedUser),
         accessToken,
         refreshToken
@@ -143,7 +127,7 @@ export class AuthService {
     await this.emailService.sendOtpEmail(user.email, otp);
     this.logger.log(`OTP resent for user: ${email}`);
     if (this.configService.get('NODE_ENV') === 'development') {
-      this.logger.debug(`DEV MODE: Resent OTP for ${email} is ${otp}`);
+      this.logger.log(`DEV MODE: Resent OTP for ${email} is ${otp}`);
     }
     return {
       status: true,
@@ -164,7 +148,7 @@ export class AuthService {
     await this.emailService.sendOtpEmail(user.email, otp);
     this.logger.log(`Password reset requested for user: ${email}`);
     if (this.configService.get('NODE_ENV') === 'development') {
-      this.logger.debug(`DEV MODE: Password reset OTP for ${email} is ${otp}`);
+      this.logger.log(`DEV MODE: Password reset OTP for ${email} is ${otp}`);
     }
     return {
       status: true,
@@ -213,15 +197,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
-  async getUserWallet(userId: string): Promise<{ address: string; balance: string }> {
-    const user = await this.usersService.findOne(userId);
-    if (!user.walletAddress) {
-      throw new NotFoundException('User wallet not found');
-    }
-    const balance = await this.thirdwebService.getWalletBalance(user.walletAddress);
+  async getUserWallet(userId: string): Promise<{ address: string | null; balance: string }> {
+    // Chain wallets removed — use GET /wallet/me for custodial balance
+    await this.usersService.findOne(userId);
     return {
-      address: user.walletAddress,
-      balance,
+      address: null,
+      balance: '0',
     };
   }
   private generateTokens(user: User): { accessToken: string; refreshToken: string } {

@@ -1,5 +1,5 @@
 import { IsString, IsNumber, IsDate, IsEnum } from 'class-validator';
-import { NFTStatus } from '../../web3/entities/nft.entity';
+import { DesignStatus } from '../../designs/entities/design-record.entity';
 
 export class CreateDesignInventoryDto {
   @IsString()
@@ -14,8 +14,8 @@ export class CreateDesignInventoryDto {
   @IsNumber()
   quantity: number;
 
-  @IsEnum(NFTStatus)
-  publishedStatus: NFTStatus;
+  @IsEnum(DesignStatus)
+  publishedStatus: DesignStatus;
 
   @IsString()
   designLink: string;

@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NFT } from '../../web3/entities/nft.entity';
+import { DesignRecord } from '../../designs/entities/design-record.entity';
 import { CreateDesignInventoryDto } from '../dto/create-design-inventory.dto';
 
 @Injectable()
@@ -9,13 +9,13 @@ export class DesignService {
   private readonly logger = new Logger(DesignService.name);
 
   constructor(
-    @InjectRepository(NFT)
-    private nftRepository: Repository<NFT>,
+    @InjectRepository(DesignRecord)
+    private designRepository: Repository<DesignRecord>,
   ) {}
 
   async getCreatorInventory(creatorId: string): Promise<CreateDesignInventoryDto[]> {
     try {
-      const designs = await this.nftRepository.find({
+      const designs = await this.designRepository.find({
         where: { creatorId },
         select: [
           'id',
@@ -53,7 +53,7 @@ export class DesignService {
 
   async getInventoryById(designId: string, creatorId: string): Promise<CreateDesignInventoryDto | null> {
     try {
-      const design = await this.nftRepository.findOne({
+      const design = await this.designRepository.findOne({
         where: { 
           id: designId,
           creatorId: creatorId
@@ -93,7 +93,7 @@ export class DesignService {
 
   async getDesignPublic(designId: string): Promise<CreateDesignInventoryDto | null> {
     try {
-      const design = await this.nftRepository.findOne({
+      const design = await this.designRepository.findOne({
         where: { id: designId },
         relations: ['creator'],
         select: {
@@ -139,9 +139,9 @@ export class DesignService {
     }
   }
 
-  async getDesignById(designId: string): Promise<NFT | null> {
+  async getDesignById(designId: string): Promise<DesignRecord | null> {
     try {
-      const design = await this.nftRepository.findOne({
+      const design = await this.designRepository.findOne({
         where: { id: designId },
         select: [
           'id',
@@ -149,8 +149,7 @@ export class DesignService {
           'creatorId',
           'imageUrl',
           'status',
-          'transactionHash',  // Required for marketplace publishing validation
-          'mintedAt',         // Required for marketplace publishing validation
+          'mintedAt',
           'quantity',
           'price',
           'metadata',

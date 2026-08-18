@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
-import { NFT, NFTStatus } from '../../web3/entities/nft.entity';
+import { DesignRecord, DesignStatus } from '../../designs/entities/design-record.entity';
 import { MarketplaceFilterDto, SortBy } from '../dto/marketplace-filter.dto';
 import { FashionCategory, CategoryService } from '../../common/enums/category.enum';
 
-export interface MarketplaceNFT {
+export interface MarketplaceItem {
   id: string;
   name: string;
   description: string;
@@ -13,7 +13,7 @@ export interface MarketplaceNFT {
   price: number;
   quantity: number;
   imageUrl: string;
-  status: NFTStatus;
+  status: DesignStatus;
   createdAt: Date;
   creator: {
     id: string;
@@ -28,7 +28,7 @@ export interface MarketplaceNFT {
 }
 
 export interface MarketplaceResponse {
-  items: MarketplaceNFT[];
+  items: MarketplaceItem[];
   total: number;
   page: number;
   limit: number;
@@ -45,8 +45,8 @@ export class MarketplaceService {
   private readonly logger = new Logger(MarketplaceService.name);
 
   constructor(
-    @InjectRepository(NFT)
-    private nftRepository: Repository<NFT>,
+    @InjectRepository(DesignRecord)
+    private designRepository: Repository<DesignRecord>,
   ) {}
 
   async browseMarketplace(filters: MarketplaceFilterDto): Promise<MarketplaceResponse> {
@@ -72,7 +72,7 @@ export class MarketplaceService {
       // Get filter options for frontend
       const filterOptions = await this.getFilterOptions();
       
-      const items: MarketplaceNFT[] = nfts.map(nft => ({
+      const items: MarketplaceItem[] = nfts.map(nft => ({
         id: nft.id,
         name: nft.name,
         description: nft.description,
@@ -109,13 +109,13 @@ export class MarketplaceService {
     }
   }
 
-  async getMarketplaceItem(id: string): Promise<MarketplaceNFT | null> {
+  async getMarketplaceItem(id: string): Promise<MarketplaceItem | null> {
     try {
-      const nft = await this.nftRepository
+      const nft = await this.designRepository
         .createQueryBuilder('nft')
         .leftJoinAndSelect('nft.creator', 'creator')
         .where('nft.id = :id', { id })
-        .andWhere('nft.status = :status', { status: NFTStatus.LISTED })
+        .andWhere('nft.status = :status', { status: DesignStatus.LISTED })
         .select([
           'nft.id',
           'nft.name',
@@ -160,11 +160,11 @@ export class MarketplaceService {
     }
   }
 
-  private createBaseQuery(): SelectQueryBuilder<NFT> {
-    return this.nftRepository
+  private createBaseQuery(): SelectQueryBuilder<DesignRecord> {
+    return this.designRepository
       .createQueryBuilder('nft')
       .leftJoinAndSelect('nft.creator', 'creator')
-      .where('nft.status = :status', { status: NFTStatus.LISTED })
+      .where('nft.status = :status', { status: DesignStatus.LISTED })
       .andWhere('nft.quantity > 0') // Only show items with available quantity
       .select([
         'nft.id',
@@ -183,7 +183,7 @@ export class MarketplaceService {
       ]);
   }
 
-  private applyFilters(queryBuilder: SelectQueryBuilder<NFT>, filters: MarketplaceFilterDto): void {
+  private applyFilters(queryBuilder: SelectQueryBuilder<DesignRecord>, filters: MarketplaceFilterDto): void {
     // Search by name or description
     if (filters.search) {
       queryBuilder.andWhere(
@@ -221,7 +221,7 @@ export class MarketplaceService {
     }
   }
 
-  private applySorting(queryBuilder: SelectQueryBuilder<NFT>, sortBy?: SortBy): void {
+  private applySorting(queryBuilder: SelectQueryBuilder<DesignRecord>, sortBy?: SortBy): void {
     switch (sortBy) {
       case SortBy.PRICE_LOW_TO_HIGH:
         queryBuilder.orderBy('nft.price', 'ASC');
@@ -248,10 +248,10 @@ export class MarketplaceService {
 
   private async getFilterOptions() {
     // Get available categories from database
-    const dbCategories = await this.nftRepository
+    const dbCategories = await this.designRepository
       .createQueryBuilder('nft')
       .select('DISTINCT nft.category', 'category')
-      .where('nft.status = :status', { status: NFTStatus.LISTED })
+      .where('nft.status = :status', { status: DesignStatus.LISTED })
       .getRawMany();
 
     // Normalize categories and include all standard categories
@@ -269,18 +269,18 @@ export class MarketplaceService {
     CategoryService.getAllCategories().forEach(cat => availableCategories.add(cat));
 
     // Get price range
-    const priceRange = await this.nftRepository
+    const priceRange = await this.designRepository
       .createQueryBuilder('nft')
       .select('MIN(nft.price)', 'min')
       .addSelect('MAX(nft.price)', 'max')
-      .where('nft.status = :status', { status: NFTStatus.LISTED })
+      .where('nft.status = :status', { status: DesignStatus.LISTED })
       .getRawOne();
 
     // Get available regions
-    const regions = await this.nftRepository
+    const regions = await this.designRepository
       .createQueryBuilder('nft')
       .select("DISTINCT nft.metadata->>'regionOfDelivery'", 'region')
-      .where('nft.status = :status', { status: NFTStatus.LISTED })
+      .where('nft.status = :status', { status: DesignStatus.LISTED })
       .andWhere("nft.metadata->>'regionOfDelivery' IS NOT NULL")
       .getRawMany();
 

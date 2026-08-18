@@ -3,14 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ChatService } from './chat.service';
 import { DesignWorkflowService } from './design-workflow.service';
-import { NFTService } from '../../web3/services/nft.service';
 import { JobService } from '../../marketplace/services/job.service';
 import { OpenAIService } from './openai.service';
 import { StreamChatService } from './stream-chat.service';
 import { PromptService } from './prompt.service';
 import { CreditService } from '../../credits/services/credit.service';
 import { AIActionType } from '../../credits/entities/credit-transaction.entity';
-import { SendMessageDto } from '../dto/chat.dto';
+import { SendMessageDto, AIModel } from '../dto/chat.dto';
 import { ChatState, ChatMessage } from '../entities/chat.entity';
 
 // ─── Intake sub-steps ──────────────────────────────────────────────────────────
@@ -31,7 +30,6 @@ export class InteractiveChatService {
   constructor(
     private readonly chatService: ChatService,
     private readonly designWorkflowService: DesignWorkflowService,
-    private readonly nftService: NFTService,
     private readonly jobService: JobService,
     private readonly openaiService: OpenAIService,
     private readonly streamChatService: StreamChatService,
@@ -51,22 +49,18 @@ export class InteractiveChatService {
 
     await this.streamChatService.createChannel(chat.id, userId);
 
-    // Welcome message — introduces Astra and immediately asks the fabric question
-    // which is the fork between Path A (has fabric) and Path B (has an idea)
+    // Welcome is already stored as an assistant message in createChat.
+    // Do NOT save it as a user message — that blocked the intake flow and hid replies.
     const welcomeMessage = this.promptService.getPromptForState(
       ChatState.WELCOME,
       true,
     );
 
     await this.streamChatService.sendAIMessage(chat.id, welcomeMessage);
-    await this.chatService.sendMessage(userId, {
-      chatId: chat.id,
-      content: welcomeMessage,
-    });
 
-    // Store the first intake sub-step in metadata so we know what we're waiting for
     await this.chatService.updateChat(chat.id, {
       metadata: {
+        managedByInteractive: true,
         intakeStep: 'fabric_question' as IntakeStep,
         hasFabric: null,
         occasion: null,
@@ -109,13 +103,15 @@ export class InteractiveChatService {
     }
 
     // Save the user's message
+    const fabricImage = dto.imageBase64 || dto.sketchData;
     const messageData: any = {
       chatId: dto.chatId,
-      content: dto.content,
+      content: dto.content || (fabricImage ? '[fabric photo]' : ''),
+      imageBase64: dto.imageBase64,
     };
 
-    if (dto.sketchData) {
-      messageData.metadata = { sketchData: dto.sketchData };
+    if (fabricImage) {
+      messageData.metadata = { hasImage: true };
     }
 
     await this.chatService.sendMessage(userId, messageData);
@@ -131,21 +127,22 @@ export class InteractiveChatService {
       return this.handleDesignAction(userId, dto, chat);
     }
 
-    await this.streamChatService.syncUserMessageToDatabase(
-      dto.chatId,
-      dto.content,
-      userId,
-    );
-
     // Route by state
     switch (chat.state) {
       case ChatState.WELCOME:
       case ChatState.INTENT:
       case ChatState.INFO_GATHER:
-        // All intake states handled by the structured intake flow
-        return this.handleIntake(userId, dto.chatId, sanitizedContent, dto.sketchData);
+        return this.handleIntake(
+          userId,
+          dto.chatId,
+          sanitizedContent,
+          fabricImage,
+        );
 
       case ChatState.DESIGN_PREVIEW:
+        return this.handleDesignSelection(userId, dto.chatId, sanitizedContent);
+
+      case ChatState.DESIGN_APPROVED:
         return this.handleDesignSelection(userId, dto.chatId, sanitizedContent);
 
       default:
@@ -175,6 +172,16 @@ export class InteractiveChatService {
       // User answers whether they have fabric or not.
       // This is the fork between Path A and Path B.
       case 'fabric_question': {
+        // Ignore echoed welcome / empty pings
+        if (
+          !content.trim() && !sketchData
+        ) {
+          return { chatId, state: chat.state, aiResponse: null };
+        }
+        if (/hi!?\s*i'?m astra/i.test(content)) {
+          return { chatId, state: chat.state, aiResponse: null };
+        }
+
         const hasFabric = await this.detectFabricAnswer(content);
 
         if (hasFabric === null) {
@@ -224,7 +231,7 @@ export class InteractiveChatService {
       // ── Step 2a: fabric photo (Path A only) ────────────────────────────────
       // Wait for an image upload. If no image yet, keep asking.
       case 'fabric_photo': {
-        const hasPhoto = !!sketchData || await this.detectImageInMessage(content);
+        const hasPhoto = this.hasFabricPhoto(chat, content, sketchData);
 
         if (!hasPhoto) {
           const nudge =
@@ -233,7 +240,6 @@ export class InteractiveChatService {
           return { chatId, state: 'info_gather', aiResponse: nudge };
         }
 
-        // Photo received — extract description and move to occasion
         const fabricDescription = await this.describeFabricFromPhoto(
           content,
           sketchData,
@@ -245,6 +251,7 @@ export class InteractiveChatService {
           metadata: {
             ...metadata,
             fabricDescription,
+            hasFabricPhoto: true,
             intakeStep: 'occasion' as IntakeStep,
           },
         });
@@ -316,7 +323,7 @@ export class InteractiveChatService {
       // ── Step 5: ready to generate ───────────────────────────────────────────
       // User confirmed — check credits and generate (or stub for week 1).
       case 'ready_to_generate': {
-        const isConfirming = await this.isUserConfirming(content);
+        const isConfirming = this.isUserConfirming(content);
 
         if (!isConfirming) {
           // User wants to change something — go back to style question
@@ -370,47 +377,58 @@ export class InteractiveChatService {
 
         let result;
         try {
-          // ── WEEK 1: stub ───────────────────────────────────────────────────
-          // Real gpt-image-2 integration comes in week 2.
-          // For now, return placeholder images so the full conversation flow
-          // can be tested end-to-end without the image API.
-          // Replace this block in week 2 with the real call:
-          //
-          //   result = await this.designWorkflowService.processDesignRequest(userId, {
-          //     prompt: designPrompt,
-          //     fabricImageBase64,
-          //     model: chat.metadata?.preferredModel,
-          //     chatId,
-          //   });
-          //
-          result = {
-            designImages: [
-              'https://placehold.co/600x800?text=Design+1',
-              'https://placehold.co/600x800?text=Design+2',
-              'https://placehold.co/600x800?text=Design+3',
-            ],
-          };
-          // ── END WEEK 1 STUB ────────────────────────────────────────────────
+          const selectedModel = AIModel.GEMINI;
+
+          result = await this.designWorkflowService.processDesignRequest(userId, {
+            prompt: designPrompt,
+            fabricImageBase64: fabricImageBase64 || undefined,
+            model: selectedModel,
+            chatId,
+          });
         } catch (error) {
-          // Refund credits if generation fails
           await this.creditService.refundCredits(
             userId,
             1,
             'Design generation failed',
             chatId,
           );
-          throw error;
+          const failMsg =
+            'I could not generate designs this time. Your credit was refunded — tap generate again.';
+          await this.streamChatService.sendAIMessage(chatId, failMsg);
+          return { chatId, state: 'info_gather', aiResponse: failMsg };
         }
 
-        const images = result.designImages || [];
+        const images = (result.designImages || []).filter(
+          (url) => url && !url.includes('placeholder') && !url.includes('placehold.co'),
+        );
+        if (!images.length) {
+          await this.creditService.refundCredits(
+            userId,
+            1,
+            'Design generation returned no images',
+            chatId,
+          );
+          const failMsg =
+            'I could not generate designs this time. Your credit was refunded — tap generate again.';
+          await this.streamChatService.sendAIMessage(chatId, failMsg);
+          return { chatId, state: 'info_gather', aiResponse: failMsg };
+        }
+
         const newBalance = await this.creditService.getBalance(userId);
 
         const completionMsg =
           `Here are your 3 designs for your ${metadata.occasion || 'occasion'} 🎨 Which one feels most like you?\n\n` +
-          images.map((url, i) => `**Design ${i + 1}:** ${url}`).join('\n') +
+          images.map((url, i) => `**Design ${i + 1}:**`).join('\n') +
           `\n\n💳 Credits remaining: ${newBalance}`;
 
-        await this.streamChatService.sendAIMessage(chatId, completionMsg);
+        const attachments = images.map((url, i) => ({
+          type: 'image',
+          image_url: url,
+          thumb_url: url,
+          fallback: `Design ${i + 1}`,
+        }));
+
+        await this.streamChatService.sendAIMessage(chatId, completionMsg, attachments);
         await this.chatService.updateChat(chatId, {
           state: ChatState.DESIGN_PREVIEW,
           metadata: {
@@ -427,6 +445,7 @@ export class InteractiveChatService {
           designPreviews: images,
           aiResponse: completionMsg,
           creditBalance: newBalance,
+          quickButtons: this.promptService.getQuickButtons(ChatState.DESIGN_PREVIEW),
         };
       }
 
@@ -449,10 +468,43 @@ export class InteractiveChatService {
       .map((m) => `${m.role}: ${m.content}`)
       .join('\n');
 
+    const designSelection = this.detectDesignSelection(content);
+    if (designSelection) {
+      const chatWithPick = {
+        ...chat,
+        metadata: {
+          ...chat.metadata,
+          selectedDesign: designSelection,
+          selectedVariety: designSelection,
+          selectedVariation: designSelection,
+          confirmVariationRequested: false,
+        },
+      };
+      await this.chatService.updateChat(chatId, {
+        metadata: chatWithPick.metadata,
+      });
+      return this.saveSelectedLook(userId, chatId, chatWithPick);
+    }
+
+    if (/^i love this( one)?$/i.test(content.trim())) {
+      const pickMsg = this.promptService.getPromptForState(
+        ChatState.DESIGN_PREVIEW,
+        true,
+        chat.metadata,
+      );
+      await this.streamChatService.sendAIMessage(chatId, pickMsg);
+      return {
+        chatId,
+        state: 'design_preview',
+        aiResponse: pickMsg,
+        quickButtons: this.promptService.getQuickButtons(ChatState.DESIGN_PREVIEW),
+      };
+    }
+
     // Check if waiting for variation confirmation
     if (chat.metadata?.confirmVariationRequested) {
-      const confirm = await this.isUserConfirming(content);
-      if (confirm) {
+      const decision = this.classifyYesNo(content);
+      if (decision === 'yes') {
         const hasCredits = await this.creditService.hasEnoughCredits(
           userId,
           AIActionType.DESIGN_VARIATION,
@@ -487,7 +539,7 @@ export class InteractiveChatService {
             userId,
             chatId,
             enhancedPrompt,
-            chat.metadata?.preferredModel,
+            AIModel.GEMINI,
           );
         } catch (error) {
           await this.creditService.refundCredits(
@@ -496,12 +548,24 @@ export class InteractiveChatService {
             'Variation generation failed',
             chatId,
           );
-          throw error;
+          const failMsg =
+            'I could not generate new designs this time. Your credit was refunded — try again in a moment.';
+          await this.streamChatService.sendAIMessage(chatId, failMsg);
+          return { chatId, state: 'design_preview', aiResponse: failMsg };
         }
 
         const newBalance = await this.creditService.getBalance(userId);
+        const images = (result.designImages || []).filter(
+          (url) => url && !url.includes('placeholder') && !url.includes('placehold.co'),
+        );
         const reply = `Here are your new variations! Which one do you prefer?\n\n💳 Credits remaining: ${newBalance}`;
-        await this.streamChatService.sendAIMessage(chatId, reply);
+        const attachments = images.map((url, i) => ({
+          type: 'image',
+          image_url: url,
+          thumb_url: url,
+          fallback: `Design ${i + 1}`,
+        }));
+        await this.streamChatService.sendAIMessage(chatId, reply, attachments);
         await this.chatService.updateChat(chatId, {
           metadata: {
             ...chat.metadata,
@@ -514,24 +578,51 @@ export class InteractiveChatService {
           chatId,
           state: 'design_preview',
           aiResponse: reply,
+          designPreviews: images,
           creditBalance: newBalance,
+          quickButtons: this.promptService.getQuickButtons(ChatState.DESIGN_PREVIEW),
         };
-      } else {
-        const pendingMod = chat.metadata?.pendingModification || '';
+      }
+
+      if (decision === 'no') {
+        const keepMsg =
+          "We'll keep your current designs — no new generation. Which one feels most like you?";
+        await this.streamChatService.sendAIMessage(chatId, keepMsg);
         await this.chatService.updateChat(chatId, {
           metadata: {
             ...chat.metadata,
-            pendingModification: `${pendingMod} ${content}`.trim(),
+            confirmVariationRequested: false,
+            pendingModification: null,
           },
         });
-        const msg = "Got it! Anything else to add, or shall I generate with those changes? (yes/no)";
-        await this.streamChatService.sendAIMessage(chatId, msg);
-        return { chatId, state: 'design_preview', aiResponse: msg };
+        return {
+          chatId,
+          state: 'design_preview',
+          aiResponse: keepMsg,
+          quickButtons: this.promptService.getQuickButtons(ChatState.DESIGN_PREVIEW),
+        };
       }
+
+      const pendingMod = chat.metadata?.pendingModification || '';
+      await this.chatService.updateChat(chatId, {
+        metadata: {
+          ...chat.metadata,
+          pendingModification: `${pendingMod} ${content}`.trim(),
+        },
+      });
+      const msg =
+        "Noted. Say yes when you want me to generate with those changes, or no to keep the designs you already have.";
+      await this.streamChatService.sendAIMessage(chatId, msg);
+      return {
+        chatId,
+        state: 'design_preview',
+        aiResponse: msg,
+        quickButtons: ['Yes, generate', 'No, keep these'],
+      };
     }
 
     // Check if user wants a new variation
-    const wantsVariation = await this.wantsNewVariation(content);
+    const wantsVariation = this.wantsNewVariation(content);
     if (wantsVariation) {
       const hasCredits = await this.creditService.hasEnoughCredits(
         userId,
@@ -566,54 +657,16 @@ export class InteractiveChatService {
       };
     }
 
-    // Check if user is selecting a specific design
-    const designSelection = await this.detectDesignSelection(content);
-    if (designSelection) {
-      const confirmMsg = `Great choice! You've selected ${designSelection}. Want to move forward with this design and find a tailor to make it?`;
-      await this.streamChatService.sendAIMessage(chatId, confirmMsg);
-      await this.chatService.updateChat(chatId, {
-        metadata: {
-          ...chat.metadata,
-          selectedDesign: designSelection,
-          awaitingMintConfirmation: true,
-        },
-      });
+    if (this.classifyYesNo(content) === 'no') {
+      const stayMsg =
+        "No problem. We'll keep the designs you have. Which one feels most like you?";
+      await this.streamChatService.sendAIMessage(chatId, stayMsg);
       return {
         chatId,
         state: 'design_preview',
-        aiResponse: confirmMsg,
-        quickButtons: ['Yes, find me a tailor', 'No, show me more options'],
+        aiResponse: stayMsg,
+        quickButtons: this.promptService.getQuickButtons(ChatState.DESIGN_PREVIEW),
       };
-    }
-
-    // Check if user is confirming design and moving to tailor
-    if (chat.metadata?.awaitingMintConfirmation) {
-      const confirmMinting = await this.isUserConfirming(content);
-      if (confirmMinting) {
-        const handoffMsg = `Let's find you a tailor! I'm preparing your design brief now.`;
-        await this.streamChatService.sendAIMessage(chatId, handoffMsg);
-        await this.chatService.updateChat(chatId, {
-          state: ChatState.DESIGN_APPROVED,
-          metadata: {
-            ...chat.metadata,
-            awaitingMintConfirmation: false,
-            readyForMinting: true,
-            selectedVariation: chat.metadata?.selectedDesign,
-          },
-        });
-        return { chatId, state: 'design_approved', aiResponse: handoffMsg };
-      } else {
-        const cancelMsg = `No problem! Take your time — which of the three designs do you prefer?`;
-        await this.streamChatService.sendAIMessage(chatId, cancelMsg);
-        await this.chatService.updateChat(chatId, {
-          metadata: {
-            ...chat.metadata,
-            awaitingMintConfirmation: false,
-            selectedDesign: null,
-          },
-        });
-        return { chatId, state: 'design_preview', aiResponse: cancelMsg };
-      }
     }
 
     // General comment on the designs
@@ -624,6 +677,75 @@ export class InteractiveChatService {
     );
     await this.streamChatService.sendAIMessage(chatId, aiResponse);
     return { chatId, state: 'design_preview', aiResponse };
+  }
+
+  private async saveSelectedLook(
+    userId: string,
+    chatId: string,
+    chat: any,
+  ) {
+    const variety =
+      chat.metadata?.selectedDesign ||
+      chat.metadata?.selectedVariety ||
+      chat.metadata?.selectedVariation;
+    if (!variety || !/^variation_[123]$/.test(String(variety))) {
+      const pickMsg = this.promptService.getPromptForState(
+        ChatState.DESIGN_PREVIEW,
+        true,
+        chat.metadata,
+      );
+      await this.streamChatService.sendAIMessage(chatId, pickMsg);
+      return {
+        chatId,
+        state: 'design_preview',
+        aiResponse: pickMsg,
+        quickButtons: this.promptService.getQuickButtons(ChatState.DESIGN_PREVIEW),
+      };
+    }
+
+    let design;
+    try {
+      const occasion = chat.metadata?.occasion
+        ? `${chat.metadata.occasion} design`
+        : undefined;
+      design = await this.designWorkflowService.saveSelectedDesignForCreator(
+        userId,
+        chatId,
+        String(variety),
+        occasion,
+      );
+    } catch (error) {
+      const failMsg = `I couldn't save that design yet: ${error.message}. Please try again.`;
+      await this.streamChatService.sendAIMessage(chatId, failMsg);
+      return { chatId, state: 'design_preview', aiResponse: failMsg };
+    }
+
+    const approvedMsg = this.promptService.getPromptForState(
+      ChatState.DESIGN_APPROVED,
+      true,
+      chat.metadata,
+    );
+    await this.streamChatService.sendAIMessage(chatId, approvedMsg);
+    await this.chatService.updateChat(chatId, {
+      state: ChatState.DESIGN_APPROVED,
+      designId: design.id,
+      metadata: {
+        ...chat.metadata,
+        awaitingMintConfirmation: false,
+        selectedVariety: variety,
+        selectedVariation: variety,
+        selectedDesign: variety,
+      },
+    });
+    return {
+      chatId,
+      state: 'design_approved',
+      aiResponse: approvedMsg,
+      design,
+      designId: design.id,
+      selectedVariation: variety,
+      selectedImageUrl: design.imageUrl,
+    };
   }
 
   // ─── General message handler ───────────────────────────────────────────────
@@ -665,7 +787,7 @@ export class InteractiveChatService {
         const basePrompt = this.buildStructuredDesignPrompt(chatNow.metadata);
         let result;
         try {
-          result = await this.designWorkflowService.processDesignVariation(userId, dto.chatId, `${basePrompt} ${dto.content}`, chatNow.metadata?.preferredModel);
+          result = await this.designWorkflowService.processDesignVariation(userId, dto.chatId, `${basePrompt} ${dto.content}`, AIModel.GEMINI);
         } catch (error) {
           await this.creditService.refundCredits(userId, 1, 'Variation generation failed', dto.chatId);
           throw error;
@@ -721,30 +843,19 @@ export class InteractiveChatService {
       }
 
       if (action === 'design:publish') {
-        const reply = 'Ready to mint. Please provide transaction hash via action design:mint with content {"transactionHash":"0x..."}.';
-        await this.streamChatService.sendAIMessage(dto.chatId, reply);
-        return { chatId: dto.chatId, aiResponse: reply, web3Required: true };
-      }
-
-      if (action === 'design:mint') {
-        let payload: any = {};
-        try { payload = JSON.parse(dto.content || '{}'); } catch {}
-        const tx = payload.transactionHash;
-        if (!tx) {
-          const reply = 'Please send transactionHash: {"transactionHash":"0x..."}';
-          await this.streamChatService.sendAIMessage(dto.chatId, reply);
-          return { chatId: dto.chatId, aiResponse: reply };
-        }
         const chatNow = await this.chatService.getChat(userId, dto.chatId);
-        if (!chatNow.nftId) {
-          const reply = 'No approved design found. Approve first with design:approve.';
+        if (!chatNow.designId) {
+          const reply = 'No saved design found yet. Pick a look first.';
           await this.streamChatService.sendAIMessage(dto.chatId, reply);
           return { chatId: dto.chatId, aiResponse: reply };
         }
-        const nft = await this.designWorkflowService.mintAndPublishDesign(userId, chatNow.nftId, tx);
-        const reply = `Minted and published. NFT ${nft.id} is now live.`;
+        const design = await this.designWorkflowService.mintAndPublishDesign(
+          userId,
+          chatNow.designId,
+        );
+        const reply = `Design published. It is live as ${design.id}.`;
         await this.streamChatService.sendAIMessage(dto.chatId, reply);
-        return { chatId: dto.chatId, aiResponse: reply, nft };
+        return { chatId: dto.chatId, aiResponse: reply, design };
       }
 
     } catch (err) {
@@ -783,33 +894,57 @@ Respond naturally. Keep it short — one or two sentences. Guide toward the next
   // ─── AI helper: detect fabric answer ──────────────────────────────────────
   // Returns true (has fabric), false (no fabric), or null (unclear)
   private async detectFabricAnswer(content: string): Promise<boolean | null> {
-    const lower = content.toLowerCase();
+    const text = (content || '').trim().toLowerCase();
+    if (!text) return null;
 
-    // Fast keyword check first — saves an API call for obvious answers
-    const yesWords = ['yes', 'yeah', 'yep', 'yup', 'i have', 'i do', 'got', 'have fabric', 'have a fabric'];
-    const noWords = ['no', 'nope', 'nah', 'don\'t have', 'no fabric', 'just an idea', 'just idea', 'idea only'];
-
-    if (yesWords.some((w) => lower.includes(w))) return true;
-    if (noWords.some((w) => lower.includes(w))) return false;
-
-    // Ambiguous — ask GPT-4o to decide
-    try {
-      const response = await this.openaiService.generateResponse(
-        `The user was asked "Do you have a fabric you'd like to use?"
-Their reply: "${content}"
-Do they have fabric? Reply with exactly one word: YES, NO, or UNCLEAR.`,
-      );
-      const r = response.trim().toUpperCase();
-      if (r === 'YES') return true;
-      if (r === 'NO') return false;
-      return null;
-    } catch {
-      return null;
+    if (
+      /\b(nope|nah|no fabric|don'?t have|do not have|from scratch|scratch|an idea|just an idea|just idea|idea only|starting from an idea|from an idea)\b/.test(
+        text,
+      ) ||
+      text === 'idea' ||
+      text === 'an idea' ||
+      text === 'no'
+    ) {
+      return false;
     }
+
+    if (
+      /\b(yes|yeah|yep|yup|i have|i do|have fabric|have a fabric|got fabric)\b/.test(
+        text,
+      )
+    ) {
+      return true;
+    }
+
+    // Don't block the chat on OpenAI — ask a clear follow-up instead
+    return null;
   }
 
   // ─── AI helper: detect image in message ───────────────────────────────────
-  private async detectImageInMessage(content: string): Promise<boolean> {
+  private hasFabricPhoto(
+    chat: { messages?: ChatMessage[]; metadata?: Record<string, any> },
+    content: string,
+    sketchData?: string,
+  ): boolean {
+    if (sketchData) return true;
+    if (chat.metadata?.hasFabricPhoto) return true;
+    if (this.detectImageInMessage(content)) return true;
+
+    const saidAlreadySent =
+      /(already (sent|uploaded|shared|sent a)|i (sent|uploaded|attached)|here('s| is) (the |my )?(photo|image|fabric))/i.test(
+        content || '',
+      );
+    const priorImage = (chat.messages || []).some(
+      (m) =>
+        m.role === 'user' &&
+        (Boolean(m.imageUrl) ||
+          Boolean(m.metadata?.hasImage) ||
+          Boolean(m.metadata?.sketchData)),
+    );
+    return saidAlreadySent && priorImage ? true : saidAlreadySent || priorImage;
+  }
+
+  private detectImageInMessage(content: string): boolean {
     // Check for common image-related phrases as a lightweight signal
     const imageWords = ['uploaded', 'here it is', 'photo', 'image', 'picture', 'attached'];
     return imageWords.some((w) => content.toLowerCase().includes(w));
@@ -899,50 +1034,56 @@ JSON only:`,
     return null;
   }
 
+  private classifyYesNo(content: string): 'yes' | 'no' | 'other' {
+    const lower = (content || '').toLowerCase().trim();
+    if (!lower) return 'other';
+    if (
+      /^(nope|nah|no)\b/.test(lower) ||
+      /\b(no specifics|nothing else|no thanks|not yet|don't generate|do not generate|keep (these|this|it)|that's all|thats all)\b/.test(
+        lower,
+      )
+    ) {
+      return 'no';
+    }
+    if (
+      /^(yes|yeah|yep|yup|sure|ok|okay)\b/.test(lower) ||
+      (lower.length < 48 &&
+        /\b(go ahead|generate|proceed|do it)\b/.test(lower))
+    ) {
+      return 'yes';
+    }
+    return 'other';
+  }
+
   // ─── AI helper: is user confirming ────────────────────────────────────────
-  private async isUserConfirming(content: string): Promise<boolean> {
-    const lower = content.toLowerCase().trim();
-    const yesWords = ['yes', 'yeah', 'yep', 'yup', 'go ahead', 'do it', 'proceed', 'generate', 'sure', 'ok', 'okay', 'let\'s go'];
-    if (yesWords.some((w) => lower.includes(w))) return true;
-    if (lower.startsWith('no') || lower.includes('don\'t') || lower.includes('not yet')) return false;
-
-    try {
-      const response = await this.openaiService.generateResponse(
-        `Is the user confirming they want to proceed? Message: "${content}". Reply with exactly: CONFIRM or HOLD`,
-      );
-      return response.trim().toUpperCase() === 'CONFIRM';
-    } catch {
-      return false;
-    }
+  private isUserConfirming(content: string): boolean {
+    return this.classifyYesNo(content) === 'yes';
   }
 
-  // ─── AI helper: wants new variation ───────────────────────────────────────
-  private async wantsNewVariation(content: string): Promise<boolean> {
-    try {
-      const response = await this.openaiService.generateResponse(
-        `Is the user asking for new/different design variations, or are they selecting/commenting on existing ones?
-Message: "${content}"
-Reply with exactly: NEW or SELECT`,
-      );
-      return response.trim().toUpperCase() === 'NEW';
-    } catch {
+  // ─── Helper: wants new variation ───────────────────────────────────────────
+  private wantsNewVariation(content: string): boolean {
+    const t = (content || '').toLowerCase().trim();
+    if (this.classifyYesNo(t) === 'no') return false;
+    if (/specific details like what|what do you mean|like what\??$/.test(t)) {
       return false;
     }
+    return /\b(generat|another variation|new variation|different (design|one|look)|more options|show me more|show me variations|try again)\b/.test(
+      t,
+    );
   }
 
-  // ─── AI helper: detect design selection ───────────────────────────────────
-  private async detectDesignSelection(content: string): Promise<string | null> {
-    try {
-      const response = await this.openaiService.generateResponse(
-        `Is the user selecting a specific design variation?
-Message: "${content}"
-If yes, reply with the variation in format variation_1, variation_2, or variation_3.
-If no, reply with: NONE`,
-      );
-      const result = response.trim().toLowerCase();
-      return result.match(/variation_[123]/)?.[0] || null;
-    } catch {
-      return null;
+  // ─── Helper: detect design selection ───────────────────────────────────────
+  private detectDesignSelection(content: string): string | null {
+    const t = (content || '').toLowerCase().trim();
+    if (/\b(variation[\s_-]*1|design 1|first one|the first)\b/.test(t)) {
+      return 'variation_1';
     }
+    if (/\b(variation[\s_-]*2|design 2|second one|the second)\b/.test(t)) {
+      return 'variation_2';
+    }
+    if (/\b(variation[\s_-]*3|design 3|third one|the third)\b/.test(t)) {
+      return 'variation_3';
+    }
+    return null;
   }
 }

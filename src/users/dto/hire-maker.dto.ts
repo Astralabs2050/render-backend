@@ -21,7 +21,7 @@ export class BudgetRangeDto {
 export class HireMakerDto {
   @IsUUID()
   @IsNotEmpty()
-  designId: string; // The NFT design they want to hire a maker for
+  designId: string;
 
   @IsString()
   @IsOptional()

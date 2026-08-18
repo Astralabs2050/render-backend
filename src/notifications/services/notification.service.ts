@@ -26,6 +26,7 @@ export class NotificationService {
     NotificationType.CREDITS_FINISHED,
     NotificationType.CREDITS_LOW,
     NotificationType.JOB_ACCEPTED,
+    NotificationType.JOB_APPLICATION,
     NotificationType.ESCROW_RELEASED,
   ];
 
@@ -169,8 +170,9 @@ export class NotificationService {
       title: 'New job application',
       message: `${applicantName} applied for "${job.title}"`,
       priority: NotificationPriority.NORMAL,
-      actionUrl: `/jobs/${job.id}/applications`,
+      actionUrl: `/dashboard/applications`,
       metadata: { jobId: job.id, applicantName },
+      sendEmail: true,
     });
   }
 

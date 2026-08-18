@@ -97,6 +97,16 @@ export class User extends BaseEntity {
   @Column({ type: 'int', default: 0 })
   creditBalance: number;
 
+  /** Saved payout bank details (Payment Settings) */
+  @Column({ nullable: true })
+  bankName: string;
+
+  @Column({ nullable: true })
+  accountNumber: string;
+
+  @Column({ nullable: true })
+  accountName: string;
+
   @OneToMany(() => OAuthProvider, oauthProvider => oauthProvider.user)
   oauthProviders: OAuthProvider[];
 }

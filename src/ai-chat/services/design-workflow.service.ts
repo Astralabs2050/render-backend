@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { OpenAIService } from './openai.service';
-import { NFTService } from '../../web3/services/nft.service';
+import { DesignRecordService } from '../../designs/services/design-record.service';
 import { JobService } from '../../marketplace/services/job.service';
 import { ApproveDesignDto, SimpleApproveDesignDto } from '../dto/design.dto';
 import { AIModel } from '../dto/chat.dto';
 import { ChatState } from '../entities/chat.entity';
-import { NFTStatus } from '../../web3/entities/nft.entity';
+import { DesignStatus } from '../../designs/entities/design-record.entity';
 
 // Interface for design request 
 interface DesignRequestDto {
@@ -21,10 +21,10 @@ export class DesignWorkflowService {
   constructor(
     private readonly chatService: ChatService,
     private readonly openaiService: OpenAIService,
-    private readonly nftService: NFTService,
+    private readonly designRecordService: DesignRecordService,
     private readonly jobService: JobService,
   ) {}
-  async processDesignVariation(userId: string, chatId: string, prompt: string, model: AIModel = AIModel.OPENAI) {
+  async processDesignVariation(userId: string, chatId: string, prompt: string, model: AIModel = AIModel.GEMINI) {
     try {
       this.logger.log(`Processing design variation for chat ${chatId}: ${prompt} using ${model}`);
 
@@ -40,15 +40,7 @@ export class DesignWorkflowService {
 
       for (let i = 0; i < 3; i++) {
         try {
-          let imageUrl: string;
-
-          // Use selected model
-          if (model === AIModel.OPENAI) {
-            imageUrl = await this.openaiService.generateConsistentDesignImageWithDALLE(prompt, baseStylePrompt, i);
-          } else {
-         
-            imageUrl = await this.openaiService.generateConsistentDesignImage(prompt, baseStylePrompt, i);
-          }
+          const imageUrl = await this.openaiService.generateConsistentDesignImage(prompt, baseStylePrompt, i);
 
           designImages.push(imageUrl);
           successCount++;
@@ -100,11 +92,14 @@ export class DesignWorkflowService {
         return { chat: chatForGuards, designImages: chatForGuards?.designPreviews || [] };
       }
       if (chatForGuards && Array.isArray(chatForGuards.designPreviews) && chatForGuards.designPreviews.length >= 3) {
+        const realPreviews = chatForGuards.designPreviews.filter(
+          (url) => url && !String(url).includes('placeholder') && !String(url).includes('placehold.co'),
+        );
         const lastDone = chatForGuards.metadata?.lastGenerationCompletedAt ? new Date(chatForGuards.metadata.lastGenerationCompletedAt).getTime() : 0;
         const recent = lastDone && (Date.now() - lastDone < 2 * 60 * 1000);
-        if (recent) {
+        if (recent && realPreviews.length >= 3) {
           this.logger.log(`Skip generate: 3 previews exist recently for chat ${chatIdFromDto}`);
-          return { chat: chatForGuards, designImages: chatForGuards.designPreviews };
+          return { chat: chatForGuards, designImages: realPreviews };
         }
       }
       if (chatForGuards) {
@@ -115,21 +110,18 @@ export class DesignWorkflowService {
       const designImages = [];
       let successCount = 0;
       let baseStylePrompt = null;
-      const selectedModel = dto.model || AIModel.OPENAI; // Default to OpenAI
+      const selectedModel = AIModel.GEMINI;
 
       this.logger.log(`Generating designs with ${selectedModel}`);
 
       for (let i = 0; i < 3; i++) {
         try {
-          let imageUrl: string;
-
-          // Use selected model
-          if (selectedModel === AIModel.OPENAI) {
-            imageUrl = await this.openaiService.generateConsistentDesignImageWithDALLE(dto.prompt, baseStylePrompt, i);
-          } else {
-            // Default to Gemini (supports fabric image)
-            imageUrl = await this.openaiService.generateConsistentDesignImage(dto.prompt, baseStylePrompt, i, dto.fabricImageBase64);
-          }
+          const imageUrl = await this.openaiService.generateConsistentDesignImage(
+            dto.prompt,
+            baseStylePrompt,
+            i,
+            dto.fabricImageBase64,
+          );
 
           designImages.push(imageUrl);
           successCount++;
@@ -206,25 +198,25 @@ export class DesignWorkflowService {
       
       // Create or update the NFT with approved details
       let nft;
-      if (chat.nftId) {
+      if (chat.designId) {
         // Update existing NFT
-        nft = await this.nftService.updateNFT(chat.nftId, {
+        nft = await this.designRecordService.update(chat.designId, {
           name: dto.designName,
-          price: dto.price,
-          quantity: dto.collectionQuantity,
+          price: dto.price ?? 0,
+          quantity: dto.collectionQuantity ?? 0,
           deadline: dto.deadline,
           description: dto.description || `Custom design: ${dto.designName}`,
           imageUrl: selectedImageUrl,
-          status: NFTStatus.DRAFT, // Keep as DRAFT until minted
+          status: DesignStatus.DRAFT, // Keep as DRAFT until minted
         });
       } else {
         // Create new NFT
-        nft = await this.nftService.createNFT({
+        nft = await this.designRecordService.create({
           name: dto.designName,
           description: dto.description || `Custom design: ${dto.designName}`,
           category: 'Custom Design',
-          price: dto.price,
-          quantity: dto.collectionQuantity,
+          price: dto.price ?? 0,
+          quantity: dto.collectionQuantity ?? 0,
           imageUrl: selectedImageUrl,
           creatorId: userId,
           chatId: dto.chatId,
@@ -233,7 +225,7 @@ export class DesignWorkflowService {
       
       // Update chat with NFT reference
       await this.chatService.updateChat(dto.chatId, {
-        nftId: nft.id,
+        designId: nft.id,
         state: ChatState.DESIGN_APPROVED,
       });
       
@@ -244,7 +236,7 @@ export class DesignWorkflowService {
       const deadline = dto.deadline || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days default
       
       // Update NFT with design link
-      await this.nftService.updateNFT(nft.id, {
+      await this.designRecordService.update(nft.id, {
         designLink,
         deadline,
       });
@@ -272,20 +264,29 @@ export class DesignWorkflowService {
       
       // Get the chat to find the design previews and metadata
       const chat = await this.chatService.getChat(userId, dto.chatId);
-      if (!chat || !chat.designPreviews || chat.designPreviews.length === 0) {
+      const previews = Array.isArray(chat?.designPreviews)
+        ? chat.designPreviews.filter(Boolean)
+        : String(chat?.designPreviews || '')
+            .split(',')
+            .map((url) => url.trim())
+            .filter(Boolean);
+      if (!chat || previews.length === 0) {
         throw new Error('No design previews found for this chat');
       }
       
       // Get the selected variation image
       const variationIndex = parseInt(dto.selectedVariety.split('_')[1]) - 1;
-      const selectedImageUrl = chat.designPreviews[variationIndex];
+      const selectedImageUrl = previews[variationIndex];
       
       if (!selectedImageUrl) {
         throw new Error('Selected design variation not found');
       }
       
-      // Get the original prompt to regenerate metadata if needed
-      const originalPrompt = chat.messages?.[0]?.content || 'Custom design';
+      const originalPrompt =
+        chat.metadata?.structuredPrompt ||
+        chat.metadata?.occasion ||
+        chat.messages?.find((m) => m.role === 'user' && m.content?.trim())?.content ||
+        'Custom design';
       
       // Use AI suggestions or regenerate if needed
       const metadata = dto.useAISuggestions ? 
@@ -296,12 +297,12 @@ export class DesignWorkflowService {
       const finalName = dto.customName || metadata.suggestedName;
       
       // Create NFT with AI-generated details
-      const nft = await this.nftService.createNFT({
+      const nft = await this.designRecordService.create({
         name: finalName,
         description: originalPrompt,
         category: metadata.category,
-        price: metadata.suggestedPrice,
-        quantity: metadata.suggestedQuantity,
+        price: 0,
+        quantity: 0,
         imageUrl: selectedImageUrl,
         creatorId: userId,
         chatId: dto.chatId,
@@ -309,7 +310,7 @@ export class DesignWorkflowService {
       
       // Update chat with NFT reference
       await this.chatService.updateChat(dto.chatId, {
-        nftId: nft.id,
+        designId: nft.id,
         state: ChatState.DESIGN_APPROVED,
       });
       
@@ -318,7 +319,7 @@ export class DesignWorkflowService {
       const deadline = new Date(Date.now() + metadata.suggestedTimeframe * 24 * 60 * 60 * 1000);
       
       // Update NFT with additional details
-      await this.nftService.updateNFT(nft.id, {
+      await this.designRecordService.update(nft.id, {
         designLink,
         deadline,
       });
@@ -327,20 +328,7 @@ export class DesignWorkflowService {
       
       return {
         nft,
-        message: `🎉 **Design "${finalName}" approved with AI suggestions!**
-        
-📊 **AI Generated Details:**
-• **Price:** $${metadata.suggestedPrice}
-• **Quantity:** ${metadata.suggestedQuantity} pieces
-• **Timeline:** ${metadata.suggestedTimeframe} days
-• **Category:** ${metadata.category}
-• **Style:** ${metadata.style}
-
-🚀 **Next Steps:**
-1. **Publish to Market** (triggers minting)
-2. **Hire a Maker** (triggers minting if needed)
-
-Your design is now in DRAFT status and ready for the next step!`
+        message: `Design "${finalName}" saved. Open My Designs to publish or hire a maker.`,
       };
     } catch (error) {
       this.logger.error(`Simple design approval error: ${error.message}`, error.stack);
@@ -348,18 +336,61 @@ Your design is now in DRAFT status and ready for the next step!`
     }
     }
 
+  /**
+   * Persist the chat's chosen variation into creator inventory so it appears on
+   * /dashboard/design. Chat previews alone are not inventory.
+   */
+  async saveSelectedDesignForCreator(
+    userId: string,
+    chatId: string,
+    selectedVariety: string,
+    customName?: string,
+  ) {
+    const chat = await this.chatService.getChat(userId, chatId);
+    if (chat.designId) {
+      const existing = await this.designRecordService.findById(chat.designId);
+      if (
+        existing.status === DesignStatus.LISTED ||
+        existing.status === DesignStatus.HIRED ||
+        existing.status === DesignStatus.SOLD
+      ) {
+        return existing;
+      }
+      return this.designRecordService.update(existing.id, {
+        status: DesignStatus.READY,
+        mintedAt: new Date(),
+        price: 0,
+        quantity: 0,
+      });
+    }
+
+    const { nft } = await this.simpleApproveDesign(userId, {
+      chatId,
+      selectedVariety: selectedVariety as any,
+      useAISuggestions: true,
+      customName,
+    });
+
+    return this.designRecordService.update(nft.id, {
+      status: DesignStatus.READY,
+      mintedAt: new Date(),
+      price: 0,
+      quantity: 0,
+    });
+  }
+
   async payForDesign(userId: string, chatId: string, paymentTransactionHash: string): Promise<any> {
     try {
       this.logger.log(`Processing payment for design in chat: ${chatId}`);
       
       // Get the chat to find the NFT
       const chat = await this.chatService.getChat(userId, chatId);
-      if (!chat.nftId) {
+      if (!chat.designId) {
         throw new Error('No design found in this chat');
       }
 
       // Get the NFT
-      const nft = await this.nftService.findById(chat.nftId);
+      const nft = await this.designRecordService.findById(chat.designId);
       if (!nft || nft.creatorId !== userId) {
         throw new Error('Design not found or does not belong to you');
       }
@@ -377,15 +408,15 @@ Your design is now in DRAFT status and ready for the next step!`
         status: 'owned'
       };
       
-      await this.nftService.updateNFT(nft.id, {
-        status: 'PUBLISHED' as any,
+      await this.designRecordService.update(nft.id, {
+        status: DesignStatus.PUBLISHED,
         metadata: updatedMetadata
       });
 
       this.logger.log(`Design payment completed for NFT: ${nft.id}`);
       
       return {
-        nft: await this.nftService.findById(nft.id),
+        nft: await this.designRecordService.findById(nft.id),
         message: 'Payment successful! Design added to My Designs.',
         status: 'owned',
         nextSteps: [
@@ -399,36 +430,33 @@ Your design is now in DRAFT status and ready for the next step!`
     }
   }
 
-  async mintAndPublishDesign(userId: string, nftId: string, transactionHash: string): Promise<any> {
+  async mintAndPublishDesign(userId: string, nftId: string, transactionHash?: string): Promise<any> {
     try {
-      this.logger.log(`Minting and publishing design: ${nftId}`);
+      this.logger.log(`Publishing design: ${nftId}`);
       
-      // Get the NFT
-      const nft = await this.nftService.findById(nftId);
+      const nft = await this.designRecordService.findById(nftId);
       if (!nft || nft.creatorId !== userId) {
-        throw new Error('NFT not found or does not belong to you');
+        throw new Error('Design not found or does not belong to you');
       }
       
-      if (nft.status !== NFTStatus.DRAFT) {
-        throw new Error('Only draft NFTs can be minted and published');
+      if (
+        nft.status !== DesignStatus.DRAFT &&
+        nft.status !== DesignStatus.PUBLISHED &&
+        nft.status !== DesignStatus.READY
+      ) {
+        throw new Error('Design cannot be published from current status');
       }
       
-      // Mint the NFT
-      const mintedNFT = await this.nftService.mintNFT({
-        nftId,
-        recipientAddress: undefined // Mint to creator
+      const published = await this.designRecordService.publish(nftId);
+      await this.designRecordService.update(nftId, {
+        status: DesignStatus.PUBLISHED,
       });
       
-      // Update status to PUBLISHED (not just MINTED)
-      const publishedNFT = await this.nftService.updateNFT(nftId, {
-        status: NFTStatus.PUBLISHED
-      });
+      this.logger.log(`Design published: ${nftId}`);
       
-      this.logger.log(`Design minted and published: ${nftId}`);
-      
-      return publishedNFT;
+      return published;
     } catch (error) {
-      this.logger.error(`Mint and publish error: ${error.message}`, error.stack);
+      this.logger.error(`Publish error: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -458,12 +486,12 @@ Your design is now in DRAFT status and ready for the next step!`
     return {
       suggestedName: this.generateNameFromPrompt(prompt),
       category: this.detectCategoryFromPrompt(prompt),
-      suggestedPrice: this.calculateSmartPrice(lowerPrompt),
+      suggestedPrice: 0,
       suggestedTimeframe: this.calculateSmartTimeline(lowerPrompt),
       colors: this.extractColorsFromPrompt(prompt),
       materials: this.extractMaterialsFromPrompt(prompt),
       style: this.detectStyleFromPrompt(prompt),
-      suggestedQuantity: this.calculateSmartQuantity(lowerPrompt)
+      suggestedQuantity: 0
     };
   }
 
@@ -474,12 +502,12 @@ Your design is now in DRAFT status and ready for the next step!`
     return {
       suggestedName: this.generateNameFromPrompt(prompt),
       category: 'Custom Design',
-      suggestedPrice: 150,
+      suggestedPrice: 0,
       suggestedTimeframe: 7,
       colors: ['white'],
       materials: ['fabric'],
       style: 'custom',
-      suggestedQuantity: 5
+      suggestedQuantity: 0
     };
   }
 

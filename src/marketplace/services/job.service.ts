@@ -9,7 +9,7 @@ import { CreateJobDto, UpdateJobDto, JobFilterDto } from '../dto/job.dto';
 import { JobApplicationDto } from '../dto/job-application.dto';
 import { NotificationService } from './notification.service';
 import { ChatService } from './chat.service';
-import { NFT, NFTStatus } from '../../web3/entities/nft.entity';
+import { DesignRecord, DesignStatus } from '../../designs/entities/design-record.entity';
 import { CloudinaryService } from '../../common/services/cloudinary.service';
 @Injectable()
 export class JobService {
@@ -22,8 +22,8 @@ export class JobService {
     private savedJobRepository: Repository<SavedJob>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
-    @InjectRepository(NFT)
-    private nftRepository: Repository<NFT>,
+    @InjectRepository(DesignRecord)
+    private designRepository: Repository<DesignRecord>,
     private notificationService: NotificationService,
     @Inject(forwardRef(() => ChatService))
     private chatService: ChatService,
@@ -272,9 +272,9 @@ export class JobService {
 
     // Update NFT status to HIRED if there's an associated design
     if (application.job.designId) {
-      await this.nftRepository.update(
+      await this.designRepository.update(
         { id: application.job.designId },
-        { status: NFTStatus.HIRED }
+        { status: DesignStatus.HIRED }
       );
     }
 
@@ -628,7 +628,7 @@ export class JobService {
     availableJobs.forEach(job => { if (job.designId) designIdsSet.add(job.designId); });
     const designIds = Array.from(designIdsSet);
     const nfts = designIds.length
-      ? await this.nftRepository.find({ where: { id: In(designIds) } })
+      ? await this.designRepository.find({ where: { id: In(designIds) } })
       : [];
     const nftById = new Map(nfts.map(n => [n.id, n] as const));
 
@@ -638,9 +638,6 @@ export class JobService {
       const getImageUrl = () => {
         if (nft?.imageUrl && !nft.imageUrl.includes('blob.core.windows.net')) {
           return nft.imageUrl;
-        }
-        if (nft?.ipfsUrl) {
-          return nft.ipfsUrl;
         }
         if (job.referenceImages?.[0] && !job.referenceImages[0].includes('blob.core.windows.net')) {
           return job.referenceImages[0];
@@ -727,23 +724,100 @@ export class JobService {
 
     // Default: return all jobs (applied, assigned, and available)
     const allJobs = [
-      ...applications.map(app => ({ ...app.job, appliedAt: app.createdAt, jobSource: 'applied' })),
-      ...assignedJobs.map(job => ({ ...job, jobSource: 'assigned' })),
-      ...availableJobs.map(job => ({ ...job, jobSource: 'available' }))
+      ...applications.map(app => ({
+        ...app.job,
+        appliedAt: app.createdAt,
+        jobSource: 'applied' as const,
+        applicationStatus: app.status,
+      })),
+      ...assignedJobs.map(job => ({
+        ...job,
+        jobSource: 'assigned' as const,
+        applicationStatus: ApplicationStatus.ACCEPTED,
+      })),
+      ...availableJobs.map(job => ({
+        ...job,
+        jobSource: 'available' as const,
+        applicationStatus: null as ApplicationStatus | null,
+      })),
     ];
-    const uniqueJobs = allJobs.filter((job, index, self) => index === self.findIndex(j => j.id === job.id));
+    const uniqueJobs = allJobs.filter(
+      (job, index, self) => index === self.findIndex(j => j.id === job.id),
+    );
 
-    return uniqueJobs.map(job => ({
-      id: job.id,
-      brandName: job.creator?.brandName || job.creator?.fullName || 'Unknown',
-      jobDescription: job.description,
-      dateTimeApplied: (job as any).appliedAt || job.acceptedAt,
-      datePosted: job.createdAt,
-      deadline: job.deadline,
-      budget: job.budget,
-      status: job.status,
-      ...toDesignFields(job as Job)
-    }));
+    return uniqueJobs.map(job => {
+      let status = 'available';
+      if (job.jobSource === 'applied') {
+        if (job.applicationStatus === ApplicationStatus.ACCEPTED) {
+          status = 'selected by creator';
+        } else if (job.applicationStatus === ApplicationStatus.REJECTED) {
+          status = 'not selected by creator';
+        } else if (job.applicationStatus === ApplicationStatus.WITHDRAWN) {
+          status = 'withdrawn';
+        } else {
+          status = 'applied';
+        }
+      } else if (job.jobSource === 'assigned') {
+        status =
+          job.status === JobStatus.COMPLETED
+            ? 'completed'
+            : job.status === JobStatus.IN_PROGRESS
+              ? 'in progress'
+              : String(job.status);
+      } else if (job.status === JobStatus.OPEN) {
+        status = 'available';
+      } else {
+        status = String(job.status);
+      }
+
+      return {
+        id: job.id,
+        brandName: job.creator?.brandName || job.creator?.fullName || 'Unknown',
+        jobDescription: job.description,
+        dateTimeApplied: (job as any).appliedAt || job.acceptedAt,
+        datePosted: job.createdAt,
+        deadline: job.deadline,
+        budget: job.budget,
+        status,
+        jobStatus: job.status,
+        jobSource: job.jobSource,
+        hasApplied:
+          job.jobSource === 'applied' || job.jobSource === 'assigned',
+        applicationStatus: job.applicationStatus,
+        ...toDesignFields(job as Job),
+      };
+    });
+  }
+
+  /**
+   * Convert free-text timelines ("2 weeks", "14 days", "1 month") into days.
+   * proposedTimeline / estimatedDays columns are integers.
+   */
+  private parseTimelineToDays(timeline: string | number | undefined | null, fallback = 7): number {
+    if (timeline === undefined || timeline === null || timeline === '') {
+      return fallback;
+    }
+    if (typeof timeline === 'number' && Number.isFinite(timeline)) {
+      return Math.max(1, Math.round(timeline));
+    }
+
+    const raw = String(timeline).trim().toLowerCase();
+    const asNumber = Number(raw);
+    if (Number.isFinite(asNumber) && asNumber > 0) {
+      return Math.round(asNumber);
+    }
+
+    const match = raw.match(/(\d+(?:\.\d+)?)\s*(day|days|week|weeks|month|months|w|d|m)?/);
+    if (!match) {
+      return fallback;
+    }
+
+    const amount = parseFloat(match[1]);
+    const unit = match[2] || 'days';
+
+    if (unit.startsWith('w')) return Math.max(1, Math.round(amount * 7));
+    if (unit.startsWith('m')) return Math.max(1, Math.round(amount * 30));
+    return Math.max(1, Math.round(amount));
   }
 
   async applyToJobWithPortfolio(jobId: string, applicationDto: any, makerId: string): Promise<any> {
@@ -772,11 +846,13 @@ export class JobService {
     if (existingApplication.length > 0) {
       throw new BadRequestException('You have already applied to this job');
     }
+
+    const timelineDays = this.parseTimelineToDays(applicationDto.timeline);
     
     // Create application with portfolio info
     const application = await this.jobRepository.manager.query(
-      `INSERT INTO job_applications (job_id, maker_id, "portfolioLinks", "selectedProjects", "proposedBudget", "proposedTimeline", status, "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW(), NOW())
+      `INSERT INTO job_applications (job_id, maker_id, "portfolioLinks", "selectedProjects", "proposedBudget", "proposedTimeline", "estimatedDays", status, "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', NOW(), NOW())
        RETURNING *`,
       [
         jobId,
@@ -784,15 +860,29 @@ export class JobService {
         JSON.stringify(applicationDto.portfolioLinks || []),
         JSON.stringify(applicationDto.selectedProjects || []),
         applicationDto.proposedAmount || 0,
-        applicationDto.timeline || 7
+        timelineDays,
+        timelineDays,
       ]
     );
+
+    // Notify brand/creator (in-app + email)
+    try {
+      await this.notificationService.notifyCreatorOfApplication({
+        id: application[0].id,
+        job,
+        maker,
+      });
+    } catch (err) {
+      // Don't fail the application if notification delivery fails
+      console.error('Failed to notify creator of application:', err?.message || err);
+    }
     
     return {
       message: 'Application submitted successfully',
       applicationId: application[0].id,
       proposedAmount: applicationDto.proposedAmount,
-      minimumNegotiableAmount: applicationDto.minimumNegotiableAmount
+      minimumNegotiableAmount: applicationDto.minimumNegotiableAmount,
+      proposedTimeline: timelineDays,
     };
   }
 
@@ -837,21 +927,68 @@ export class JobService {
       order: { savedAt: 'DESC' }
     });
 
-    return savedJobs.map(savedJob => ({
-      id: savedJob.job.id,
-      title: savedJob.job.title,
-      description: savedJob.job.description,
-      budget: savedJob.job.budget,
-      deadline: savedJob.job.deadline,
-      status: savedJob.job.status,
-      aiPrompt: savedJob.job.aiPrompt,
-      client: {
-        name: savedJob.job.creator.fullName || savedJob.job.creator.brandName,
-        profilePicture: savedJob.job.creator.profilePicture
-      },
-      datePosted: savedJob.job.createdAt,
-      dateSaved: savedJob.savedAt
-    }));
+    const designIds = [
+      ...new Set(
+        savedJobs
+          .map((s) => s.job?.designId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const nfts = designIds.length
+      ? await this.designRepository.find({ where: { id: In(designIds) } })
+      : [];
+    const nftById = new Map(nfts.map((n) => [n.id, n] as const));
+
+    return savedJobs
+      .filter((savedJob) => savedJob.job)
+      .map((savedJob) => {
+        const job = savedJob.job;
+        const nft = job.designId ? nftById.get(job.designId) : undefined;
+        const image =
+          (nft?.imageUrl && !nft.imageUrl.includes('blob.core.windows.net')
+            ? nft.imageUrl
+            : null) ||
+          (job.referenceImages?.[0] &&
+          !job.referenceImages[0].includes('blob.core.windows.net')
+            ? job.referenceImages[0]
+            : null) ||
+          'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=400&fit=crop&crop=center&auto=format&q=80';
+
+        return {
+          id: job.id,
+          title: job.title,
+          brandName:
+            job.creator?.brandName || job.creator?.fullName || 'Unknown',
+          jobDescription: job.description,
+          description: job.description,
+          budget: job.budget,
+          deadline: job.deadline,
+          status: job.status === JobStatus.OPEN ? 'available' : String(job.status),
+          image,
+          stock: nft?.quantity ?? 1,
+          link: nft?.designLink ?? null,
+          lastUpdated: nft?.updatedAt ?? job.updatedAt ?? null,
+          datePosted: job.createdAt,
+          dateSaved: savedJob.savedAt,
+        };
+      });
+  }
+
+  async unsaveJobForMaker(jobId: string, makerId: string): Promise<any> {
+    const existingSave = await this.savedJobRepository.findOne({
+      where: { jobId, makerId },
+    });
+
+    if (!existingSave) {
+      throw new NotFoundException('Saved job not found');
+    }
+
+    await this.savedJobRepository.remove(existingSave);
+
+    return {
+      message: 'Job unsaved successfully',
+      jobId,
+    };
   }
 
   async getMakerApplicationProfile(applicationId: string, creatorId: string): Promise<any> {
@@ -949,7 +1086,7 @@ export class JobService {
 
     try {
       // Create NFT record for minting preparation
-      const nft = this.nftRepository.create({
+      const nft = this.designRepository.create({
         name,
         description,
         category: 'fashion',
@@ -960,7 +1097,7 @@ export class JobService {
         status: 'draft' as any,
       });
 
-      savedNFT = await this.nftRepository.save(nft);
+      savedNFT = await this.designRepository.save(nft);
 
     } catch (error) {
       // Cleanup: Delete uploaded image from Cloudinary if DB save fails
@@ -984,7 +1121,7 @@ export class JobService {
         imageUrl: uploadResult.secure_url,
         description,
         variants: this.cloudinaryService.getImageVariants(uploadResult.public_id),
-        nextStep: 'Use the /web3/nft/mint endpoint to mint this design',
+        nextStep: 'Publish or hire a maker for this design',
       }
     };
   }

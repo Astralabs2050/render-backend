@@ -28,10 +28,25 @@ export class CreditController {
     };
   }
 
+  @Get('payment-methods')
+  @UseGuards(JwtAuthGuard)
+  async getPaymentMethods(@Req() req) {
+    const paymentMethods = await this.creditService.getPaymentMethods();
+    return {
+      status: true,
+      message: 'Payment methods retrieved',
+      data: paymentMethods,
+    };
+  }
+
   @Post('purchase')
   @UseGuards(JwtAuthGuard)
   async initiatePurchase(@Req() req, @Body() dto: PurchaseCreditsDto) {
-    const result = await this.creditService.initiatePurchase(req.user.id, dto.packageId);
+    const result = await this.creditService.initiatePurchase(
+      req.user.id,
+      dto.packageId,
+      dto.callbackUrl,
+    );
     return {
       status: true,
       message: 'Payment initialized',

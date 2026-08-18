@@ -13,7 +13,7 @@ import { StreamChatService } from './services/stream-chat.service';
 import { Chat, ChatMessage } from './entities/chat.entity';
 import { Milestone } from './entities/milestone.entity';
 import { UsersModule } from '../users/users.module';
-import { Web3Module } from '../web3/web3.module';
+import { DesignsModule } from '../designs/designs.module';
 import { CommonModule } from '../common/common.module';
 import { MarketplaceModule } from '../marketplace/marketplace.module';
 import { AuthModule } from '../auth/auth.module';
@@ -30,7 +30,7 @@ import { CreditsModule } from '../credits/credits.module';
       }),
     }),
     forwardRef(() => UsersModule),
-    Web3Module,
+    DesignsModule,
     forwardRef(() => MarketplaceModule),
     forwardRef(() => AuthModule),
     CommonModule,

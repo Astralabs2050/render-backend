@@ -6,6 +6,7 @@ import { ZodConfigService } from './zod-config.service';
   imports: [
     NestConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env',
       validate: configValidationSchema.validate,
     }),
   ],

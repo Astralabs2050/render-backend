@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException, ServiceUnavailableException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { User, UserType } from './entities/user.entity';
@@ -10,7 +10,6 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { BrandDetailsDto } from './dto/brand-details.dto';
 import { CreateDesignDto } from './dto/create-collection.dto';
 import { Helpers } from '../common/utils/helpers';
-import { ThirdwebService } from '../web3/services/thirdweb.service';
 import { CloudinaryService } from '../common/services/cloudinary.service';
 import { Decimal } from 'decimal.js';
 
@@ -26,8 +25,6 @@ export class UsersService {
     private paymentIntentRepository: Repository<PaymentIntent>,
     @InjectRepository(ReconciliationJob)
     private reconciliationJobRepository: Repository<ReconciliationJob>,
-
-    private thirdwebService: ThirdwebService,
     private cloudinaryService: CloudinaryService,
     private dataSource: DataSource,
   ) {}
@@ -96,13 +93,6 @@ export class UsersService {
     if (profileData.projects) user.projects = profileData.projects;
     if (profileData.location && profileData.category && profileData.skills) {
       user.profileCompleted = true;
-      if (user.userType === 'maker' && !user.walletAddress) {
-        const wallet = await this.thirdwebService.generateWallet();
-        const encryptedPrivateKey = Helpers.encryptPrivateKey(wallet.privateKey);
-        user.walletAddress = wallet.address;
-        user.walletPrivateKey = encryptedPrivateKey;
-        this.logger.log(`Wallet created for maker: ${user.email} - ${wallet.address}`);
-      }
     }
     if (profileData.governmentIdImages && profileData.nameOnId) {
       user.identityVerified = false;
@@ -221,244 +211,49 @@ export class UsersService {
       throw new BadRequestException('Invalid user ID or collection ID');
     }
 
-
-    const existingIntent = await this.paymentIntentRepository.findOne({
-      where: { userId, collectionId }
+    const collection = await this.collectionRepository.findOne({
+      where: { id: collectionId, creatorId: userId },
     });
-
-    if (existingIntent && existingIntent.status === 'completed') {
-      const collection = await this.collectionRepository.findOne({
-        where: { id: collectionId }
-      });
-      return {
-        collectionId,
-        paymentStatus: 'already_completed',
-        transactionHash: collection.paymentTransactionHash,
-        amount: collection.price,
-        paidAt: collection.paidAt?.toISOString()
-      };
+    if (!collection) {
+      throw new NotFoundException('Collection not found');
     }
 
-    const user = await this.findOne(userId);
-    
-    if (!user.walletAddress) {
-      throw new BadRequestException('User wallet not configured');
-    }
-
-
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    let collection: Design;
-    try {
-      collection = await queryRunner.manager.findOne(Design, {
-        where: { id: collectionId, creatorId: userId },
-        lock: { mode: 'pessimistic_write' }
-      });
-
-      if (!collection) {
-        throw new NotFoundException('Collection not found');
-      }
-
-      if (collection.paymentTransactionHash) {
-        await queryRunner.rollbackTransaction();
-        return {
-          collectionId,
-          paymentStatus: 'already_completed',
-          transactionHash: collection.paymentTransactionHash,
-          amount: collection.price,
-          paidAt: collection.paidAt?.toISOString()
-        };
-      }
-
-      if (collection.status !== 'pending_payment') {
-        throw new BadRequestException(`Invalid collection status: ${collection.status}`);
-      }
-
-
-      const paymentIntent = await queryRunner.manager.save(PaymentIntent, {
-        userId,
-        collectionId,
-        status: 'pending'
-      });
-      
-      this.logger.log('PaymentIntent created', {
-        paymentIntentId: paymentIntent.id,
-        collectionId,
-        userId,
-        status: 'pending'
-      });
-
-      await queryRunner.commitTransaction();
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
-
-
-    let paymentResult;
-    try {
-      this.logger.log('Processing blockchain payment', {
-        collectionId,
-        collectionName: collection.name,
-        amount: collection.price,
-        userId,
-        walletAddress: user.walletAddress
-      });
-      
-
-      paymentResult = await Promise.race([
-        this.thirdwebService.processPayment({
-          fromAddress: user.walletAddress,
-          amount: new Decimal(collection.price).toNumber(),
-          collectionId: collectionId
-        }),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Payment timeout after 30 seconds')), 30000)
-        )
-      ]) as { transactionHash: string; blockchainMetadata?: any };
-
-      if (!paymentResult.transactionHash) {
-        throw new ServiceUnavailableException('Payment processed but no transaction hash received');
-      }
-    } catch (error) {
-     let actualPaymentResult = null;
-      if (error.message.includes('timeout') || error.message.includes('network')) {
-        try {
-          this.logger.warn('Checking for false negative payment', {
-            collectionId,
-            userId,
-            error: error.message
-          });
-          
-
-          actualPaymentResult = await this.thirdwebService.checkPaymentStatus({
-            fromAddress: user.walletAddress,
-            amount: new Decimal(collection.price).toNumber(),
-            collectionId: collectionId
-          });
-          
-          if (actualPaymentResult?.transactionHash) {
-            this.logger.warn('False negative detected - payment actually succeeded', {
-              collectionId,
-              transactionHash: actualPaymentResult.transactionHash,
-              originalError: error.message
-            });
-            paymentResult = actualPaymentResult;
-          }
-        } catch (checkError) {
-          this.logger.error('Failed to check payment status', {
-            collectionId,
-            userId,
-            checkError: checkError.message
-          });
-        }
-      }
-      
-      if (!actualPaymentResult) {
-        const failedIntent = await this.paymentIntentRepository.findOne({ where: { userId, collectionId } });
-        await this.paymentIntentRepository.update(
-          { userId, collectionId },
-          { status: 'failed' }
-        );
-        
-        this.logger.error('Payment failed', {
-          paymentIntentId: failedIntent?.id,
-          collectionId,
-          collectionName: collection.name,
-          amount: collection.price,
-          userId,
-          error: error.message
-        });
-        
-
-        if (error.message.includes('insufficient funds') || error.message.includes('invalid address')) {
-          throw new BadRequestException(`Payment failed: ${error.message}`);
-        }
-        
-        throw new ServiceUnavailableException(`Payment processing failed: ${error.message}`);
-      }
-    }
-
-
-    const updateRunner = this.dataSource.createQueryRunner();
-    await updateRunner.connect();
-    await updateRunner.startTransaction();
-
-    try {
-      const paidAt = new Date();
-      
-      await updateRunner.manager.update(Design, 
-        { id: collectionId },
-        {
-          status: 'paid',
-          paymentTransactionHash: paymentResult.transactionHash,
-          blockchainMetadata: paymentResult.blockchainMetadata || {
-            transactionHash: paymentResult.transactionHash,
-            timestamp: paidAt.toISOString()
-          },
-          paidAt
-        }
-      );
-
-      const completedIntent = await updateRunner.manager.findOne(PaymentIntent, { where: { userId, collectionId } });
-      await updateRunner.manager.update(PaymentIntent,
-        { userId, collectionId },
-        { status: 'completed' }
-      );
-      
-      this.logger.log('PaymentIntent completed', {
-        paymentIntentId: completedIntent?.id,
-        collectionId,
-        userId,
-        status: 'completed'
-      });
-
-      await updateRunner.commitTransaction();
-
-
-      const updatedCollection = await this.collectionRepository.findOne({
-        where: { id: collectionId }
-      });
-
-      this.logger.log('Payment completed successfully', {
-        collectionId,
-        collectionName: collection.name,
-        transactionHash: paymentResult.transactionHash,
-        amount: updatedCollection.price,
-        userId,
-        userEmail: user.email,
-        paidAt: updatedCollection.paidAt?.toISOString()
-      });
-      
+    if (collection.paymentTransactionHash || collection.status === 'paid') {
       return {
         collectionId,
         paymentStatus: 'completed',
-        transactionHash: paymentResult.transactionHash,
-        amount: updatedCollection.price,
-        paidAt: updatedCollection.paidAt?.toISOString()
-      };
-    } catch (error) {
-      await updateRunner.rollbackTransaction();
-      this.logger.error('Database update failed after successful payment', {
-        transactionHash: paymentResult.transactionHash,
-        collectionId,
-        userId,
+        transactionHash: collection.paymentTransactionHash,
         amount: collection.price,
-        requiresReconciliation: true,
-        error: error.message
-      });
-      
-      
-      await this.queueReconciliationJob(collectionId, paymentResult.transactionHash, new Decimal(collection.price).toNumber());
-      
-      throw new ServiceUnavailableException('Payment succeeded but database update failed. Transaction will be reconciled automatically.');
-    } finally {
-      await updateRunner.release();
+        paidAt: collection.paidAt?.toISOString(),
+      };
     }
+
+    const paidAt = new Date();
+    const reference = `listing_${collectionId}_${Date.now()}`;
+    await this.collectionRepository.update(collectionId, {
+      status: 'paid',
+      paymentTransactionHash: reference,
+      paidAt,
+      blockchainMetadata: {
+        transactionHash: reference,
+        timestamp: paidAt.toISOString(),
+      },
+    });
+
+    await this.paymentIntentRepository.save({
+      userId,
+      collectionId,
+      status: 'completed',
+    });
+
+    this.logger.log(`Collection ${collectionId} marked paid without blockchain`);
+    return {
+      collectionId,
+      paymentStatus: 'completed',
+      transactionHash: reference,
+      amount: collection.price,
+      paidAt: paidAt.toISOString(),
+    };
   }
 
   async getMakerEarnings(makerId: string): Promise<any> {
@@ -521,19 +316,10 @@ export class UsersService {
     };
   }
 
-  async ensureUserHasWallet(userId: string): Promise<string> {
-    const user = await this.findOne(userId);
-    if (user.walletAddress) {
-      return user.walletAddress;
-    }
-    const wallet = await this.thirdwebService.generateWallet();
-    const encryptedPrivateKey = Helpers.encryptPrivateKey(wallet.privateKey);
-    await this.update(userId, {
-      walletAddress: wallet.address,
-      walletPrivateKey: encryptedPrivateKey,
-    });
-    this.logger.log(`Auto-created wallet for user ${userId}: ${wallet.address}`);
-    return wallet.address;
+  async ensureUserHasWallet(userId: string): Promise<string | null> {
+    // Chain wallets removed — custodial balance is in /wallet/me
+    await this.findOne(userId);
+    return null;
   }
 
   async remove(id: string): Promise<void> {

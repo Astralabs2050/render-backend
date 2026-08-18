@@ -59,8 +59,8 @@ export class AiChat extends BaseEntity {
   jobId: string;
   @Column({ nullable: true })
   escrowId: string;
-  @Column({ nullable: true })
-  nftId: string;
+  @Column({ name: 'nftId', nullable: true })
+  designId: string;
 
   // @OneToMany(() => DeliveryDetails, deliveryDetails => deliveryDetails.chat)
   // deliveryDetails: DeliveryDetails[];

@@ -1,12 +1,12 @@
-import { Controller, Get, Post, UseGuards, Req, Body, Inject, forwardRef, Param, ParseUUIDPipe, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards, Req, Body, Inject, forwardRef, Param, ParseUUIDPipe, NotFoundException } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { DesignService } from '../services/design.service';
 import { JobService } from '../../marketplace/services/job.service';
 import { HireMakerDto } from '../dto/hire-maker.dto';
 import { PublishMarketplaceDto } from '../dto/publish-marketplace.dto';
 import { JobPriority } from '../../marketplace/entities/job.entity';
-import { NFTService } from '../../web3/services/nft.service';
-import { NFTStatus } from '../../web3/entities/nft.entity';
+import { DesignRecordService } from '../../designs/services/design-record.service';
+import { DesignStatus } from '../../designs/entities/design-record.entity';
 
 @Controller('creator')
 @UseGuards(JwtAuthGuard)
@@ -15,7 +15,7 @@ export class CreatorController {
     private readonly designService: DesignService,
     @Inject(forwardRef(() => JobService))
     private readonly jobService: JobService,
-    private readonly nftService: NFTService,
+    private readonly designRecordService: DesignRecordService,
   ) { }
 
   @Get('dashboard')
@@ -63,28 +63,11 @@ export class CreatorController {
 
   @Post('hire-maker')
   async hireMaker(@Body() hireMakerDto: HireMakerDto, @Req() req) {
-    // Validate that the design belongs to the creator
     const design = await this.designService.getDesignById(hireMakerDto.designId);
     if (!design || design.creatorId !== req.user.id) {
       throw new Error('Design not found or does not belong to you');
     }
 
-    // Check if design needs minting first (if in PUBLISHED status, needs minting)
-    if (design.status === 'published') {
-      return {
-        status: false,
-        message: 'Design needs to be minted to marketplace before hiring a maker',
-        data: {
-          designId: design.id,
-          currentStatus: design.status,
-          action: 'mint_required',
-          web3Required: true,
-          message: 'Please mint your design to the marketplace first, then try hiring a maker again.'
-        }
-      };
-    }
-
-    // Convert HireMakerDto to CreateJobDto format
     const createJobDto = {
       title: `Hire Maker for ${design.name}`,
       description: hireMakerDto.requirements,
@@ -108,16 +91,14 @@ Skills: ${hireMakerDto.skillKeywords.join(', ')}`,
         ...hireMakerDto.skillKeywords
       ],
       referenceImages: [design.imageUrl],
-      designId: design.id, // Link to the NFT design
-      chatId: null, // Will be created when maker applies
+      designId: design.id,
+      chatId: null,
     };
 
-    // Create the job using the existing marketplace system
     const job = await this.jobService.createJob(createJobDto, req.user.id);
 
-    // Update NFT status to HIRED since the creator is actively hiring a maker
-    await this.nftService.updateNFT(design.id, {
-      status: NFTStatus.HIRED
+    await this.designRecordService.update(design.id, {
+      status: DesignStatus.HIRED
     });
 
     return {
@@ -137,55 +118,19 @@ Skills: ${hireMakerDto.skillKeywords.join(', ')}`,
 
   @Post('publish-marketplace')
   async publishToMarketplace(@Body() publishDto: PublishMarketplaceDto, @Req() req) {
-    // Validate that the design belongs to the creator
     const design = await this.designService.getDesignById(publishDto.designId);
     if (!design || design.creatorId !== req.user.id) {
       throw new NotFoundException('Design not found or does not belong to you');
     }
 
-    console.log(`[DEBUG] Publishing design ${design.id} with status: ${design.status}, txHash: ${design.transactionHash}, mintedAt: ${design.mintedAt}`);
-
-    // Check if design was actually minted on blockchain (MUST have transaction hash as proof)
-    if (!design.transactionHash) {
-      return {
-        status: false,
-        message: 'Design must be minted on blockchain before publishing to marketplace',
-        data: {
-          designId: design.id,
-          currentStatus: design.status,
-          hasTransactionHash: !!design.transactionHash,
-          hasMintedAt: !!design.mintedAt,
-          action: 'mint_required',
-          web3Required: true,
-          message: 'This design does not have a valid blockchain transaction hash. Please mint it using the Hedera minting endpoint.',
-          hint: 'POST /web3/hedera/mint with designId: ' + design.id,
-          note: design.mintedAt ? 'Design has mintedAt timestamp but missing transaction hash - this indicates an incomplete mint.' : undefined
-        }
-      };
+    if (design.status === DesignStatus.DRAFT || design.status === DesignStatus.SAVING) {
+      await this.designRecordService.publish(design.id);
     }
 
-    // Check if design is in a valid status for marketplace publishing
-    // Accept MINTED, PUBLISHED, or LISTED (in case of re-listing)
-    const validStatuses = [NFTStatus.MINTED, NFTStatus.PUBLISHED, NFTStatus.LISTED];
-    if (!validStatuses.includes(design.status)) {
-      return {
-        status: false,
-        message: 'Design must be minted before publishing to marketplace',
-        data: {
-          designId: design.id,
-          currentStatus: design.status,
-          action: 'mint_required',
-          web3Required: true,
-          message: 'Please mint your design first, then try publishing to marketplace again.'
-        }
-      };
-    }
-
-    // Update the NFT with marketplace information and set status to LISTED
-    const listedNFT = await this.nftService.updateNFT(design.id, {
+    const listedNFT = await this.designRecordService.update(design.id, {
       price: publishDto.pricePerOutfit,
       quantity: publishDto.quantityAvailable,
-      status: NFTStatus.LISTED,
+      status: DesignStatus.LISTED,
       metadata: {
         ...design.metadata,
         deliveryWindow: publishDto.deliveryWindow,
@@ -199,7 +144,7 @@ Skills: ${hireMakerDto.skillKeywords.join(', ')}`,
       status: true,
       message: 'Design published to marketplace successfully',
       data: {
-        nftId: listedNFT.id,
+        designId: listedNFT.id,
         name: listedNFT.name,
         status: listedNFT.status,
         price: listedNFT.price,
@@ -208,8 +153,6 @@ Skills: ${hireMakerDto.skillKeywords.join(', ')}`,
         brandStory: publishDto.brandStory,
         regionOfDelivery: publishDto.regionOfDelivery,
         imageUrl: listedNFT.imageUrl,
-        contractAddress: listedNFT.contractAddress,
-        tokenId: listedNFT.tokenId,
         message: 'Your design is now live on the marketplace and available for purchase.'
       }
     };

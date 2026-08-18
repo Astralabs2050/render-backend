@@ -75,12 +75,12 @@ export class UploadController {
       },
     };
   }
-  @Post('nft')
+  @Post('design')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadNFTImage(
+  async uploadDesignCatalogImage(
     @UploadedFile() file: Express.Multer.File,
     @Req() req: any,
-    @Body() body: { nftId: string }
+    @Body() body: { designId?: string; nftId?: string }
   ) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
@@ -88,19 +88,20 @@ export class UploadController {
     if (!file.mimetype.startsWith('image/')) {
       throw new BadRequestException('Only image files are allowed');
     }
-    if (!body.nftId) {
-      throw new BadRequestException('NFT ID is required');
+    const designId = body.designId || body.nftId;
+    if (!designId) {
+      throw new BadRequestException('Design ID is required');
     }
     const userId = req.user.id;
-    const result = await this.cloudinaryService.uploadNFTImage(
+    const result = await this.cloudinaryService.uploadDesignImage(
       file.buffer,
-      body.nftId,
+      designId,
       userId
     );
     const variants = this.cloudinaryService.getImageVariants(result.public_id);
     return {
       status: true,
-      message: 'NFT image uploaded successfully',
+      message: 'Design image uploaded successfully',
       data: {
         ...result,
         variants,

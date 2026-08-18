@@ -7,11 +7,11 @@ import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './config/database.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
 import { AIChatModule } from './ai-chat/ai-chat.module';
-import { Web3Module } from './web3/web3.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { VrEmailModule } from './vr-email/vr-email.module';
 import { CreditsModule } from './credits/credits.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { WalletModule } from './wallet/wallet.module';
 import { AppController } from './app.controller';
 import { JobSeeder } from './database/seeders/job.seeder';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -22,8 +22,8 @@ import { User } from './users/entities/user.entity';
 @Module({
   imports: [
     ThrottlerModule.forRoot([{
-      ttl: 60000, // 60 seconds
-      limit: 10, // 10 requests per TTL
+      ttl: 60000,
+      limit: 120, // SPA pages issue many reads; 10/min starved chat
     }]),
     ConfigModule,
     DatabaseModule,
@@ -32,8 +32,8 @@ import { User } from './users/entities/user.entity';
     UsersModule,
     WaitlistModule,
     AIChatModule,
-    Web3Module,
     MarketplaceModule,
+    WalletModule,
     VrEmailModule,
     CreditsModule,
     NotificationsModule,

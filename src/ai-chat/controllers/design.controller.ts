@@ -20,11 +20,11 @@ export class DesignController {
       status: true,
       message: result.message,
       data: {
-        nft: result.nft,
+        design: result.nft,
         chatId: dto.chatId,
         nextSteps: [
-          'Complete Payment to add to My Designs',
-          'Then: Hire a Maker (triggers minting to marketplace)'
+          'Publish from My Designs',
+          'Or hire a maker from the Design page',
         ]
       }
     };
@@ -39,12 +39,12 @@ export class DesignController {
       status: true,
       message: result.message,
       data: {
-        nft: result.nft,
+        design: result.nft,
         chatId: dto.chatId,
         aiGenerated: true,
         nextSteps: [
-          'Complete Payment to add to My Designs',
-          'Then: Hire a Maker (triggers minting to marketplace)'
+          'Open My Designs to publish',
+          'Or hire a maker from the Design page',
         ]
       }
     };
@@ -84,37 +84,46 @@ export class DesignController {
   }
 
   @Post('publish-to-market')
-  async publishToMarket(@Req() req, @Body() dto: { nftId: string }) {
+  async publishToMarket(@Req() req, @Body() dto: { designId?: string; nftId?: string }) {
     const userId = req.user.id;
-    
-    // This endpoint will trigger the web3 modal for minting
-    // The frontend should handle the web3 interaction and then call the mint endpoint
+    const id = dto.designId || dto.nftId;
+    const design = await this.designWorkflowService.mintAndPublishDesign(
+      userId,
+      id,
+      `publish_${Date.now()}`,
+    );
     return {
       status: true,
-      message: 'Ready to mint design! Please complete the web3 transaction.',
+      message: 'Design published successfully!',
       data: {
-        nftId: dto.nftId,
-        action: 'mint_and_publish',
-        web3Required: true
-      }
+        design,
+        status: 'published',
+        marketReady: true,
+      },
     };
   }
 
   @Post('mint-and-publish')
-  async mintAndPublish(@Req() req, @Body() dto: { nftId: string; transactionHash: string }) {
+  async mintAndPublish(
+    @Req() req,
+    @Body() dto: { designId?: string; nftId?: string; transactionHash?: string },
+  ) {
     const userId = req.user.id;
-    
-    // Mint the NFT and change status to PUBLISHED
-    const nft = await this.designWorkflowService.mintAndPublishDesign(userId, dto.nftId, dto.transactionHash);
-    
+    const id = dto.designId || dto.nftId;
+    const design = await this.designWorkflowService.mintAndPublishDesign(
+      userId,
+      id,
+      dto.transactionHash || `publish_${Date.now()}`,
+    );
+
     return {
       status: true,
-      message: 'Design minted and published successfully!',
+      message: 'Design published successfully!',
       data: {
-        nft,
+        design,
         status: 'published',
-        marketReady: true
-      }
+        marketReady: true,
+      },
     };
   }
   // Removed keyword-based classification – now handled by AI in workflow service

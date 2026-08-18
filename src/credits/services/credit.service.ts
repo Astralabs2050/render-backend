@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { User } from '../../users/entities/user.entity';
 import { CreditTransaction, TransactionType, AIActionType } from '../entities/credit-transaction.entity';
 import { PaystackService } from '../../common/services/paystack.service';
@@ -40,6 +41,7 @@ export class CreditService {
     private transactionRepository: Repository<CreditTransaction>,
     private paystackService: PaystackService,
     private dataSource: DataSource,
+    private configService: ConfigService,
     @Inject(forwardRef(() => NotificationService))
     private notificationService: NotificationService,
   ) { }
@@ -51,6 +53,12 @@ export class CreditService {
 
   async getPackages(): Promise<CreditPackage[]> {
     return CREDIT_PACKAGES;
+  }
+
+  async getPaymentMethods(): Promise<
+    Array<{ id: string; brand: string; last4: string }>
+  > {
+    return [];
   }
 
   async hasEnoughCredits(userId: string, actionType: AIActionType): Promise<boolean> {
@@ -159,6 +167,7 @@ export class CreditService {
   async initiatePurchase(
     userId: string,
     packageId: string,
+    callbackUrl?: string,
   ): Promise<{ authorizationUrl: string; reference: string; accessCode: string }> {
     const pkg = CREDIT_PACKAGES.find((p) => p.id === packageId);
     if (!pkg) {
@@ -170,6 +179,13 @@ export class CreditService {
       throw new BadRequestException('User not found');
     }
 
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') ||
+      this.configService.get<string>('APP_BASE_URL') ||
+      'http://localhost:3000';
+    const paystackCallbackUrl =
+      callbackUrl || `${frontendUrl.replace(/\/$/, '')}/paystack-callback?type=credits`;
+
     const result = await this.paystackService.initializeTransaction(
       user.email,
       pkg.price,
@@ -179,6 +195,8 @@ export class CreditService {
         credits: pkg.credits,
         type: 'credit_purchase',
       },
+      undefined,
+      paystackCallbackUrl,
     );
 
     return {

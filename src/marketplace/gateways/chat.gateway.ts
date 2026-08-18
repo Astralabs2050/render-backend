@@ -76,7 +76,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         throw new WsException('Invalid message data');
       }
       
-      if (data.content.length > 1000) {
+      const maxLength =
+        data.type === MessageType.DELIVERY_AND_MEASUREMENTS ? 20000 : 1000;
+      if (data.content.length > maxLength) {
         throw new WsException('Message too long');
       }
       

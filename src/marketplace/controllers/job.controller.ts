@@ -107,6 +107,11 @@ export class JobController {
     return this.jobService.saveJobForMaker(jobId, req.user.id);
   }
 
+  @Delete('jobs/:id/unsave')
+  async unsaveJob(@Param('id', ParseUUIDPipe) jobId: string, @Request() req) {
+    return this.jobService.unsaveJobForMaker(jobId, req.user.id);
+  }
+
   @Get('maker/saved-jobs')
   async getSavedJobs(@Request() req) {
     return this.jobService.getSavedJobs(req.user.id);
@@ -234,7 +239,7 @@ export class JobController {
       req.user.id
     );
   }
-  // NFT Marketplace Endpoints
+  // Marketplace Endpoints
   @Public()
   @Get('browse')
   async browseMarketplace(@Query() filters: MarketplaceFilterDto) {

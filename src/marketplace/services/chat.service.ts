@@ -7,7 +7,7 @@ import { Job } from '../entities/job.entity';
 import { UserDeliveryDetails } from '../entities/user-delivery-details.entity';
 import { UserMeasurements } from '../entities/user-measurements.entity';
 import { DeliveryDetailsDto, MeasurementsDto, ApplicationAcceptedDto } from '../dto/delivery-measurements.dto';
-import { NFT } from '../../web3/entities/nft.entity';
+import { DesignRecord } from '../../designs/entities/design-record.entity';
 import { NotificationService as AppNotificationService } from '../../notifications/services/notification.service';
 
 @Injectable()
@@ -23,8 +23,8 @@ export class ChatService {
     private userDeliveryDetailsRepository: Repository<UserDeliveryDetails>,
     @InjectRepository(UserMeasurements)
     private userMeasurementsRepository: Repository<UserMeasurements>,
-    @InjectRepository(NFT)
-    private nftRepository: Repository<NFT>,
+    @InjectRepository(DesignRecord)
+    private designRepository: Repository<DesignRecord>,
     @Inject(forwardRef(() => AppNotificationService))
     private appNotificationService: AppNotificationService,
   ) {}
@@ -38,7 +38,7 @@ export class ChatService {
 
     // Validate design exists if designId provided
     if (designId) {
-      const design = await this.nftRepository.findOne({
+      const design = await this.designRepository.findOne({
         where: { id: designId },
       });
 

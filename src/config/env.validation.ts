@@ -32,37 +32,14 @@ export const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().min(1, 'Cloudinary cloud name is required').optional(),
   CLOUDINARY_API_KEY: z.string().min(1, 'Cloudinary API key is required').optional(),
   CLOUDINARY_API_SECRET: z.string().min(1, 'Cloudinary API secret is required').optional(),
-  THIRDWEB_CLIENT_ID: z.string().min(1, 'Thirdweb client ID is required').optional(),
-  THIRDWEB_SECRET_KEY: z.string().min(1, 'Thirdweb secret key is required').optional(),
-  THIRDWEB_CHAIN_ID: z.string().default('polygon'),
-  NFT_CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid contract address').optional(),
-  MARKETPLACE_CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid contract address').optional(),
-  WALLET_ENCRYPTION_KEY: z.string().min(32, 'Wallet encryption key must be at least 32 characters').optional(),
   STABILITY_API_KEY: z.string().optional(),
   ASTRIA_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default('gpt-4o'),
   FRONTEND_URL: z.string().default('http://localhost:3001'),
   APP_BASE_URL: z.string().default('http://localhost:3000'),
 
-  // Hedera Configuration
-  HEDERA_TESTNET_RPC_URL: z.string().url('Invalid Hedera RPC URL').optional(),
-  HEDERA_PRIVATE_KEY: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid Hedera private key format').optional(),
-  HEDERA_ACCOUNT_ID: z.string().optional(),
-  HEDERA_USDC_TOKEN_ID: z.string().optional(),
-  HEDERA_ASTRA_NFT_COLLECTIBLE_CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid NFT contract address').optional(),
-  HEDERA_ESCROW_CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid escrow contract address').optional(),
-  HEDERA_TOKEN_SERVICE_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid token service address').optional(),
-  HEDERA_USDC_TOKEN_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid USDC token address').optional(),
 
-  // Polygon Amoy Configuration
-  POLYGON_AMOY_RPC_URL: z.string().url('Invalid Polygon Amoy RPC URL').optional(),
-  POLYGON_AMOY_PRIVATE_KEY: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid Polygon Amoy private key format').optional(),
-  POLYGON_AMOY_ASTRA_NFT_COLLECTIBLE_CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Polygon NFT contract address').optional(),
-  POLYGON_AMOY_USDC_TOKEN_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Polygon USDC token address').optional(),
-  POLYGON_AMOY_ESCROW_CONTRACT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Polygon escrow contract address').optional(),
 
-  PINATA_JWT_TOKEN: z.string().optional(),
-  THIRDWEB_PRIVATE_KEY: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid Thirdweb private key format').optional(),
 
   // Paystack Configuration
   PAYSTACK_SECRET_KEY: z.string().startsWith('sk_', 'Paystack secret key must start with sk_').optional(),

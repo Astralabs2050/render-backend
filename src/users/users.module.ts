@@ -11,14 +11,13 @@ import { User } from './entities/user.entity';
 import { Design } from './entities/collection.entity';
 import { PaymentIntent } from './entities/payment-intent.entity';
 import { ReconciliationJob } from './entities/reconciliation-job.entity';
-import { NFT } from '../web3/entities/nft.entity';
-import { Web3Module } from '../web3/web3.module';
+import { DesignsModule } from '../designs/designs.module';
 import { MarketplaceModule } from '../marketplace/marketplace.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Design, PaymentIntent, ReconciliationJob, NFT]), 
-    Web3Module,
+    TypeOrmModule.forFeature([User, Design, PaymentIntent, ReconciliationJob]),
+    DesignsModule,
     forwardRef(() => MarketplaceModule)
   ],
   controllers: [UsersController, CreatorController, MakerController, DesignController],

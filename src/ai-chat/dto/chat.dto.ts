@@ -16,7 +16,8 @@ export class CreateChatDto {
 }
 export class SendMessageDto {
   @IsString()
-  content: string;
+  @IsOptional()
+  content?: string;
   @IsUUID()
   @IsOptional()
   chatId?: string;
