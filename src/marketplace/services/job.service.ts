@@ -29,6 +29,15 @@ export class JobService {
     private chatService: ChatService,
     private cloudinaryService: CloudinaryService,
   ) {}
+
+  private assertMakerCanApply(maker: User) {
+    if (!maker.profileCompleted) {
+      throw new BadRequestException(
+        'Complete your profile before applying for jobs.',
+      );
+    }
+  }
+
   async createJob(createJobDto: CreateJobDto, creatorId: string): Promise<Job> {
     const creator = await this.userRepository.findOne({ 
       where: { id: creatorId, userType: UserType.CREATOR } 
@@ -194,6 +203,7 @@ export class JobService {
     if (!maker) {
       throw new BadRequestException('Only makers can apply to jobs');
     }
+    this.assertMakerCanApply(maker);
     if (job.status !== JobStatus.OPEN) {
       throw new BadRequestException('Job is not open for applications');
     }
@@ -553,6 +563,8 @@ export class JobService {
       throw new BadRequestException('Only makers can apply to jobs');
     }
 
+    this.assertMakerCanApply(maker);
+
     if (job.status !== JobStatus.OPEN) {
       throw new BadRequestException('Job is not open for applications');
     }
@@ -831,6 +843,8 @@ export class JobService {
     if (!maker) {
       throw new BadRequestException('Only makers can apply to jobs');
     }
+
+    this.assertMakerCanApply(maker);
     
     // 2. Check job status FIRST
     if (job.status !== JobStatus.OPEN) {

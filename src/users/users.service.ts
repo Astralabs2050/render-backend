@@ -91,7 +91,8 @@ export class UsersService {
     if (profileData.taxRegistrationNumber) user.taxRegistrationNumber = profileData.taxRegistrationNumber;
     if (profileData.workExperience) user.workExperience = profileData.workExperience;
     if (profileData.projects) user.projects = profileData.projects;
-    if (profileData.location && profileData.category && profileData.skills) {
+    if (profileData.profilePicture) user.profilePicture = profileData.profilePicture;
+    if (user.location && user.category) {
       user.profileCompleted = true;
     }
     if (profileData.governmentIdImages && profileData.nameOnId) {
