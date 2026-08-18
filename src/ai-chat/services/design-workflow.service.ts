@@ -153,6 +153,9 @@ export class DesignWorkflowService {
       await this.chatService.updateChat(chat.id, {
         designPreviews: designImages,
         state: ChatState.DESIGN_PREVIEW,
+        ...(chatForGuards
+          ? {}
+          : { title: `Design: ${dto.prompt.substring(0, 50)}...` }),
       });
       
       // Do NOT create NFT or job yet; wait for explicit approval with user-provided details
@@ -347,21 +350,32 @@ export class DesignWorkflowService {
     customName?: string,
   ) {
     const chat = await this.chatService.getChat(userId, chatId);
+    const previews = Array.isArray(chat?.designPreviews)
+      ? chat.designPreviews.filter(Boolean)
+      : String(chat?.designPreviews || '')
+          .split(/(?=https?:\/\/)/)
+          .map((url) => url.replace(/,$/, '').trim())
+          .filter((url) => /^https?:\/\//.test(url));
+    const variationIndex = parseInt(String(selectedVariety).split('_')[1], 10) - 1;
+    const selectedImageUrl = previews[variationIndex];
+
     if (chat.designId) {
       const existing = await this.designRecordService.findById(chat.designId);
-      if (
-        existing.status === DesignStatus.LISTED ||
-        existing.status === DesignStatus.HIRED ||
-        existing.status === DesignStatus.SOLD
-      ) {
-        return existing;
+      if (existing && existing.imageUrl === selectedImageUrl) {
+        if (
+          existing.status === DesignStatus.LISTED ||
+          existing.status === DesignStatus.HIRED ||
+          existing.status === DesignStatus.SOLD
+        ) {
+          return existing;
+        }
+        return this.designRecordService.update(existing.id, {
+          status: DesignStatus.READY,
+          mintedAt: new Date(),
+          price: 0,
+          quantity: 0,
+        });
       }
-      return this.designRecordService.update(existing.id, {
-        status: DesignStatus.READY,
-        mintedAt: new Date(),
-        price: 0,
-        quantity: 0,
-      });
     }
 
     const { nft } = await this.simpleApproveDesign(userId, {

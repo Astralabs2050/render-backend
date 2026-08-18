@@ -91,7 +91,24 @@ export class ChatService {
       actionType,
     });
     if (imageBase64) {
-      userMessage.imageUrl = 'mock-image-url';
+      const uploadedUrl = await this.persistChatImage(imageBase64, chatId);
+      if (uploadedUrl) {
+        userMessage.imageUrl = uploadedUrl;
+        userMessage.metadata = {
+          hasImage: true,
+          sketchUrl: uploadedUrl,
+          attachments: [
+            {
+              type: 'image',
+              image_url: uploadedUrl,
+              thumb_url: uploadedUrl,
+              fallback: 'Uploaded photo',
+            },
+          ],
+        };
+      } else {
+        userMessage.metadata = { hasImage: true };
+      }
     }
     const savedMessage = await this.messageRepository.save(userMessage);
     // If interactive flow is managing this chat, do not run legacy auto-processing to avoid loops
@@ -538,11 +555,29 @@ Respond ONLY one word: CONFIRM or HOLD.`;
     });
     return this.messageRepository.save(message);
   }
+  private async persistChatImage(imageBase64: string, chatId: string): Promise<string | null> {
+    try {
+      const payload = imageBase64.startsWith('data:')
+        ? imageBase64
+        : `data:image/jpeg;base64,${imageBase64}`;
+      const uploaded = await this.cloudinaryService.uploadImage(payload, {
+        folder: 'astra-fashion/chat-uploads',
+        tags: ['chat-upload', chatId],
+      });
+      return uploaded.secure_url;
+    } catch (error) {
+      this.logger.warn(`Failed to persist chat image: ${error.message}`);
+      return null;
+    }
+  }
+
   private async addAssistantMessage(chatId: string, content: string, attachments: any[] = []): Promise<ChatMessage> {
     const message = this.messageRepository.create({
       content,
       role: 'assistant',
       chatId,
+      imageUrl: attachments?.[0]?.image_url || attachments?.[0]?.imageUrl,
+      metadata: attachments?.length ? { attachments } : undefined,
     });
     return this.messageRepository.save(message);
   }

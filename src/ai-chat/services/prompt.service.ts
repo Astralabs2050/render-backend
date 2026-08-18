@@ -56,11 +56,11 @@ To get started: do you have a fabric you'd like to use?`,
     // DESIGN_PREVIEW — user sees their 3 designs for the first time.
     // Variables: {occasion} — filled from metadata
     [ChatState.DESIGN_PREVIEW]:
-      `Here are three designs for your {occasion} 🌟 Each one is different — take a look and tell me which feels most like you.`,
+      `Which look do you want to keep? Pick Design 1, 2, or 3 — you can also keep more than one.`,
 
     // DESIGN_APPROVED — user has picked a design. Bridge into measurements.
     [ChatState.DESIGN_APPROVED]:
-      `Love that choice! To make sure it fits you perfectly, I'll need a few measurements. I'll guide you through each one — it only takes a few minutes. Ready?`,
+      `That look is saved in your Designs tab. Open Designs to publish it or hire a maker.`,
 
     // JOB_INFO_GATHER — collecting brief details before listing to tailors.
     // Variables: {eventDate} — pre-filled from intake
@@ -141,7 +141,7 @@ To get started: do you have a fabric you'd like to use?`,
     [ChatState.WELCOME]: ['Yes, I have fabric', 'No, just an idea'],
 
     // Design preview — pick or iterate
-    [ChatState.DESIGN_PREVIEW]: ['I love this one', 'Show me variations'],
+    [ChatState.DESIGN_PREVIEW]: ['Design 1', 'Design 2', 'Design 3', 'I like more than one', 'Show me variations'],
 
     // Payment gate
     [ChatState.PAYMENT_REQUIRED]: ['Pay Now'],

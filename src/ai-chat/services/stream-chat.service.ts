@@ -114,13 +114,13 @@ export class StreamChatService implements OnModuleInit {
   async sendAIMessage(channelId: string, message: string, attachments: any[] = []): Promise<any> {
     if (!this.client) {
       this.logger.warn('Stream Chat not configured, skipping AI message send');
-      await this.syncMessageToDatabase(channelId, message, 'assistant');
+      await this.syncMessageToDatabase(channelId, message, 'assistant', attachments);
       return { message: { id: 'mock-message-id' } };
     }
     try {
       await this.ensureBotUser();
       const channel = this.client.channel('messaging', channelId);
-      await this.syncMessageToDatabase(channelId, message, 'assistant');
+      await this.syncMessageToDatabase(channelId, message, 'assistant', attachments);
 
       this.withTimeout(
         channel.sendMessage({
@@ -136,7 +136,7 @@ export class StreamChatService implements OnModuleInit {
       return { message: { id: 'queued' } };
     } catch (error) {
       this.logger.error(`Error sending AI message: ${error.message}`);
-      await this.syncMessageToDatabase(channelId, message, 'assistant');
+      await this.syncMessageToDatabase(channelId, message, 'assistant', attachments);
       return { message: { id: 'mock-message-id' } };
     }
   }
@@ -145,12 +145,19 @@ export class StreamChatService implements OnModuleInit {
     await this.syncMessageToDatabase(channelId, message, 'user');
   }
 
-  private async syncMessageToDatabase(channelId: string, content: string, role: 'user' | 'assistant'): Promise<void> {
+  private async syncMessageToDatabase(
+    channelId: string,
+    content: string,
+    role: 'user' | 'assistant',
+    attachments: any[] = [],
+  ): Promise<void> {
     try {
       await this.messageRepository.save({
         content,
         role,
         chatId: channelId,
+        imageUrl: attachments?.[0]?.image_url || attachments?.[0]?.imageUrl,
+        metadata: attachments?.length ? { attachments } : undefined,
       });
     } catch (error) {
       this.logger.error(`Failed to sync message to database: ${error.message}`);

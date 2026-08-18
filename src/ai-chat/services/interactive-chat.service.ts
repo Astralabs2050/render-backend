@@ -70,7 +70,11 @@ export class InteractiveChatService {
       },
     });
 
-    return { ...chat, welcomeMessage };
+    return {
+      ...chat,
+      welcomeMessage,
+      quickButtons: this.promptService.getQuickButtons(ChatState.WELCOME),
+    };
   }
 
   // ─── Process message ─────────────────────────────────────────────────────────
@@ -114,7 +118,26 @@ export class InteractiveChatService {
       messageData.metadata = { hasImage: true };
     }
 
-    await this.chatService.sendMessage(userId, messageData);
+    const savedUserMessage = await this.chatService.sendMessage(userId, messageData);
+    const uploadedImageUrl =
+      savedUserMessage?.imageUrl && savedUserMessage.imageUrl !== 'mock-image-url'
+        ? savedUserMessage.imageUrl
+        : undefined;
+
+    if (uploadedImageUrl) {
+      await this.chatService.updateChat(dto.chatId, {
+        metadata: {
+          ...chat.metadata,
+          managedByInteractive: true,
+          fabricImageUrl: uploadedImageUrl,
+          ...(dto.model && { preferredModel: dto.model }),
+        },
+      });
+      chat.metadata = {
+        ...chat.metadata,
+        fabricImageUrl: uploadedImageUrl,
+      };
+    }
 
     // Sanitize before any AI processing — strips phone numbers, emails, URLs
     const sanitizedContent = this.promptService.sanitizeUserMessage(
@@ -127,27 +150,32 @@ export class InteractiveChatService {
       return this.handleDesignAction(userId, dto, chat);
     }
 
-    // Route by state
+    let result;
     switch (chat.state) {
       case ChatState.WELCOME:
       case ChatState.INTENT:
       case ChatState.INFO_GATHER:
-        return this.handleIntake(
+        result = await this.handleIntake(
           userId,
           dto.chatId,
           sanitizedContent,
-          fabricImage,
+          fabricImage || uploadedImageUrl,
         );
+        break;
 
       case ChatState.DESIGN_PREVIEW:
-        return this.handleDesignSelection(userId, dto.chatId, sanitizedContent);
+        result = await this.handleDesignSelection(userId, dto.chatId, sanitizedContent);
+        break;
 
       case ChatState.DESIGN_APPROVED:
-        return this.handleDesignSelection(userId, dto.chatId, sanitizedContent);
+        result = await this.handleDesignSelection(userId, dto.chatId, sanitizedContent);
+        break;
 
       default:
-        return this.handleGeneralMessage(userId, dto.chatId, sanitizedContent);
+        result = await this.handleGeneralMessage(userId, dto.chatId, sanitizedContent);
     }
+
+    return { ...result, uploadedImageUrl };
   }
 
   // ─── Intake flow ──────────────────────────────────────────────────────────────
@@ -176,13 +204,25 @@ export class InteractiveChatService {
         if (
           !content.trim() && !sketchData
         ) {
-          return { chatId, state: chat.state, aiResponse: null };
+          const askAgain =
+            "To get started: do you have a fabric you'd like to use, or a design photo to upload?";
+          return {
+            chatId,
+            state: chat.state,
+            aiResponse: askAgain,
+            quickButtons: this.promptService.getQuickButtons(ChatState.WELCOME),
+          };
         }
-        if (/hi!?\s*i'?m astra/i.test(content)) {
-          return { chatId, state: chat.state, aiResponse: null };
+        if (/hi!?\s*i'?m astra/i.test(content) && !sketchData) {
+          return {
+            chatId,
+            state: chat.state,
+            aiResponse: this.promptService.getPromptForState(ChatState.WELCOME, true),
+            quickButtons: this.promptService.getQuickButtons(ChatState.WELCOME),
+          };
         }
 
-        const hasFabric = await this.detectFabricAnswer(content);
+        const hasFabric = await this.detectFabricAnswer(content, Boolean(sketchData));
 
         if (hasFabric === null) {
           // Unclear answer — ask again clearly
@@ -198,6 +238,31 @@ export class InteractiveChatService {
         }
 
         if (hasFabric) {
+          // They already uploaded a fabric/design photo — skip asking again.
+          if (sketchData) {
+            const fabricDescription = await this.describeFabricFromPhoto(
+              content,
+              sketchData,
+            );
+            const askOccasion =
+              "Got it — I have your photo. Tell me about the occasion — what's the event, and when is it?";
+            await this.streamChatService.sendAIMessage(chatId, askOccasion);
+            await this.chatService.updateChat(chatId, {
+              state: ChatState.INFO_GATHER,
+              metadata: {
+                ...metadata,
+                hasFabric: true,
+                hasFabricPhoto: true,
+                fabricDescription,
+                ...(typeof sketchData === 'string' && /^https?:\/\//i.test(sketchData)
+                  ? { fabricImageUrl: sketchData }
+                  : {}),
+                intakeStep: 'occasion' as IntakeStep,
+              },
+            });
+            return { chatId, state: 'info_gather', aiResponse: askOccasion };
+          }
+
           // Path A — they have fabric. Ask for a photo.
           const askPhoto =
             "Great! Upload a photo of your fabric so I can design around its colour and texture.";
@@ -252,6 +317,9 @@ export class InteractiveChatService {
             ...metadata,
             fabricDescription,
             hasFabricPhoto: true,
+            ...(typeof sketchData === 'string' && /^https?:\/\//i.test(sketchData)
+              ? { fabricImageUrl: sketchData }
+              : {}),
             intakeStep: 'occasion' as IntakeStep,
           },
         });
@@ -275,15 +343,17 @@ export class InteractiveChatService {
           metadata.fabricDescription,
         );
 
+        const nextMetadata = {
+          ...metadata,
+          occasion: occasionInfo.occasion,
+          eventDate: occasionInfo.eventDate,
+          occasionRole: occasionInfo.role,
+          intakeStep: 'style' as IntakeStep,
+        };
         await this.streamChatService.sendAIMessage(chatId, askStyle);
         await this.chatService.updateChat(chatId, {
-          metadata: {
-            ...metadata,
-            occasion: occasionInfo.occasion,
-            eventDate: occasionInfo.eventDate,
-            occasionRole: occasionInfo.role,
-            intakeStep: 'style' as IntakeStep,
-          },
+          title: this.buildDesignChatTitle(nextMetadata),
+          metadata: nextMetadata,
         });
         return {
           chatId,
@@ -302,14 +372,16 @@ export class InteractiveChatService {
         const readyMsg =
           `Perfect — I have everything I need. Ready to generate 3 designs for your ${metadata.occasion || 'occasion'}? This uses 1 credit.`;
 
+        const nextMetadata = {
+          ...metadata,
+          stylePreference,
+          intakeStep: 'ready_to_generate' as IntakeStep,
+          confirmRequested: true,
+        };
         await this.streamChatService.sendAIMessage(chatId, readyMsg);
         await this.chatService.updateChat(chatId, {
-          metadata: {
-            ...metadata,
-            stylePreference,
-            intakeStep: 'ready_to_generate' as IntakeStep,
-            confirmRequested: true,
-          },
+          title: this.buildDesignChatTitle(nextMetadata),
+          metadata: nextMetadata,
         });
         return {
           chatId,
@@ -373,7 +445,7 @@ export class InteractiveChatService {
 
         // Build a structured prompt from everything collected
         const designPrompt = this.buildStructuredDesignPrompt(metadata);
-        const fabricImageBase64 = this.extractSketchFromMessages(chat.messages);
+        const fabricImageBase64 = await this.resolveFabricImage(chat, sketchData);
 
         let result;
         try {
@@ -416,10 +488,11 @@ export class InteractiveChatService {
 
         const newBalance = await this.creditService.getBalance(userId);
 
-        const completionMsg =
-          `Here are your 3 designs for your ${metadata.occasion || 'occasion'} 🎨 Which one feels most like you?\n\n` +
-          images.map((url, i) => `**Design ${i + 1}:**`).join('\n') +
-          `\n\n💳 Credits remaining: ${newBalance}`;
+        const completionMsg = this.formatDesignReply(
+          `Here are your 3 designs for your ${metadata.occasion || 'occasion'} 🎨 Which look do you want to keep? Pick Design 1, 2, or 3 — you can also keep more than one.`,
+          images,
+          `💳 Credits remaining: ${newBalance}`,
+        );
 
         const attachments = images.map((url, i) => ({
           type: 'image',
@@ -431,6 +504,7 @@ export class InteractiveChatService {
         await this.streamChatService.sendAIMessage(chatId, completionMsg, attachments);
         await this.chatService.updateChat(chatId, {
           state: ChatState.DESIGN_PREVIEW,
+          title: this.buildDesignChatTitle(metadata),
           metadata: {
             ...metadata,
             confirmRequested: false,
@@ -457,7 +531,7 @@ export class InteractiveChatService {
   }
 
   // ─── Design selection ─────────────────────────────────────────────────────
-  // Handles the DESIGN_PREVIEW state — user picks a design or requests changes.
+  // Handles the DESIGN_PREVIEW state — user picks one look, several looks, or requests changes.
   private async handleDesignSelection(
     userId: string,
     chatId: string,
@@ -467,37 +541,41 @@ export class InteractiveChatService {
     const conversationHistory = chat.messages
       .map((m) => `${m.role}: ${m.content}`)
       .join('\n');
+    const pickButtons = this.promptService.getQuickButtons(ChatState.DESIGN_PREVIEW);
+    const multiPickButtons = [
+      'Design 1',
+      'Design 2',
+      'Design 3',
+      'All three',
+      'Save my picks',
+    ];
 
-    const designSelection = this.detectDesignSelection(content);
-    if (designSelection) {
-      const chatWithPick = {
-        ...chat,
-        metadata: {
-          ...chat.metadata,
-          selectedDesign: designSelection,
-          selectedVariety: designSelection,
-          selectedVariation: designSelection,
-          confirmVariationRequested: false,
-        },
-      };
-      await this.chatService.updateChat(chatId, {
-        metadata: chatWithPick.metadata,
-      });
-      return this.saveSelectedLook(userId, chatId, chatWithPick);
+    if (chat.metadata?.awaitingMultiPick && !this.wantsNewVariation(content)) {
+      return this.handleMultiPick(userId, chatId, chat, content, multiPickButtons);
     }
 
-    if (/^i love this( one)?$/i.test(content.trim())) {
-      const pickMsg = this.promptService.getPromptForState(
-        ChatState.DESIGN_PREVIEW,
-        true,
-        chat.metadata,
-      );
+    const selections = this.detectDesignSelections(content);
+    if (selections.length > 0) {
+      return this.saveSelectedLooks(userId, chatId, chat, selections);
+    }
+
+    if (this.wantsMultipleLooks(content) || this.lovesThisWithoutNumber(content)) {
+      const pickMsg = this.lovesThisWithoutNumber(content)
+        ? 'Which look do you want to keep? Pick Design 1, 2, or 3. If you like more than one, tap “I like more than one” and I’ll save each of them.'
+        : 'Tap every look you want to keep, then tap Save my picks. You can also tap All three.';
       await this.streamChatService.sendAIMessage(chatId, pickMsg);
+      await this.chatService.updateChat(chatId, {
+        metadata: {
+          ...chat.metadata,
+          awaitingMultiPick: this.wantsMultipleLooks(content),
+          pendingPicks: [],
+        },
+      });
       return {
         chatId,
         state: 'design_preview',
         aiResponse: pickMsg,
-        quickButtons: this.promptService.getQuickButtons(ChatState.DESIGN_PREVIEW),
+        quickButtons: this.wantsMultipleLooks(content) ? multiPickButtons : pickButtons,
       };
     }
 
@@ -558,7 +636,11 @@ export class InteractiveChatService {
         const images = (result.designImages || []).filter(
           (url) => url && !url.includes('placeholder') && !url.includes('placehold.co'),
         );
-        const reply = `Here are your new variations! Which one do you prefer?\n\n💳 Credits remaining: ${newBalance}`;
+        const reply = this.formatDesignReply(
+          'Here are your new variations! Which look do you want to keep? Pick Design 1, 2, or 3 — you can also keep more than one.',
+          images,
+          `💳 Credits remaining: ${newBalance}`,
+        );
         const attachments = images.map((url, i) => ({
           type: 'image',
           image_url: url,
@@ -646,6 +728,7 @@ export class InteractiveChatService {
         metadata: {
           ...chat.metadata,
           confirmVariationRequested: true,
+          awaitingMultiPick: false,
           pendingModification: content,
         },
       });
@@ -659,7 +742,7 @@ export class InteractiveChatService {
 
     if (this.classifyYesNo(content) === 'no') {
       const stayMsg =
-        "No problem. We'll keep the designs you have. Which one feels most like you?";
+        "No problem. We'll keep the designs you have. Which look do you want to keep? Pick Design 1, 2, or 3.";
       await this.streamChatService.sendAIMessage(chatId, stayMsg);
       return {
         chatId,
@@ -676,24 +759,98 @@ export class InteractiveChatService {
       'design_preview',
     );
     await this.streamChatService.sendAIMessage(chatId, aiResponse);
-    return { chatId, state: 'design_preview', aiResponse };
+    return {
+      chatId,
+      state: 'design_preview',
+      aiResponse,
+      quickButtons: this.promptService.getQuickButtons(ChatState.DESIGN_PREVIEW),
+    };
   }
 
-  private async saveSelectedLook(
+  private async handleMultiPick(
     userId: string,
     chatId: string,
     chat: any,
+    content: string,
+    multiPickButtons: string[],
   ) {
-    const variety =
-      chat.metadata?.selectedDesign ||
-      chat.metadata?.selectedVariety ||
-      chat.metadata?.selectedVariation;
-    if (!variety || !/^variation_[123]$/.test(String(variety))) {
-      const pickMsg = this.promptService.getPromptForState(
-        ChatState.DESIGN_PREVIEW,
-        true,
-        chat.metadata,
+    const pending: string[] = Array.isArray(chat.metadata?.pendingPicks)
+      ? [...chat.metadata.pendingPicks]
+      : [];
+
+    if (/^save my picks$/i.test(content.trim())) {
+      if (!pending.length) {
+        const nudge = 'Tap Design 1, 2, or 3 first, then Save my picks.';
+        await this.streamChatService.sendAIMessage(chatId, nudge);
+        return {
+          chatId,
+          state: 'design_preview',
+          aiResponse: nudge,
+          quickButtons: multiPickButtons,
+        };
+      }
+      return this.saveSelectedLooks(userId, chatId, chat, pending);
+    }
+
+    const selections = this.detectDesignSelections(content);
+    if (selections.length > 1 || this.isAllThree(content)) {
+      return this.saveSelectedLooks(
+        userId,
+        chatId,
+        chat,
+        this.isAllThree(content)
+          ? ['variation_1', 'variation_2', 'variation_3']
+          : selections,
       );
+    }
+
+    if (selections.length === 1) {
+      const pick = selections[0];
+      if (!pending.includes(pick)) pending.push(pick);
+      const labels = pending.map((v) => `Design ${v.split('_')[1]}`).join(', ');
+      const reply =
+        pending.length >= 3
+          ? `${labels} are in. Tap Save my picks to keep all three.`
+          : `${labels} ${pending.length === 1 ? 'is' : 'are'} in. Add another, or tap Save my picks.`;
+      await this.streamChatService.sendAIMessage(chatId, reply);
+      await this.chatService.updateChat(chatId, {
+        metadata: {
+          ...chat.metadata,
+          awaitingMultiPick: true,
+          pendingPicks: pending,
+        },
+      });
+      return {
+        chatId,
+        state: 'design_preview',
+        aiResponse: reply,
+        quickButtons: multiPickButtons,
+      };
+    }
+
+    const askAgain =
+      'Tap Design 1, 2, or 3 to add it, All three to keep every look, or Save my picks when you are ready.';
+    await this.streamChatService.sendAIMessage(chatId, askAgain);
+    return {
+      chatId,
+      state: 'design_preview',
+      aiResponse: askAgain,
+      quickButtons: multiPickButtons,
+    };
+  }
+
+  private async saveSelectedLooks(
+    userId: string,
+    chatId: string,
+    chat: any,
+    varieties: string[],
+  ) {
+    const unique = [...new Set(varieties)].filter((v) =>
+      /^variation_[123]$/.test(String(v)),
+    );
+    if (!unique.length) {
+      const pickMsg =
+        'Which look do you want to keep? Pick Design 1, 2, or 3 — you can also keep more than one.';
       await this.streamChatService.sendAIMessage(chatId, pickMsg);
       return {
         chatId,
@@ -703,48 +860,57 @@ export class InteractiveChatService {
       };
     }
 
-    let design;
+    const saved = [];
     try {
       const occasion = chat.metadata?.occasion
-        ? `${chat.metadata.occasion} design`
-        : undefined;
-      design = await this.designWorkflowService.saveSelectedDesignForCreator(
-        userId,
-        chatId,
-        String(variety),
-        occasion,
-      );
+        ? String(chat.metadata.occasion)
+        : 'Design';
+      for (const variety of unique) {
+        const n = variety.split('_')[1];
+        const design = await this.designWorkflowService.saveSelectedDesignForCreator(
+          userId,
+          chatId,
+          variety,
+          `${occasion} — Design ${n}`,
+        );
+        saved.push(design);
+      }
     } catch (error) {
       const failMsg = `I couldn't save that design yet: ${error.message}. Please try again.`;
       await this.streamChatService.sendAIMessage(chatId, failMsg);
       return { chatId, state: 'design_preview', aiResponse: failMsg };
     }
 
-    const approvedMsg = this.promptService.getPromptForState(
-      ChatState.DESIGN_APPROVED,
-      true,
-      chat.metadata,
-    );
+    const labels = unique.map((v) => `Design ${v.split('_')[1]}`).join(' and ');
+    const approvedMsg =
+      unique.length === 1
+        ? `${labels} is saved in your Designs tab. Open Designs to publish it or hire a maker.`
+        : `I've saved ${labels} in your Designs tab. You can publish or hire a maker for each look.`;
+
     await this.streamChatService.sendAIMessage(chatId, approvedMsg);
+    const last = saved[saved.length - 1];
     await this.chatService.updateChat(chatId, {
       state: ChatState.DESIGN_APPROVED,
-      designId: design.id,
+      designId: last?.id,
       metadata: {
         ...chat.metadata,
         awaitingMintConfirmation: false,
-        selectedVariety: variety,
-        selectedVariation: variety,
-        selectedDesign: variety,
+        awaitingMultiPick: false,
+        pendingPicks: unique,
+        selectedVariety: unique[0],
+        selectedVariation: unique[0],
+        selectedDesign: unique[0],
+        selectedVariations: unique,
       },
     });
     return {
       chatId,
       state: 'design_approved',
       aiResponse: approvedMsg,
-      design,
-      designId: design.id,
-      selectedVariation: variety,
-      selectedImageUrl: design.imageUrl,
+      design: last,
+      designId: last?.id,
+      selectedVariation: unique.length === 1 ? unique[0] : undefined,
+      selectedImageUrl: last?.imageUrl,
     };
   }
 
@@ -893,7 +1059,9 @@ Respond naturally. Keep it short — one or two sentences. Guide toward the next
 
   // ─── AI helper: detect fabric answer ──────────────────────────────────────
   // Returns true (has fabric), false (no fabric), or null (unclear)
-  private async detectFabricAnswer(content: string): Promise<boolean | null> {
+  private async detectFabricAnswer(content: string, hasPhoto = false): Promise<boolean | null> {
+    if (hasPhoto) return true;
+
     const text = (content || '').trim().toLowerCase();
     if (!text) return null;
 
@@ -910,6 +1078,9 @@ Respond naturally. Keep it short — one or two sentences. Guide toward the next
 
     if (
       /\b(yes|yeah|yep|yup|i have|i do|have fabric|have a fabric|got fabric)\b/.test(
+        text,
+      ) ||
+      /\b(uploaded|i uploaded|here('s| is) (the |my )?(photo|image|picture|design)|attached|i (sent|shared) (a |the )?(photo|image|picture|design))\b/.test(
         text,
       )
     ) {
@@ -1023,12 +1194,70 @@ JSON only:`,
     return `Bespoke fashion design. ${parts.join('. ')}.`;
   }
 
+  private formatDesignReply(intro: string, images: string[], footer?: string): string {
+    const gallery = images
+      .map((url, i) => `**Design ${i + 1}:**\n${url}`)
+      .join('\n\n');
+    return [intro, gallery, footer].filter(Boolean).join('\n\n');
+  }
+
+  private buildDesignChatTitle(metadata: Record<string, any> = {}): string {
+    const occasion = String(metadata?.occasion || '').trim();
+    const style = String(metadata?.stylePreference || '').trim();
+    const prettyOccasion = occasion
+      ? occasion.charAt(0).toUpperCase() + occasion.slice(1)
+      : '';
+    const prettyStyle = style
+      ? style.length > 32
+        ? `${style.slice(0, 32).trim()}…`
+        : style
+      : '';
+    if (prettyOccasion && prettyStyle) return `${prettyOccasion} · ${prettyStyle}`;
+    if (prettyOccasion) return `${prettyOccasion} designs`;
+    if (prettyStyle) return prettyStyle;
+    return 'Fashion design';
+  }
+
+  private async resolveFabricImage(
+    chat: { messages?: ChatMessage[]; metadata?: Record<string, any> },
+    sketchData?: string,
+  ): Promise<string | undefined> {
+    if (sketchData?.startsWith('data:')) return sketchData;
+    if (sketchData && !/^https?:\/\//i.test(sketchData) && sketchData.length > 80) {
+      return sketchData.includes(',') ? sketchData : `data:image/jpeg;base64,${sketchData}`;
+    }
+
+    const url =
+      (sketchData && /^https?:\/\//i.test(sketchData) ? sketchData : null) ||
+      chat.metadata?.fabricImageUrl ||
+      this.extractSketchFromMessages(chat.messages || []);
+
+    if (!url) return undefined;
+    if (url.startsWith('data:')) return url;
+    if (!/^https?:\/\//i.test(url) || url === 'mock-image-url') return undefined;
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return undefined;
+      const buf = Buffer.from(await res.arrayBuffer());
+      const mime = res.headers.get('content-type') || 'image/jpeg';
+      return `data:${mime};base64,${buf.toString('base64')}`;
+    } catch (error) {
+      this.logger.warn(`Could not fetch fabric image: ${error.message}`);
+      return undefined;
+    }
+  }
+
   // ─── Helper: extract sketch from messages ─────────────────────────────────
   private extractSketchFromMessages(messages: ChatMessage[]): string | null {
     for (let i = messages.length - 1; i >= 0; i--) {
       const message = messages[i];
-      if (message.metadata?.sketchData) {
-        return message.metadata.sketchData.split(',')[1];
+      const sketch = message.metadata?.sketchData || message.metadata?.sketchUrl;
+      if (typeof sketch === 'string' && sketch && sketch !== 'mock-image-url') {
+        return sketch;
+      }
+      if (message.imageUrl && message.imageUrl !== 'mock-image-url') {
+        return message.imageUrl;
       }
     }
     return null;
@@ -1073,17 +1302,44 @@ JSON only:`,
   }
 
   // ─── Helper: detect design selection ───────────────────────────────────────
-  private detectDesignSelection(content: string): string | null {
+  private detectDesignSelections(content: string): string[] {
     const t = (content || '').toLowerCase().trim();
-    if (/\b(variation[\s_-]*1|design 1|first one|the first)\b/.test(t)) {
-      return 'variation_1';
+    if (!t) return [];
+    if (this.isAllThree(t)) {
+      return ['variation_1', 'variation_2', 'variation_3'];
     }
-    if (/\b(variation[\s_-]*2|design 2|second one|the second)\b/.test(t)) {
-      return 'variation_2';
+    const picks: string[] = [];
+    if (/\b(design\s*1|variation[\s_-]*1|the first|first one|first look)\b/.test(t)) {
+      picks.push('variation_1');
     }
-    if (/\b(variation[\s_-]*3|design 3|third one|the third)\b/.test(t)) {
-      return 'variation_3';
+    if (/\b(design\s*2|variation[\s_-]*2|the second|second one|second look)\b/.test(t)) {
+      picks.push('variation_2');
     }
-    return null;
+    if (/\b(design\s*3|variation[\s_-]*3|the third|third one|third look)\b/.test(t)) {
+      picks.push('variation_3');
+    }
+    return [...new Set(picks)];
+  }
+
+  private isAllThree(content: string): boolean {
+    const t = (content || '').toLowerCase().trim();
+    return /\b(all three|all of them|every (one|design|look)|all (the )?designs|all (the )?variations|all three designs)\b/.test(
+      t,
+    ) || /^all three$/i.test(t);
+  }
+
+  private wantsMultipleLooks(content: string): boolean {
+    const t = (content || '').toLowerCase().trim();
+    return /\b(more than one|more than 1|i like more|two of them|multiple|both|a few of them)\b/.test(
+      t,
+    );
+  }
+
+  private lovesThisWithoutNumber(content: string): boolean {
+    const t = (content || '').toLowerCase().trim();
+    if (this.detectDesignSelections(t).length > 0) return false;
+    return /^(i love this( one)?|love this( one)?|i like this( one)?|this one)$/i.test(
+      t,
+    );
   }
 }
