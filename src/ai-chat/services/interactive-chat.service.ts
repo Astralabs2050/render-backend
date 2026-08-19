@@ -1179,19 +1179,63 @@ JSON only:`,
   // Replaces the old "join all messages into a blob" approach.
   // Produces a structured prompt the image model can actually use.
   private buildStructuredDesignPrompt(metadata: Record<string, any>): string {
-    const parts: string[] = [];
+    const style = String(metadata?.stylePreference || '').trim();
+    const occasion = String(metadata?.occasion || '').trim();
+    const fabricDescription = String(metadata?.fabricDescription || '').trim();
+    const combined = `${style} ${occasion}`.toLowerCase();
 
-    if (metadata?.occasion) parts.push(`Occasion: ${metadata.occasion}`);
-    if (metadata?.occasionRole) parts.push(`Role: ${metadata.occasionRole}`);
-    if (metadata?.fabricDescription) parts.push(`Fabric: ${metadata.fabricDescription}`);
-    if (metadata?.stylePreference) parts.push(`Style direction: ${metadata.stylePreference}`);
-    if (metadata?.eventDate) parts.push(`Event date: ${metadata.eventDate}`);
+    const silhouette = /fit|structur|corset|pencil|tailor/.test(style.toLowerCase())
+      ? 'fitted and structured, with couture shaping and a clear waist'
+      : /flow|relax|drape|fluid|a-line|empire/.test(style.toLowerCase())
+        ? 'flowing and relaxed, with considered drape and volume'
+        : style ||
+          'a refined occasionwear silhouette with a clear waist and considered volume';
 
-    if (parts.length === 0) {
-      return 'Bespoke fashion design for a special occasion';
-    }
+    const garmentType = /wedding|bridal/.test(combined)
+      ? 'bridal or wedding-guest occasionwear'
+      : /owambe|aso ebi|traditional/.test(combined)
+        ? 'contemporary African ceremonial occasionwear'
+        : /gala|award|red carpet/.test(combined)
+          ? 'red-carpet couture gown'
+          : /cocktail/.test(combined)
+            ? 'cocktail occasionwear'
+            : /suit|groom|mens/.test(combined)
+              ? 'tailored occasion suit'
+              : 'couture occasionwear garment';
 
-    return `Bespoke fashion design. ${parts.join('. ')}.`;
+    const embellishmentLevel = /minimal|clean|simple|understated/.test(style.toLowerCase())
+      ? 'restrained architectural embellishment — precise, not busy'
+      : /bead|crystal|sparkle|owambe|gala|aso/.test(combined)
+        ? 'rich handcrafted embellishment following the garment architecture'
+        : 'considered couture embellishment that follows construction, not random surface decoration';
+
+    const dramaLevel = /dramatic|royal|owambe|gala|red carpet/.test(combined)
+      ? 'high ceremony and confident presence'
+      : /minimal|understated|quiet/.test(style.toLowerCase())
+        ? 'quiet luxury, controlled drama'
+        : 'balanced contemporary occasionwear drama';
+
+    return this.promptService.buildCoutureImagePrompt({
+      culturalContext:
+        metadata?.culturalContext ||
+        'Contemporary African luxury fashion. Use the fabric, occasion and any cultural cues in the brief. Avoid costume clichés.',
+      occasion: occasion || undefined,
+      aesthetic: style || undefined,
+      silhouette,
+      garmentType,
+      embellishmentLevel,
+      dramaLevel,
+      fabricDescription: fabricDescription || undefined,
+      hasFabricPhoto: Boolean(metadata?.fabricImageUrl),
+      rawBrief: [
+        occasion && `Occasion: ${occasion}`,
+        metadata?.occasionRole && `Role: ${metadata.occasionRole}`,
+        fabricDescription && `Fabric: ${fabricDescription}`,
+        style && `Style direction: ${style}`,
+      ]
+        .filter(Boolean)
+        .join('. '),
+    });
   }
 
   private formatDesignReply(intro: string, images: string[], footer?: string): string {

@@ -294,19 +294,18 @@ export class OpenAIService {
     variationIndex: number,
     baseStylePrompt?: string,
   ): string {
-    const views = [
-      'front view of the full outfit on a faceless fashion mannequin',
-      'three-quarter angle view of the same outfit on a faceless fashion mannequin',
-      'close-up of fabric, construction, and silhouette of the same outfit',
+    const brief = prompt.includes('creative director and couture designer')
+      ? prompt
+      : this.promptService.buildCoutureImagePrompt({ rawBrief: prompt });
+    const variations = [
+      'VARIATION 1: Create an original structured atelier look. Architectural, tailored, couture construction. Full-length campaign photograph. The entire garment must be visible.',
+      'VARIATION 2: Create a different original draped and fluid atelier look. Do not repeat variation 1. Full-length campaign photograph. The entire garment must be visible.',
+      'VARIATION 3: Create a different original ceremonial high-presence atelier look. Do not repeat the other two. Full-length campaign photograph. The entire garment must be visible.',
     ];
-    const styleLock = baseStylePrompt
-      ? ` Keep the same silhouette, colour palette, and garment type as: ${baseStylePrompt}.`
+    const fabricLock = baseStylePrompt
+      ? ' Keep the same fabric identity, colour palette and textile as the brief. This must be a distinct original garment, not another camera angle of a previous look.'
       : '';
-    return (
-      `Professional editorial fashion illustration. ${prompt}. ` +
-      `${views[variationIndex] || views[0]}.${styleLock} ` +
-      'Clean white studio background, consistent lighting, garment-focused, no celebrity likeness.'
-    );
+    return `${brief}\n\n${variations[variationIndex] || variations[0]}${fabricLock}`;
   }
 
   private async persistGeminiImage(
@@ -330,7 +329,7 @@ export class OpenAIService {
       },
       transformation: {
         width: 1024,
-        height: 1024,
+        height: 1536,
         crop: 'fit',
         quality: 'auto',
         format: 'auto',
@@ -353,7 +352,9 @@ export class OpenAIService {
           {
             role: 'user',
             parts: [
-              { text: `${text} Match the attached fabric or reference photo.` },
+              {
+                text: `${text}\n\nThe attached image is the supplied fabric. Preserve its colours, pattern, scale and texture. Place the pattern as if the garment was cut from this cloth.`,
+              },
               { inlineData: { mimeType: ref.mimeType, data: ref.data } },
             ],
           },
@@ -364,23 +365,32 @@ export class OpenAIService {
       'gemini-2.5-flash-image',
       'gemini-2.0-flash-preview-image-generation',
     ];
+    const configs: Record<string, unknown>[] = [
+      {
+        responseModalities: ['IMAGE', 'TEXT'],
+        imageConfig: { aspectRatio: '3:4' },
+      },
+      { responseModalities: ['IMAGE', 'TEXT'] },
+    ];
     let lastError: any;
     for (const model of models) {
-      try {
-        this.logger.log(`Generating Gemini image (${model}) variation ${variationIndex + 1}`);
-        const response: any = await client.models.generateContent({
-          model,
-          contents,
-          config: { responseModalities: ['IMAGE', 'TEXT'] },
-        });
-        const imageB64 = this.extractGeminiImageB64(response);
-        if (!imageB64) throw new Error('No image in Gemini response');
-        const url = await this.persistGeminiImage(imageB64, prompt, variationIndex);
-        this.logger.log(`Gemini ${model} variation ${variationIndex + 1}: ${url}`);
-        return url;
-      } catch (error: any) {
-        lastError = error;
-        this.logger.warn(`${model} failed: ${error.message}`);
+      for (const config of configs) {
+        try {
+          this.logger.log(`Generating Gemini image (${model}) variation ${variationIndex + 1}`);
+          const response: any = await client.models.generateContent({
+            model,
+            contents,
+            config,
+          });
+          const imageB64 = this.extractGeminiImageB64(response);
+          if (!imageB64) throw new Error('No image in Gemini response');
+          const url = await this.persistGeminiImage(imageB64, prompt, variationIndex);
+          this.logger.log(`Gemini ${model} variation ${variationIndex + 1}: ${url}`);
+          return url;
+        } catch (error: any) {
+          lastError = error;
+          this.logger.warn(`${model} failed: ${error.message}`);
+        }
       }
     }
     throw lastError || new Error('Gemini image generation failed');
