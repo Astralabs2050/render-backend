@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Put, UseInterceptors, UploadedFile, UploadedFiles } from '@nestjs/common';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -58,7 +58,10 @@ export class UsersController {
 
   @Post('brand-details')
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('brandLogo', {
+  @UseInterceptors(FileFieldsInterceptor([
+    { name: 'profilePicture', maxCount: 1 },
+    { name: 'brandLogo', maxCount: 1 },
+  ], {
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
       if (['image/jpeg', 'image/jpg', 'image/png'].includes(file.mimetype)) {
@@ -69,14 +72,22 @@ export class UsersController {
     }
   }))
   async createBrandDetails(
-    @Req() req, 
+    @Req() req,
     @Body() brandDetailsDto: BrandDetailsDto,
-    @UploadedFile() brandLogo?: Express.Multer.File
+    @UploadedFiles() files?: {
+      profilePicture?: Express.Multer.File[];
+      brandLogo?: Express.Multer.File[];
+    },
   ) {
-    const updatedUser = await this.usersService.addBrandDetails(req.user.id, brandDetailsDto, brandLogo);
+    const profileImage = files?.profilePicture?.[0] || files?.brandLogo?.[0];
+    const updatedUser = await this.usersService.addBrandDetails(
+      req.user.id,
+      brandDetailsDto,
+      profileImage,
+    );
     return {
       status: true,
-      message: 'Brand details created successfully',
+      message: 'Profile created successfully',
       data: Helpers.sanitizeUser(updatedUser),
     };
   }

@@ -1,13 +1,32 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsIn } from 'class-validator';
 
 export class BrandDetailsDto {
   @IsString()
   @IsNotEmpty()
-  brandName: string;
+  fullName: string;
 
   @IsString()
   @IsNotEmpty()
-  brandOrigin: string;
+  location: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @IsIn(['Small', 'Medium', 'Large'])
+  measurement: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @IsIn(['Male', 'Female'])
+  outfitGender: string;
+
+  // Legacy optional fields kept for older clients
+  @IsOptional()
+  @IsString()
+  brandName?: string;
+
+  @IsOptional()
+  @IsString()
+  brandOrigin?: string;
 
   @IsOptional()
   @IsString()

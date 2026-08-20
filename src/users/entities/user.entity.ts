@@ -91,6 +91,14 @@ export class User extends BaseEntity {
   @Column({ nullable: true })
   profilePicture: string;
 
+  /** Preferred garment size for virtual try-on / design fit */
+  @Column({ nullable: true })
+  measurement: string;
+
+  /** Preferred outfit gender presentation */
+  @Column({ nullable: true })
+  outfitGender: string;
+
   @Column('text', { nullable: true })
   bio: string;
 

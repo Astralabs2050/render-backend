@@ -41,6 +41,11 @@ export class AuthController {
   refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refreshToken(refreshTokenDto.refreshToken);
   }
+
+  @Post('refresh')
+  refreshTokenAlias(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshToken(refreshTokenDto.refreshToken);
+  }
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   getProfile(@Req() req) {

@@ -118,24 +118,45 @@ export class UsersService {
     this.logger.log(`Identity verification submitted for user: ${user.email}`);
     return updatedUser;
   }
-  async addBrandDetails(id: string, brandData: BrandDetailsDto, brandLogo?: Express.Multer.File): Promise<User> {
+  async addBrandDetails(
+    id: string,
+    brandData: BrandDetailsDto,
+    profileImage?: Express.Multer.File,
+  ): Promise<User> {
     const user = await this.findOne(id);
-    
-    user.brandName = brandData.brandName;
-    user.brandOrigin = brandData.brandOrigin;
+
+    const fullName = brandData.fullName || brandData.brandName;
+    const location = brandData.location || brandData.brandOrigin;
+
+    if (fullName) {
+      user.fullName = fullName;
+      // Keep brandName in sync so older collection flows still work
+      user.brandName = fullName;
+    }
+    if (location) {
+      user.location = location;
+      user.brandOrigin = location;
+    }
+    if (brandData.measurement) user.measurement = brandData.measurement;
+    if (brandData.outfitGender) user.outfitGender = brandData.outfitGender;
     if (brandData.brandStory) user.brandStory = brandData.brandStory;
-    
-    if (brandLogo) {
-      const uploadResult = await this.cloudinaryService.uploadImage(brandLogo.buffer, {
-        folder: 'astra-fashion/brands',
-        public_id: `brand-logo-${id}`,
-        tags: ['brand', 'logo', id]
+
+    if (profileImage) {
+      const uploadResult = await this.cloudinaryService.uploadImage(profileImage.buffer, {
+        folder: 'astra-fashion/profiles',
+        public_id: `profile-${id}`,
+        tags: ['profile', 'creator', id],
       });
+      user.profilePicture = uploadResult.secure_url;
       user.brandLogo = uploadResult.secure_url;
     }
 
+    if (user.fullName && user.location && user.measurement && user.outfitGender) {
+      user.profileCompleted = true;
+    }
+
     const updatedUser = await this.usersRepository.save(user);
-    this.logger.log(`Brand details updated for user: ${user.email}`);
+    this.logger.log(`Creator profile updated for user: ${user.email}`);
     return updatedUser;
   }
 
@@ -168,8 +189,8 @@ export class UsersService {
   async createCollection(userId: string, collectionData: CreateDesignDto, designImages?: Express.Multer.File[]): Promise<any> {
     const user = await this.findOne(userId);
     
-     if (!user.brandName || !user.brandOrigin) {
-      throw new BadRequestException('Brand details must be created before creating collections');
+    if (!user.profileCompleted && (!user.fullName || !user.location)) {
+      throw new BadRequestException('Complete your profile before creating collections');
     }
     
     if (!designImages || designImages.length === 0) {
