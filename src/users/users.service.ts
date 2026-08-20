@@ -125,7 +125,7 @@ export class UsersService {
   ): Promise<User> {
     const user = await this.findOne(id);
 
-    const fullName = brandData.fullName || brandData.brandName;
+    const fullName = brandData.fullName || brandData.brandName || user.fullName;
     const location = brandData.location || brandData.brandOrigin;
 
     if (fullName) {

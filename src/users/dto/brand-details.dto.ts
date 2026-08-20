@@ -1,9 +1,9 @@
 import { IsString, IsNotEmpty, IsOptional, IsIn } from 'class-validator';
 
 export class BrandDetailsDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  fullName: string;
+  fullName?: string;
 
   @IsString()
   @IsNotEmpty()
