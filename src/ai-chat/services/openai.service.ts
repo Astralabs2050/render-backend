@@ -297,11 +297,20 @@ export class OpenAIService {
     const brief = prompt.includes('creative director and couture designer')
       ? prompt
       : this.promptService.buildCoutureImagePrompt({ rawBrief: prompt });
-    const variations = [
-      'VARIATION 1: Create an original structured atelier look. Architectural, tailored, couture construction. Full-length campaign photograph. The entire garment must be visible.',
-      'VARIATION 2: Create a different original draped and fluid atelier look. Do not repeat variation 1. Full-length campaign photograph. The entire garment must be visible.',
-      'VARIATION 3: Create a different original ceremonial high-presence atelier look. Do not repeat the other two. Full-length campaign photograph. The entire garment must be visible.',
-    ];
+    const isMenswear = /menswear|MENSWEAR|tailored menswear|agbada|kaftan/i.test(
+      brief,
+    );
+    const variations = isMenswear
+      ? [
+          'VARIATION 1: Create an original structured tailored menswear look. Architectural jacket or formal African menswear construction. Full-length campaign photograph. The entire garment must be visible. Male-presenting model.',
+          'VARIATION 2: Create a different original draped or relaxed contemporary African menswear look (e.g. refined kaftan or soft-tailored formal). Do not repeat variation 1. Full-length campaign photograph. Male-presenting model.',
+          'VARIATION 3: Create a different original ceremonial high-presence menswear look. Do not repeat the other two. Full-length campaign photograph. Male-presenting model.',
+        ]
+      : [
+          'VARIATION 1: Create an original structured atelier look. Architectural, tailored, couture construction. Full-length campaign photograph. The entire garment must be visible. Match the stated wearer category — do not assume womenswear if menswear or unisex was specified.',
+          'VARIATION 2: Create a different original draped and fluid atelier look. Do not repeat variation 1. Full-length campaign photograph. The entire garment must be visible. Match the stated wearer category.',
+          'VARIATION 3: Create a different original ceremonial high-presence atelier look. Do not repeat the other two. Full-length campaign photograph. The entire garment must be visible. Match the stated wearer category.',
+        ];
     const fabricLock = baseStylePrompt
       ? ' Keep the same fabric identity, colour palette and textile as the brief. This must be a distinct original garment, not another camera angle of a previous look.'
       : '';

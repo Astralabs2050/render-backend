@@ -16,8 +16,8 @@ export class BrandDetailsDto {
 
   @IsString()
   @IsNotEmpty()
-  @IsIn(['Male', 'Female'])
-  outfitGender: string;
+  @IsIn(['XS', 'S', 'M', 'L', 'XL', 'XXL'])
+  outfitGender: string; // stored as style size (XS–XXL)
 
   // Legacy optional fields kept for older clients
   @IsOptional()

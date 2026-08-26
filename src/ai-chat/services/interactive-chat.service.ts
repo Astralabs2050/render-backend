@@ -8,6 +8,7 @@ import { OpenAIService } from './openai.service';
 import { StreamChatService } from './stream-chat.service';
 import { PromptService } from './prompt.service';
 import { CreditService } from '../../credits/services/credit.service';
+import { UsersService } from '../../users/users.service';
 import { AIActionType } from '../../credits/entities/credit-transaction.entity';
 import { SendMessageDto, AIModel } from '../dto/chat.dto';
 import { ChatState, ChatMessage } from '../entities/chat.entity';
@@ -20,8 +21,11 @@ type IntakeStep =
   | 'fabric_question'   // asking if they have fabric (Path A/B fork)
   | 'fabric_photo'      // waiting for fabric photo upload (Path A only)
   | 'occasion'          // asking what the occasion is
+  | 'wearer'            // menswear / womenswear / unisex
   | 'style'             // asking about style preference
   | 'ready_to_generate' // all info collected, ready to generate designs
+
+type WearerCategory = 'menswear' | 'womenswear' | 'unisex';
 
 @Injectable()
 export class InteractiveChatService {
@@ -35,6 +39,7 @@ export class InteractiveChatService {
     private readonly streamChatService: StreamChatService,
     private readonly promptService: PromptService,
     private readonly creditService: CreditService,
+    private readonly usersService: UsersService,
     @InjectRepository(ChatMessage)
     private messageRepository: Repository<ChatMessage>,
   ) {}
@@ -58,6 +63,8 @@ export class InteractiveChatService {
 
     await this.streamChatService.sendAIMessage(chat.id, welcomeMessage);
 
+    const creatorProfile = await this.loadCreatorProfile(userId);
+
     await this.chatService.updateChat(chat.id, {
       metadata: {
         managedByInteractive: true,
@@ -67,6 +74,8 @@ export class InteractiveChatService {
         eventDate: null,
         stylePreference: null,
         fabricDescription: null,
+        wearerCategory: creatorProfile.wearerCategory || null,
+        creatorProfile,
       },
     });
 
@@ -338,16 +347,95 @@ export class InteractiveChatService {
           return { chatId, state: 'info_gather', aiResponse: clarify };
         }
 
-        const askStyle = this.buildStyleQuestion(
-          occasionInfo.occasion,
-          metadata.fabricDescription,
-        );
+        const inferredWearer =
+          metadata.wearerCategory ||
+          this.inferWearerCategory(
+            `${occasionInfo.occasion} ${occasionInfo.role || ''} ${content}`,
+          );
 
         const nextMetadata = {
           ...metadata,
           occasion: occasionInfo.occasion,
           eventDate: occasionInfo.eventDate,
           occasionRole: occasionInfo.role,
+          culturalContext:
+            metadata.creatorProfile?.culturalContext || metadata.culturalContext,
+          ...(inferredWearer ? { wearerCategory: inferredWearer } : {}),
+        };
+
+        // Ask who the outfit is for unless we already know (profile or clear cues).
+        if (!inferredWearer) {
+          const askWearer =
+            `Got it — ${occasionInfo.occasion}. Who is this outfit for?`;
+          await this.streamChatService.sendAIMessage(chatId, askWearer);
+          await this.chatService.updateChat(chatId, {
+            title: this.buildDesignChatTitle(nextMetadata),
+            metadata: {
+              ...nextMetadata,
+              intakeStep: 'wearer' as IntakeStep,
+            },
+          });
+          return {
+            chatId,
+            state: 'info_gather',
+            aiResponse: askWearer,
+            quickButtons: ['Menswear', 'Womenswear', 'Unisex'],
+          };
+        }
+
+        const askStyle = this.buildStyleQuestion(
+          occasionInfo.occasion,
+          metadata.fabricDescription,
+          inferredWearer,
+        );
+
+        await this.streamChatService.sendAIMessage(chatId, askStyle);
+        await this.chatService.updateChat(chatId, {
+          title: this.buildDesignChatTitle({
+            ...nextMetadata,
+            wearerCategory: inferredWearer,
+          }),
+          metadata: {
+            ...nextMetadata,
+            wearerCategory: inferredWearer,
+            intakeStep: 'style' as IntakeStep,
+          },
+        });
+        return {
+          chatId,
+          state: 'info_gather',
+          aiResponse: askStyle,
+          quickButtons: this.styleQuickButtons(inferredWearer),
+        };
+      }
+
+      // ── Step 3b: wearer category ───────────────────────────────────────────
+      case 'wearer': {
+        const wearerCategory =
+          this.parseWearerCategory(content) ||
+          this.inferWearerCategory(content);
+
+        if (!wearerCategory) {
+          const clarify =
+            'Please choose Menswear, Womenswear, or Unisex so I design the right silhouettes.';
+          await this.streamChatService.sendAIMessage(chatId, clarify);
+          return {
+            chatId,
+            state: 'info_gather',
+            aiResponse: clarify,
+            quickButtons: ['Menswear', 'Womenswear', 'Unisex'],
+          };
+        }
+
+        const askStyle = this.buildStyleQuestion(
+          metadata.occasion,
+          metadata.fabricDescription,
+          wearerCategory,
+        );
+
+        const nextMetadata = {
+          ...metadata,
+          wearerCategory,
           intakeStep: 'style' as IntakeStep,
         };
         await this.streamChatService.sendAIMessage(chatId, askStyle);
@@ -359,7 +447,7 @@ export class InteractiveChatService {
           chatId,
           state: 'info_gather',
           aiResponse: askStyle,
-          quickButtons: ['Fitted & Structured', 'Flowing & Relaxed', 'Surprise me'],
+          quickButtons: this.styleQuickButtons(wearerCategory),
         };
       }
 
@@ -443,8 +531,9 @@ export class InteractiveChatService {
           `On it! Generating 3 designs for your ${metadata.occasion || 'occasion'} — this takes a moment ✨`;
         await this.streamChatService.sendAIMessage(chatId, generatingMsg);
 
-        // Build a structured prompt from everything collected
-        const designPrompt = this.buildStructuredDesignPrompt(metadata);
+        // Build a structured prompt from everything collected + signup profile
+        const enrichedMetadata = await this.withFreshCreatorProfile(userId, metadata);
+        const designPrompt = this.buildStructuredDesignPrompt(enrichedMetadata);
         const fabricImageBase64 = await this.resolveFabricImage(chat, sketchData);
 
         let result;
@@ -607,7 +696,9 @@ export class InteractiveChatService {
         const generatingMsg = 'Generating new variations for you...';
         await this.streamChatService.sendAIMessage(chatId, generatingMsg);
 
-        const designPrompt = this.buildStructuredDesignPrompt(chat.metadata);
+        const designPrompt = this.buildStructuredDesignPrompt(
+          await this.withFreshCreatorProfile(userId, chat.metadata || {}),
+        );
         const pendingMod = chat.metadata?.pendingModification || '';
         const enhancedPrompt = `${designPrompt} ${pendingMod} ${content}`.trim();
 
@@ -950,7 +1041,9 @@ export class InteractiveChatService {
         }
         await this.creditService.deductCredits(userId, AIActionType.DESIGN_VARIATION, dto.chatId);
         const chatNow = await this.chatService.getChat(userId, dto.chatId);
-        const basePrompt = this.buildStructuredDesignPrompt(chatNow.metadata);
+        const basePrompt = this.buildStructuredDesignPrompt(
+          await this.withFreshCreatorProfile(userId, chatNow.metadata || {}),
+        );
         let result;
         try {
           result = await this.designWorkflowService.processDesignVariation(userId, dto.chatId, `${basePrompt} ${dto.content}`, AIModel.GEMINI);
@@ -1168,45 +1261,209 @@ JSON only:`,
   }
 
   // ─── Helper: build style question ─────────────────────────────────────────
-  private buildStyleQuestion(occasion: string, fabricDescription?: string): string {
+  private buildStyleQuestion(
+    occasion: string,
+    fabricDescription?: string,
+    wearerCategory?: WearerCategory,
+  ): string {
+    const wearerHint =
+      wearerCategory === 'menswear'
+        ? 'tailored and structured, or relaxed traditional menswear'
+        : wearerCategory === 'womenswear'
+          ? 'fitted and structured, or flowing and relaxed'
+          : 'structured and tailored, or soft and flowing';
     if (fabricDescription && fabricDescription !== 'your fabric') {
-      return `For a ${occasion} with ${fabricDescription} — are you thinking something fitted and structured, or flowing and relaxed? Or describe a look you love.`;
+      return `For a ${occasion} with ${fabricDescription} — are you thinking something ${wearerHint}? Or describe a look you love.`;
     }
-    return `For your ${occasion} — are you thinking something fitted and structured, or flowing and relaxed? You can also describe a look you've seen and loved.`;
+    return `For your ${occasion} — are you thinking something ${wearerHint}? You can also describe a look you've seen and loved.`;
+  }
+
+  private styleQuickButtons(wearerCategory?: WearerCategory): string[] {
+    if (wearerCategory === 'menswear') {
+      return ['Tailored & Structured', 'Relaxed Traditional', 'Surprise me'];
+    }
+    return ['Fitted & Structured', 'Flowing & Relaxed', 'Surprise me'];
+  }
+
+  private parseWearerCategory(content: string): WearerCategory | null {
+    const text = content.toLowerCase().trim();
+    if (/^menswear$|^men'?s$|^male$|^man$|^for (a )?man|^him$/.test(text)) {
+      return 'menswear';
+    }
+    if (
+      /^womenswear$|^women'?s$|^female$|^woman$|^for (a )?woman|^her$/.test(text)
+    ) {
+      return 'womenswear';
+    }
+    if (/^unisex$|^gender.?neutral$|^either$|^both$/.test(text)) {
+      return 'unisex';
+    }
+    return null;
+  }
+
+  private inferWearerCategory(text: string): WearerCategory | null {
+    const t = text.toLowerCase();
+    if (
+      /\b(groom|groomsmen|menswear|men'?s suit|agbada|kaftan for (him|men)|male|for (a )?man|husband|boyfriend)\b/.test(
+        t,
+      )
+    ) {
+      return 'menswear';
+    }
+    if (
+      /\b(bride|bridesmaid|womenswear|gown|dress|female|for (a )?woman|wife|girlfriend)\b/.test(
+        t,
+      )
+    ) {
+      return 'womenswear';
+    }
+    if (/\b(unisex|gender.?neutral)\b/.test(t)) {
+      return 'unisex';
+    }
+    return null;
+  }
+
+  private async withFreshCreatorProfile(
+    userId: string,
+    metadata: Record<string, any>,
+  ): Promise<Record<string, any>> {
+    const creatorProfile = await this.loadCreatorProfile(userId);
+    return {
+      ...metadata,
+      creatorProfile: {
+        ...(metadata.creatorProfile || {}),
+        ...creatorProfile,
+      },
+      culturalContext:
+        metadata.culturalContext ||
+        creatorProfile.culturalContext ||
+        metadata.creatorProfile?.culturalContext,
+      wearerCategory:
+        metadata.wearerCategory ||
+        creatorProfile.wearerCategory ||
+        metadata.creatorProfile?.wearerCategory ||
+        null,
+    };
+  }
+
+  private async loadCreatorProfile(userId: string) {
+    try {
+      const user = await this.usersService.findOne(userId);
+      const location = user.location || user.brandOrigin || null;
+      return {
+        fullName: user.fullName || null,
+        location,
+        measurement: user.measurement || null,
+        styleSize: user.outfitGender || null, // profile "Style" field (XS–XXL)
+        profilePicture: user.profilePicture || user.brandLogo || null,
+        culturalContext: this.culturalContextFromLocation(location),
+        // Legacy Male/Female values if any older profiles still have them
+        wearerCategory: this.wearerFromLegacyProfile(user.outfitGender),
+      };
+    } catch (error) {
+      this.logger.warn(`Could not load creator profile for ${userId}: ${error.message}`);
+      return {};
+    }
+  }
+
+  private wearerFromLegacyProfile(value?: string): WearerCategory | null {
+    if (!value) return null;
+    const v = value.toLowerCase();
+    if (v === 'male' || v === 'menswear') return 'menswear';
+    if (v === 'female' || v === 'womenswear') return 'womenswear';
+    return null;
+  }
+
+  private culturalContextFromLocation(location?: string | null): string {
+    if (!location) {
+      return 'Contemporary African luxury fashion. Use the fabric, occasion and any cultural cues in the brief. Avoid costume clichés.';
+    }
+    const loc = location.toLowerCase();
+    if (
+      /nigeria|lagos|abuja|port harcourt|ibadan|ghana|accra|kumasi/.test(loc)
+    ) {
+      return `West African luxury occasionwear informed by ${location}. Draw on contemporary Nigerian/Ghanaian ceremonial fashion language without costume clichés.`;
+    }
+    if (/kenya|nairobi|mombasa|uganda|tanzania/.test(loc)) {
+      return `East African luxury occasionwear informed by ${location}. Contemporary, ceremonial, and sophisticated — not costume.`;
+    }
+    if (/south africa|cape town|johannesburg/.test(loc)) {
+      return `Southern African luxury occasionwear informed by ${location}. Contemporary, polished, and culturally aware.`;
+    }
+    if (/london|manchester|new york|los angeles|toronto|paris|milan|dubai/.test(loc)) {
+      return `Diaspora contemporary African luxury fashion for a client based in ${location}. Globally polished with African design intelligence.`;
+    }
+    return `Contemporary African luxury fashion for a client connected to ${location}. Use local market cues where relevant. Avoid costume clichés.`;
   }
 
   // ─── Helper: build structured design prompt ────────────────────────────────
   // Replaces the old "join all messages into a blob" approach.
   // Produces a structured prompt the image model can actually use.
   private buildStructuredDesignPrompt(metadata: Record<string, any>): string {
+    const profile = metadata?.creatorProfile || {};
     const style = String(metadata?.stylePreference || '').trim();
     const occasion = String(metadata?.occasion || '').trim();
     const fabricDescription = String(metadata?.fabricDescription || '').trim();
-    const combined = `${style} ${occasion}`.toLowerCase();
+    const combined = `${style} ${occasion} ${metadata?.occasionRole || ''}`.toLowerCase();
 
-    const silhouette = /fit|structur|corset|pencil|tailor/.test(style.toLowerCase())
-      ? 'fitted and structured, with couture shaping and a clear waist'
-      : /flow|relax|drape|fluid|a-line|empire/.test(style.toLowerCase())
-        ? 'flowing and relaxed, with considered drape and volume'
-        : style ||
-          'a refined occasionwear silhouette with a clear waist and considered volume';
+    const wearerCategory: WearerCategory =
+      metadata?.wearerCategory ||
+      this.inferWearerCategory(combined) ||
+      profile.wearerCategory ||
+      'unisex';
 
-    const garmentType = /wedding|bridal/.test(combined)
-      ? 'bridal or wedding-guest occasionwear'
-      : /owambe|aso ebi|traditional/.test(combined)
-        ? 'contemporary African ceremonial occasionwear'
-        : /gala|award|red carpet/.test(combined)
-          ? 'red-carpet couture gown'
-          : /cocktail/.test(combined)
-            ? 'cocktail occasionwear'
-            : /suit|groom|mens/.test(combined)
+    const isMenswear = wearerCategory === 'menswear';
+    const isWomenswear = wearerCategory === 'womenswear';
+
+    const silhouette = isMenswear
+      ? /relax|tradition|drape|fluid|kaftan|agbada/.test(style.toLowerCase())
+        ? 'relaxed contemporary African menswear with considered drape and volume'
+        : /fit|structur|tailor|suit/.test(style.toLowerCase())
+          ? 'fitted tailored menswear with clean shoulders and couture proportion'
+          : style ||
+            'refined tailored menswear silhouette with clean lines and couture proportion'
+      : /fit|structur|corset|pencil|tailor/.test(style.toLowerCase())
+        ? 'fitted and structured, with couture shaping and considered volume'
+        : /flow|relax|drape|fluid|a-line|empire/.test(style.toLowerCase())
+          ? 'flowing and relaxed, with considered drape and volume'
+          : style ||
+            'a refined occasionwear silhouette with considered volume';
+
+    let garmentType: string;
+    if (isMenswear) {
+      garmentType = /wedding|groom/.test(combined)
+        ? 'groom / wedding menswear (suit, kaftan or contemporary African formal)'
+        : /owambe|aso ebi|traditional|agbada|kaftan/.test(combined)
+          ? 'contemporary African ceremonial menswear'
+          : /gala|award|red carpet/.test(combined)
+            ? 'red-carpet tailored menswear'
+            : /suit/.test(combined)
               ? 'tailored occasion suit'
-              : 'couture occasionwear garment';
+              : 'tailored menswear occasion garment';
+    } else if (isWomenswear) {
+      garmentType = /wedding|bridal/.test(combined)
+        ? 'bridal or wedding-guest womenswear'
+        : /owambe|aso ebi|traditional/.test(combined)
+          ? 'contemporary African ceremonial womenswear'
+          : /gala|award|red carpet/.test(combined)
+            ? 'red-carpet couture womenswear'
+            : /cocktail/.test(combined)
+              ? 'cocktail womenswear'
+              : 'couture womenswear occasion garment';
+    } else {
+      garmentType = /suit|groom|mens/.test(combined)
+        ? 'tailored occasion suit'
+        : /wedding|bridal|gown|dress/.test(combined)
+          ? 'couture occasionwear matching the brief (do not invent a gown if menswear cues appear)'
+          : 'gender-inclusive couture occasionwear garment — do not default to a gown';
+    }
 
     const embellishmentLevel = /minimal|clean|simple|understated/.test(style.toLowerCase())
       ? 'restrained architectural embellishment — precise, not busy'
       : /bead|crystal|sparkle|owambe|gala|aso/.test(combined)
-        ? 'rich handcrafted embellishment following the garment architecture'
+        ? isMenswear
+          ? 'rich but controlled handcrafted embellishment suitable for luxury menswear'
+          : 'rich handcrafted embellishment following the garment architecture'
         : 'considered couture embellishment that follows construction, not random surface decoration';
 
     const dramaLevel = /dramatic|royal|owambe|gala|red carpet/.test(combined)
@@ -1218,6 +1475,7 @@ JSON only:`,
     return this.promptService.buildCoutureImagePrompt({
       culturalContext:
         metadata?.culturalContext ||
+        profile.culturalContext ||
         'Contemporary African luxury fashion. Use the fabric, occasion and any cultural cues in the brief. Avoid costume clichés.',
       occasion: occasion || undefined,
       aesthetic: style || undefined,
@@ -1227,11 +1485,20 @@ JSON only:`,
       dramaLevel,
       fabricDescription: fabricDescription || undefined,
       hasFabricPhoto: Boolean(metadata?.fabricImageUrl),
+      wearerCategory,
+      bodySize: profile.measurement || undefined,
+      styleSize: profile.styleSize || undefined,
+      location: profile.location || undefined,
+      creatorName: profile.fullName || undefined,
       rawBrief: [
         occasion && `Occasion: ${occasion}`,
         metadata?.occasionRole && `Role: ${metadata.occasionRole}`,
+        `Wearer category: ${wearerCategory}`,
         fabricDescription && `Fabric: ${fabricDescription}`,
         style && `Style direction: ${style}`,
+        profile.measurement && `Measurement: ${profile.measurement}`,
+        profile.styleSize && `Style size: ${profile.styleSize}`,
+        profile.location && `Location: ${profile.location}`,
       ]
         .filter(Boolean)
         .join('. '),
