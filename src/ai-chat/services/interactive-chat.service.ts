@@ -203,6 +203,18 @@ export class InteractiveChatService {
 
     this.logger.log(`Intake step: ${step} | chatId: ${chatId}`);
 
+    // Anything outside Astra's design context — decline instead of generating nonsense
+    const outOfScopeMsg = await this.buildOutOfScopeReply(content);
+    if (outOfScopeMsg) {
+      await this.streamChatService.sendAIMessage(chatId, outOfScopeMsg);
+      return {
+        chatId,
+        state: chat.state,
+        aiResponse: outOfScopeMsg,
+        quickButtons: ['Wedding look', 'Owambe / party', 'Formal menswear', 'Something custom'],
+      };
+    }
+
     switch (step) {
 
       // ── Step 1: fabric question ──────────────────────────────────────────────
@@ -339,8 +351,9 @@ export class InteractiveChatService {
       // Collect the occasion type, role, and event date from one message.
       case 'occasion': {
         const occasionInfo = await this.extractOccasionInfo(content);
+        const occasionLabel = this.sanitizeLabel(occasionInfo.occasion);
 
-        if (!occasionInfo.occasion) {
+        if (!occasionLabel) {
           const clarify =
             "Could you tell me a bit more about the event? For example: a wedding, prom, birthday dinner — and when is it?";
           await this.streamChatService.sendAIMessage(chatId, clarify);
@@ -350,14 +363,14 @@ export class InteractiveChatService {
         const inferredWearer =
           metadata.wearerCategory ||
           this.inferWearerCategory(
-            `${occasionInfo.occasion} ${occasionInfo.role || ''} ${content}`,
+            `${occasionLabel} ${occasionInfo.role || ''} ${content}`,
           );
 
         const nextMetadata = {
           ...metadata,
-          occasion: occasionInfo.occasion,
+          occasion: occasionLabel,
           eventDate: occasionInfo.eventDate,
-          occasionRole: occasionInfo.role,
+          occasionRole: this.sanitizeLabel(occasionInfo.role),
           culturalContext:
             metadata.creatorProfile?.culturalContext || metadata.culturalContext,
           ...(inferredWearer ? { wearerCategory: inferredWearer } : {}),
@@ -366,7 +379,7 @@ export class InteractiveChatService {
         // Ask who the outfit is for unless we already know (profile or clear cues).
         if (!inferredWearer) {
           const askWearer =
-            `Got it — ${occasionInfo.occasion}. Who is this outfit for?`;
+            `Got it — ${occasionLabel}. Who is this outfit for?`;
           await this.streamChatService.sendAIMessage(chatId, askWearer);
           await this.chatService.updateChat(chatId, {
             title: this.buildDesignChatTitle(nextMetadata),
@@ -384,7 +397,7 @@ export class InteractiveChatService {
         }
 
         const askStyle = this.buildStyleQuestion(
-          occasionInfo.occasion,
+          occasionLabel,
           metadata.fabricDescription,
           inferredWearer,
         );
@@ -427,14 +440,18 @@ export class InteractiveChatService {
           };
         }
 
+        const occasionLabel =
+          this.sanitizeLabel(metadata.occasion) || 'occasion';
         const askStyle = this.buildStyleQuestion(
-          metadata.occasion,
+          occasionLabel,
           metadata.fabricDescription,
           wearerCategory,
         );
 
         const nextMetadata = {
           ...metadata,
+          occasion:
+            occasionLabel === 'occasion' ? metadata.occasion : occasionLabel,
           wearerCategory,
           intakeStep: 'style' as IntakeStep,
         };
@@ -455,13 +472,15 @@ export class InteractiveChatService {
       // Collect style direction — then we have everything to generate designs.
       case 'style': {
         const stylePreference = content;
+        const occasionLabel = this.sanitizeLabel(metadata.occasion) || 'occasion';
 
         // All info collected — ready to generate
         const readyMsg =
-          `Perfect — I have everything I need. Ready to generate 3 designs for your ${metadata.occasion || 'occasion'}? This uses 1 credit.`;
+          `Perfect — I have everything I need. Ready to generate 3 designs for your ${occasionLabel}? This uses 1 credit.`;
 
         const nextMetadata = {
           ...metadata,
+          occasion: occasionLabel === 'occasion' ? metadata.occasion : occasionLabel,
           stylePreference,
           intakeStep: 'ready_to_generate' as IntakeStep,
           confirmRequested: true,
@@ -500,6 +519,21 @@ export class InteractiveChatService {
           return { chatId, state: 'info_gather', aiResponse: goBack };
         }
 
+        const occasionLabel = this.sanitizeLabel(metadata.occasion);
+        if (!occasionLabel) {
+          const needOccasion =
+            "Before I generate designs, I still need a real occasion — for example a wedding, owambe, birthday, or formal event.";
+          await this.streamChatService.sendAIMessage(chatId, needOccasion);
+          await this.chatService.updateChat(chatId, {
+            metadata: {
+              ...metadata,
+              intakeStep: 'occasion' as IntakeStep,
+              confirmRequested: false,
+            },
+          });
+          return { chatId, state: 'info_gather', aiResponse: needOccasion };
+        }
+
         // Check credits
         const hasCredits = await this.creditService.hasEnoughCredits(
           userId,
@@ -528,7 +562,7 @@ export class InteractiveChatService {
 
         // Generating message
         const generatingMsg =
-          `On it! Generating 3 designs for your ${metadata.occasion || 'occasion'} — this takes a moment ✨`;
+          `On it! Generating 3 designs for your ${occasionLabel} — this takes a moment ✨`;
         await this.streamChatService.sendAIMessage(chatId, generatingMsg);
 
         // Build a structured prompt from everything collected + signup profile
@@ -578,7 +612,7 @@ export class InteractiveChatService {
         const newBalance = await this.creditService.getBalance(userId);
 
         const completionMsg = this.formatDesignReply(
-          `Here are your 3 designs for your ${metadata.occasion || 'occasion'} 🎨 Which look do you want to keep? Pick Design 1, 2, or 3 — you can also keep more than one.`,
+          `Here are your 3 designs for your ${this.sanitizeLabel(metadata.occasion) || 'occasion'} 🎨 Which look do you want to keep? Pick Design 1, 2, or 3 — you can also keep more than one.`,
           images,
           `💳 Credits remaining: ${newBalance}`,
         );
@@ -668,93 +702,24 @@ export class InteractiveChatService {
       };
     }
 
-    // Check if waiting for variation confirmation
-    if (chat.metadata?.confirmVariationRequested) {
-      const decision = this.classifyYesNo(content);
+    // Waiting for generate confirmation — or user already said "just generate"
+    if (chat.metadata?.confirmVariationRequested || this.wantsImmediateGeneration(content)) {
+      const decision = this.wantsImmediateGeneration(content)
+        ? 'yes'
+        : this.classifyYesNo(content);
+
       if (decision === 'yes') {
-        const hasCredits = await this.creditService.hasEnoughCredits(
-          userId,
-          AIActionType.DESIGN_VARIATION,
+        const briefMeta = this.mergeDesignBriefIntoMetadata(
+          chat.metadata || {},
+          [
+            chat.metadata?.pendingModification,
+            chat.metadata?.stylePreference,
+            content,
+          ]
+            .filter(Boolean)
+            .join(' '),
         );
-        const balance = await this.creditService.getBalance(userId);
-        if (!hasCredits) {
-          const noCredits = `You need credits to generate variations. Balance: ${balance}.`;
-          await this.streamChatService.sendAIMessage(chatId, noCredits);
-          return {
-            chatId,
-            state: 'design_preview',
-            aiResponse: noCredits,
-            insufficientCredits: true,
-            creditBalance: balance,
-          };
-        }
-        await this.creditService.deductCredits(
-          userId,
-          AIActionType.DESIGN_VARIATION,
-          chatId,
-        );
-        const generatingMsg = 'Generating new variations for you...';
-        await this.streamChatService.sendAIMessage(chatId, generatingMsg);
-
-        const designPrompt = this.buildStructuredDesignPrompt(
-          await this.withFreshCreatorProfile(userId, chat.metadata || {}),
-        );
-        const pendingMod = chat.metadata?.pendingModification || '';
-        const enhancedPrompt = `${designPrompt} ${pendingMod} ${content}`.trim();
-
-        let result;
-        try {
-          result = await this.designWorkflowService.processDesignVariation(
-            userId,
-            chatId,
-            enhancedPrompt,
-            AIModel.GEMINI,
-          );
-        } catch (error) {
-          await this.creditService.refundCredits(
-            userId,
-            1,
-            'Variation generation failed',
-            chatId,
-          );
-          const failMsg =
-            'I could not generate new designs this time. Your credit was refunded — try again in a moment.';
-          await this.streamChatService.sendAIMessage(chatId, failMsg);
-          return { chatId, state: 'design_preview', aiResponse: failMsg };
-        }
-
-        const newBalance = await this.creditService.getBalance(userId);
-        const images = (result.designImages || []).filter(
-          (url) => url && !url.includes('placeholder') && !url.includes('placehold.co'),
-        );
-        const reply = this.formatDesignReply(
-          'Here are your new variations! Which look do you want to keep? Pick Design 1, 2, or 3 — you can also keep more than one.',
-          images,
-          `💳 Credits remaining: ${newBalance}`,
-        );
-        const attachments = images.map((url, i) => ({
-          type: 'image',
-          image_url: url,
-          thumb_url: url,
-          fallback: `Design ${i + 1}`,
-        }));
-        await this.streamChatService.sendAIMessage(chatId, reply, attachments);
-        await this.chatService.updateChat(chatId, {
-          metadata: {
-            ...chat.metadata,
-            confirmVariationRequested: false,
-            pendingModification: null,
-            lastGenerationCompletedAt: new Date().toISOString(),
-          },
-        });
-        return {
-          chatId,
-          state: 'design_preview',
-          aiResponse: reply,
-          designPreviews: images,
-          creditBalance: newBalance,
-          quickButtons: this.promptService.getQuickButtons(ChatState.DESIGN_PREVIEW),
-        };
+        return this.executeNewDesignGeneration(userId, chatId, chat, briefMeta);
       }
 
       if (decision === 'no') {
@@ -776,16 +741,24 @@ export class InteractiveChatService {
         };
       }
 
-      const pendingMod = chat.metadata?.pendingModification || '';
+      // Collect brief details once, then offer generate — don't open endless Q&A
+      const pendingMod = `${chat.metadata?.pendingModification || ''} ${content}`.trim();
+      const briefMeta = this.mergeDesignBriefIntoMetadata(chat.metadata || {}, pendingMod);
+      const label =
+        this.sanitizeLabel(briefMeta.occasion) ||
+        this.sanitizeLabel(briefMeta.stylePreference) ||
+        'your new look';
+      const balance = await this.creditService.getBalance(userId);
+      const msg = `Got it — ${label}. Ready to generate 3 designs? This uses 1 credit (balance: ${balance}).`;
+      await this.streamChatService.sendAIMessage(chatId, msg);
       await this.chatService.updateChat(chatId, {
         metadata: {
-          ...chat.metadata,
-          pendingModification: `${pendingMod} ${content}`.trim(),
+          ...briefMeta,
+          confirmVariationRequested: true,
+          awaitingMultiPick: false,
+          pendingModification: pendingMod,
         },
       });
-      const msg =
-        "Noted. Say yes when you want me to generate with those changes, or no to keep the designs you already have.";
-      await this.streamChatService.sendAIMessage(chatId, msg);
       return {
         chatId,
         state: 'design_preview',
@@ -794,16 +767,25 @@ export class InteractiveChatService {
       };
     }
 
-    // Check if user wants a new variation
-    const wantsVariation = this.wantsNewVariation(content);
-    if (wantsVariation) {
+    // New outfit brief or explicit generate request after existing designs
+    if (this.wantsNewVariation(content) || this.isNewDesignBrief(content)) {
+      const briefMeta = this.mergeDesignBriefIntoMetadata(chat.metadata || {}, content);
+      const label =
+        this.sanitizeLabel(briefMeta.occasion) ||
+        this.sanitizeLabel(briefMeta.stylePreference) ||
+        'your new look';
+
+      if (this.wantsImmediateGeneration(content)) {
+        return this.executeNewDesignGeneration(userId, chatId, chat, briefMeta);
+      }
+
       const hasCredits = await this.creditService.hasEnoughCredits(
         userId,
         AIActionType.DESIGN_VARIATION,
       );
       const balance = await this.creditService.getBalance(userId);
       if (!hasCredits) {
-        const noCredits = `You need credits to generate variations. Balance: ${balance}.`;
+        const noCredits = `You need credits to generate new designs. Balance: ${balance}.`;
         await this.streamChatService.sendAIMessage(chatId, noCredits);
         return {
           chatId,
@@ -813,11 +795,12 @@ export class InteractiveChatService {
           creditBalance: balance,
         };
       }
-      const ask = `I can generate new variations incorporating those changes. This uses 1 credit (balance: ${balance}). Shall I go ahead?`;
+
+      const ask = `Got it — ${label}. I can generate 3 new designs now. This uses 1 credit (balance: ${balance}). Shall I go ahead?`;
       await this.streamChatService.sendAIMessage(chatId, ask);
       await this.chatService.updateChat(chatId, {
         metadata: {
-          ...chat.metadata,
+          ...briefMeta,
           confirmVariationRequested: true,
           awaitingMultiPick: false,
           pendingModification: content,
@@ -827,7 +810,7 @@ export class InteractiveChatService {
         chatId,
         state: 'design_preview',
         aiResponse: ask,
-        quickButtons: ['Yes, generate', 'No, let me describe more'],
+        quickButtons: ['Yes, generate', 'No, keep these'],
       };
     }
 
@@ -843,7 +826,7 @@ export class InteractiveChatService {
       };
     }
 
-    // General comment on the designs
+    // General comment only — never pretend images were generated
     const aiResponse = await this.generateContextualResponse(
       content,
       conversationHistory,
@@ -1013,6 +996,16 @@ export class InteractiveChatService {
     content: string,
   ) {
     const chat = await this.chatService.getChat(userId, chatId);
+
+    // If user asks for a new design / generate, don't chat in circles — generate
+    if (
+      this.wantsImmediateGeneration(content) ||
+      this.wantsNewVariation(content) ||
+      this.isNewDesignBrief(content)
+    ) {
+      return this.handleDesignSelection(userId, chatId, content);
+    }
+
     const conversationHistory = chat.messages
       .map((m) => `${m.role}: ${m.content}`)
       .join('\n');
@@ -1141,13 +1134,200 @@ ${conversationHistory}
 
 User just said: "${userMessage}"
 
-Respond naturally. Keep it short — one or two sentences. Guide toward the next step.`;
+Respond naturally. Keep it short — one or two sentences.
+
+Critical rules for this reply:
+- NEVER say a design is ready, being generated, or "here's your design" unless real images were already shown in this conversation
+- NEVER ask more than one follow-up question
+- If the user wants a new outfit or says generate, tell them to say "Yes, generate" or "generate my designs" so the system can create images
+- Do not invent fabric/color Q&A loops`;
     try {
       const response = await this.openaiService.generateResponse(contextPrompt);
       return response.trim();
     } catch (error) {
-      return "I'm here! Tell me more about what you'd like to create.";
+      return "I'm here! Tell me more about what you'd like to create, or say \"generate my designs\" when you're ready.";
     }
+  }
+
+  /** Merge a free-text brief (e.g. "office suit wine cotton") into chat metadata for generation. */
+  private mergeDesignBriefIntoMetadata(
+    metadata: Record<string, any>,
+    brief: string,
+  ): Record<string, any> {
+    const text = (brief || '').trim();
+    const lower = text.toLowerCase();
+    const next = { ...metadata };
+
+    // Common misspelling: suite → suit
+    const normalized = text.replace(/\bsuite\b/gi, 'suit');
+
+    if (/\b(office|work|business|corporate)\b/i.test(lower)) {
+      next.occasion = 'office / business event';
+    } else if (/\b(wedding|owambe|prom|gala|birthday|graduation|ceremony)\b/i.test(lower)) {
+      const match = lower.match(
+        /\b(wedding|owambe|prom|gala|birthday|graduation|ceremony)\b/i,
+      );
+      if (match) next.occasion = match[1];
+    } else if (/\b(suit|dress|gown|agbada|kaftan|blazer|tuxedo)\b/i.test(lower)) {
+      next.occasion = this.sanitizeLabel(next.occasion) || 'formal occasion';
+    }
+
+    const styleBits: string[] = [];
+    if (/\bclassic\b/i.test(lower)) styleBits.push('classic and tailored');
+    if (/\bmodern|relaxed\b/i.test(lower)) styleBits.push('modern and relaxed');
+    if (/\bwine\b/i.test(lower)) styleBits.push('wine colour');
+    if (/\b(navy|black|blue|red|green|beige|cream|gold)\b/i.test(lower)) {
+      const color = lower.match(/\b(navy|black|blue|red|green|beige|cream|gold)\b/i);
+      if (color) styleBits.push(`${color[1]} colour`);
+    }
+    if (/\b(cotton|wool|silk|linen|satin)\b/i.test(lower)) {
+      const fabric = lower.match(/\b(cotton|wool|silk|linen|satin)\b/i);
+      if (fabric) {
+        next.fabricDescription = fabric[1];
+        styleBits.push(`${fabric[1]} fabric`);
+      }
+    }
+    if (/\bsuit\b/i.test(normalized.toLowerCase())) {
+      styleBits.push('tailored suit');
+      next.wearerCategory = next.wearerCategory || 'menswear';
+    }
+
+    const combinedStyle = [next.stylePreference, ...styleBits, normalized]
+      .filter(Boolean)
+      .join(' — ');
+    next.stylePreference = combinedStyle.slice(0, 400);
+    next.pendingModification = normalized;
+    return next;
+  }
+
+  private wantsImmediateGeneration(content: string): boolean {
+    const t = (content || '').toLowerCase();
+    return /\b(just generate|generate (my|the|it|now)|generate my (suit|suite|design|outfit|look)|stop asking|don'?t have time|no more questions|enough (info|already)|i don'?t have time)\b/i.test(
+      t,
+    );
+  }
+
+  private isNewDesignBrief(content: string): boolean {
+    const t = (content || '').toLowerCase().trim();
+    if (!t || this.detectDesignSelections(t).length) return false;
+    return /\b(suit|suite|dress|gown|outfit|agbada|kaftan|blazer|tuxedo|i want|design me|make me|office)\b/i.test(
+      t,
+    );
+  }
+
+  /**
+   * Actually deduct a credit and generate 3 new designs from the current brief.
+   * Used after DESIGN_PREVIEW when the user asks for a new look (e.g. office suit).
+   */
+  private async executeNewDesignGeneration(
+    userId: string,
+    chatId: string,
+    chat: any,
+    metadata: Record<string, any>,
+  ) {
+    const hasCredits = await this.creditService.hasEnoughCredits(
+      userId,
+      AIActionType.DESIGN_VARIATION,
+    );
+    const balance = await this.creditService.getBalance(userId);
+    if (!hasCredits) {
+      const noCredits = `You need credits to generate designs. Balance: ${balance}.`;
+      await this.streamChatService.sendAIMessage(chatId, noCredits);
+      return {
+        chatId,
+        state: 'design_preview',
+        aiResponse: noCredits,
+        insufficientCredits: true,
+        creditBalance: balance,
+      };
+    }
+
+    await this.creditService.deductCredits(
+      userId,
+      AIActionType.DESIGN_VARIATION,
+      chatId,
+    );
+
+    const label =
+      this.sanitizeLabel(metadata.occasion) ||
+      this.sanitizeLabel(metadata.stylePreference)?.slice(0, 60) ||
+      'your look';
+    const generatingMsg = `On it! Generating 3 designs for ${label} — this takes a moment ✨`;
+    await this.streamChatService.sendAIMessage(chatId, generatingMsg);
+
+    const enriched = await this.withFreshCreatorProfile(userId, metadata);
+    const designPrompt = this.buildStructuredDesignPrompt(enriched);
+    const pendingMod = metadata.pendingModification || '';
+    const enhancedPrompt = `${designPrompt} ${pendingMod}`.trim();
+
+    let result;
+    try {
+      result = await this.designWorkflowService.processDesignVariation(
+        userId,
+        chatId,
+        enhancedPrompt,
+        AIModel.GEMINI,
+      );
+    } catch (error) {
+      await this.creditService.refundCredits(
+        userId,
+        1,
+        'Design generation failed',
+        chatId,
+      );
+      const failMsg =
+        'I could not generate designs this time. Your credit was refunded — say "generate my designs" to try again.';
+      await this.streamChatService.sendAIMessage(chatId, failMsg);
+      return { chatId, state: 'design_preview', aiResponse: failMsg };
+    }
+
+    const images = (result.designImages || []).filter(
+      (url) => url && !url.includes('placeholder') && !url.includes('placehold.co'),
+    );
+    if (!images.length) {
+      await this.creditService.refundCredits(
+        userId,
+        1,
+        'Design generation returned no images',
+        chatId,
+      );
+      const failMsg =
+        'I could not generate designs this time. Your credit was refunded — say "generate my designs" to try again.';
+      await this.streamChatService.sendAIMessage(chatId, failMsg);
+      return { chatId, state: 'design_preview', aiResponse: failMsg };
+    }
+
+    const newBalance = await this.creditService.getBalance(userId);
+    const reply = this.formatDesignReply(
+      `Here are your 3 designs for ${label} 🎨 Which look do you want to keep? Pick Design 1, 2, or 3 — you can also keep more than one.`,
+      images,
+      `💳 Credits remaining: ${newBalance}`,
+    );
+    const attachments = images.map((url, i) => ({
+      type: 'image',
+      image_url: url,
+      thumb_url: url,
+      fallback: `Design ${i + 1}`,
+    }));
+    await this.streamChatService.sendAIMessage(chatId, reply, attachments);
+    await this.chatService.updateChat(chatId, {
+      state: ChatState.DESIGN_PREVIEW,
+      title: this.buildDesignChatTitle(enriched),
+      metadata: {
+        ...enriched,
+        confirmVariationRequested: false,
+        pendingModification: null,
+        lastGenerationCompletedAt: new Date().toISOString(),
+      },
+    });
+    return {
+      chatId,
+      state: 'design_preview',
+      aiResponse: reply,
+      designPreviews: images,
+      creditBalance: newBalance,
+      quickButtons: this.promptService.getQuickButtons(ChatState.DESIGN_PREVIEW),
+    };
   }
 
   // ─── AI helper: detect fabric answer ──────────────────────────────────────
@@ -1232,10 +1412,116 @@ Respond naturally. Keep it short — one or two sentences. Guide toward the next
     return 'your fabric';
   }
 
+  // ─── Scope: refuse ANY request outside Astra's design context ───────────────
+  private isLikelyIntakeControlMessage(content: string): boolean {
+    const text = (content || '').trim().toLowerCase();
+    if (!text) return true;
+    if (text.length <= 40) {
+      if (
+        /^(yes|yeah|yep|yup|no|nope|nah|ok|okay|sure|menswear|womenswear|unisex|surprise me|fitted|flowing|tailored|relaxed|generate|yes,? generate)/i.test(
+          text,
+        )
+      ) {
+        return true;
+      }
+      if (
+        /^(yes,? i have fabric|no,? just an idea|i have fabric|just an idea|fitted & structured|flowing & relaxed|tailored & structured|relaxed traditional)/i.test(
+          text,
+        )
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private looksLikeDesignRequest(content: string): boolean {
+    const text = (content || '').trim();
+    if (text.length < 6) return false;
+    return /\b(want|need|design|make|create|build|generate|outfit|dress|suit|gown|jersey|jesery|jersy|kit|uniform|shoes|sneaker|logo|car|phone|bag|watch|hat|cap|costume|cosplay|armor|weapon|furniture|cake|poster|nft)\b/i.test(
+      text,
+    );
+  }
+
+  /**
+   * True when the user is asking for something outside Astra's provided context:
+   * bespoke wearable occasion / African luxury fashion a tailor can make.
+   */
+  private async isOutOfScopeDesign(content: string): Promise<boolean> {
+    if (this.isLikelyIntakeControlMessage(content)) return false;
+    if (!this.looksLikeDesignRequest(content)) return false;
+
+    try {
+      const response = await this.openaiService.generateResponse(
+        `You classify design requests for Astra AI.
+
+Astra IN SCOPE only:
+- Bespoke wearable fashion a tailor/atelier can make
+- Occasionwear, African luxury, ceremonial, formal, cultural, custom outfits for real events
+
+Astra OUT OF SCOPE (examples, not exhaustive):
+- Anything not within that context
+- Sports kits / licensed jerseys / mass-retail athletic replicas
+- Non-clothing products, logos-only, footwear-only drops, furniture, tech, food, posters, NFTs, vehicles
+- Requests that would force a nonsense or mismatched fashion image
+
+User message: "${content.replace(/"/g, "'")}"
+
+Reply with exactly one token:
+IN_SCOPE
+or
+OUT_OF_SCOPE`,
+      );
+      const verdict = (response || '').trim().toUpperCase();
+      if (verdict.includes('OUT_OF_SCOPE')) return true;
+      if (verdict.includes('IN_SCOPE')) return false;
+    } catch (error) {
+      this.logger.warn(`Scope check failed, using heuristics: ${error.message}`);
+    }
+
+    // Heuristic fallback if the classifier is unavailable
+    const text = (content || '').toLowerCase();
+    if (
+      /\b(nfl|nba|mlb|nhl|jersey|jesery|jersy|sports?\s*kit|team\s*uniform)\b/.test(text)
+    ) {
+      return true;
+    }
+    if (
+      /\b(car|phone|laptop|furniture|cake|poster|logo only|nft|sneaker drop|weapon|gun|armor)\b/.test(
+        text,
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  private async buildOutOfScopeReply(content: string): Promise<string | null> {
+    if (!(await this.isOutOfScopeDesign(content))) return null;
+    return (
+      "That's outside what I can design here. Astra only designs bespoke wearable fashion within our context — occasionwear and African luxury looks a tailor can make for real events.\n\n" +
+      "I won't generate a mismatched or nonsense design for requests outside that. Tell me an occasion (wedding, owambe, formal dinner, ceremony) and we can create something in scope."
+    );
+  }
+
+  /** Never surface literal "null"/"undefined" in user-facing copy. */
+  private sanitizeLabel(value: unknown): string | null {
+    if (value === null || value === undefined) return null;
+    const text = String(value).trim();
+    if (!text) return null;
+    if (/^(null|undefined|none|n\/a|nan)$/i.test(text)) return null;
+    return text;
+  }
+
   // ─── AI helper: extract occasion info ────────────────────────────────────
   private async extractOccasionInfo(
     content: string,
   ): Promise<{ occasion: string | null; eventDate: string | null; role: string | null }> {
+    // Don't invent an occasion for clear out-of-scope design requests
+    if (await this.isOutOfScopeDesign(content)) {
+      return { occasion: null, eventDate: null, role: null };
+    }
+
     try {
       const response = await this.openaiService.generateResponse(
         `Extract occasion information from this message.
@@ -1244,16 +1530,37 @@ Message: "${content}"
 Reply in this exact JSON format (no markdown, no backticks):
 {"occasion":"wedding","eventDate":"2025-06-15","role":"guest"}
 
-- occasion: the type of event (wedding, prom, birthday, graduation, etc.) or null if unclear
+- occasion: the type of event (wedding, prom, birthday, graduation, owambe, formal dinner, etc.) or null if unclear
+- Do NOT invent an occasion. If the user only names a garment (e.g. jersey, sneakers) with no event, return occasion:null
+- Never return the string "null" — use JSON null
 - eventDate: ISO date string if mentioned, or null
 - role: their role at the event (guest, bride, groom, etc.) or null
 
 JSON only:`,
       );
       try {
-        return JSON.parse(response.trim());
+        const cleaned = response
+          .trim()
+          .replace(/^```(?:json)?\s*/i, '')
+          .replace(/\s*```$/i, '');
+        const parsed = JSON.parse(cleaned);
+        return {
+          occasion: this.sanitizeLabel(parsed?.occasion),
+          eventDate: this.sanitizeLabel(parsed?.eventDate),
+          role: this.sanitizeLabel(parsed?.role),
+        };
       } catch {
-        return { occasion: content, eventDate: null, role: null };
+        // Only fall back to raw content if it looks like a real event phrase
+        const fallback = this.sanitizeLabel(content);
+        if (
+          fallback &&
+          /\b(wedding|prom|birthday|graduation|owambe|aso\s*ebi|gala|party|dinner|ceremony|formal|event)\b/i.test(
+            fallback,
+          )
+        ) {
+          return { occasion: fallback, eventDate: null, role: null };
+        }
+        return { occasion: null, eventDate: null, role: null };
       }
     } catch {
       return { occasion: null, eventDate: null, role: null };
@@ -1266,6 +1573,7 @@ JSON only:`,
     fabricDescription?: string,
     wearerCategory?: WearerCategory,
   ): string {
+    const occasionLabel = this.sanitizeLabel(occasion) || 'look';
     const wearerHint =
       wearerCategory === 'menswear'
         ? 'tailored and structured, or relaxed traditional menswear'
@@ -1273,9 +1581,9 @@ JSON only:`,
           ? 'fitted and structured, or flowing and relaxed'
           : 'structured and tailored, or soft and flowing';
     if (fabricDescription && fabricDescription !== 'your fabric') {
-      return `For a ${occasion} with ${fabricDescription} — are you thinking something ${wearerHint}? Or describe a look you love.`;
+      return `For a ${occasionLabel} with ${fabricDescription} — are you thinking something ${wearerHint}? Or describe a look you love.`;
     }
-    return `For your ${occasion} — are you thinking something ${wearerHint}? You can also describe a look you've seen and loved.`;
+    return `For your ${occasionLabel} — are you thinking something ${wearerHint}? You can also describe a look you've seen and loved.`;
   }
 
   private styleQuickButtons(wearerCategory?: WearerCategory): string[] {
@@ -1401,9 +1709,9 @@ JSON only:`,
   // Produces a structured prompt the image model can actually use.
   private buildStructuredDesignPrompt(metadata: Record<string, any>): string {
     const profile = metadata?.creatorProfile || {};
-    const style = String(metadata?.stylePreference || '').trim();
-    const occasion = String(metadata?.occasion || '').trim();
-    const fabricDescription = String(metadata?.fabricDescription || '').trim();
+    const style = this.sanitizeLabel(metadata?.stylePreference) || '';
+    const occasion = this.sanitizeLabel(metadata?.occasion) || '';
+    const fabricDescription = this.sanitizeLabel(metadata?.fabricDescription) || '';
     const combined = `${style} ${occasion} ${metadata?.occasionRole || ''}`.toLowerCase();
 
     const wearerCategory: WearerCategory =
@@ -1513,8 +1821,8 @@ JSON only:`,
   }
 
   private buildDesignChatTitle(metadata: Record<string, any> = {}): string {
-    const occasion = String(metadata?.occasion || '').trim();
-    const style = String(metadata?.stylePreference || '').trim();
+    const occasion = this.sanitizeLabel(metadata?.occasion) || '';
+    const style = this.sanitizeLabel(metadata?.stylePreference) || '';
     const prettyOccasion = occasion
       ? occasion.charAt(0).toUpperCase() + occasion.slice(1)
       : '';
@@ -1587,8 +1895,9 @@ JSON only:`,
     }
     if (
       /^(yes|yeah|yep|yup|sure|ok|okay)\b/.test(lower) ||
-      (lower.length < 48 &&
-        /\b(go ahead|generate|proceed|do it)\b/.test(lower))
+      /\b(just generate|generate (my|the|it|now)|go ahead|proceed|do it|yes,? generate)\b/.test(
+        lower,
+      )
     ) {
       return 'yes';
     }
@@ -1600,14 +1909,14 @@ JSON only:`,
     return this.classifyYesNo(content) === 'yes';
   }
 
-  // ─── Helper: wants new variation ───────────────────────────────────────────
+  // ─── Helper: wants new variation / new design generation ───────────────────
   private wantsNewVariation(content: string): boolean {
     const t = (content || '').toLowerCase().trim();
     if (this.classifyYesNo(t) === 'no') return false;
     if (/specific details like what|what do you mean|like what\??$/.test(t)) {
       return false;
     }
-    return /\b(generat|another variation|new variation|different (design|one|look)|more options|show me more|show me variations|try again)\b/.test(
+    return /\b(generat|another variation|new variation|different (design|one|look)|more options|show me more|show me variations|try again|new (suit|suite|outfit|look|design))\b/.test(
       t,
     );
   }
